@@ -9,15 +9,23 @@
 
 ---
 
-## コア設計書 (DESIGN_DOC)
+## 1. コア設計書 (DESIGN_DOC)
 
 アプリケーションのアーキテクチャと技術仕様に関する唯一の信頼できる情報源です。
 
-@./DESIGN_DOC.md
+@./docs/DESIGN_DOC.md
 
 ---
 
-## 開発ワークフロー (WORKFLOW_GUIDE)
+## 2. 機能仕様書 (SPECIFICATION)
+
+実装すべき機能の具体的なデータモデルや画面仕様を定義します。
+
+@./docs/SPECIFICATION.md
+
+---
+
+## 3. 開発ワークフロー (WORKFLOW_GUIDE)
 
 エージェントが効果的に共同作業を行うための手順とルールを定義します。
 
