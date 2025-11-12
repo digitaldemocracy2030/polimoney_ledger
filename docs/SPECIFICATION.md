@@ -1,14 +1,14 @@
-# **Polimoney Ledger \- 機能仕様書 (v3.0 完全版)**
+# **Polimoney Ledger \- 機能仕様書 (v3.3 完全版)**
 
 ## **1\. 機能概要 (Feature Overview)**
 
 この機能は、政治団体や候補者の会計担当者を対象としています。  
 会計担当者が、自身が管理する\*\*「政治団体」または「政治家（候補者）」を登録し、それぞれに紐づく「選挙」\*\*の台帳を作成します。  
-v3.0より、**複式簿記**モデルを導入します。ユーザーは、Polimoney.xlsx \- 勘定科目マスタ.csv に基づく「勘定科目」（例：現金、普通預金、人件費、寄付）を使用して、日々の取引を「仕訳」として登録します。
+v3.0より、**複式簿記**モデルを導入します。ユーザーは、「勘定科目」を使用して日々の取引を「仕訳」として登録します。
 
-UI上は「支出」「収入」「振替」として入力しますが、データは\*\*「仕訳ヘッダ (journals)」**と**「仕訳明細 (journal\_entries)」\*\*として保存され、正確な会計管理を実現します。
-
-役割（ロール）と権限の関係は、v2.10と同様にFlutterアプリ側で静的に定義されます。
+役割（ロール）と権限の関係は、Flutterアプリ側で静的に定義されます。  
+\*\*管理者（admin）\*\*は、他のユーザー（未登録者含む）をEmailで招待し、新規アカウントを発行できます。  
+アカウント発行と認証は、ディープリンクが不要な「OTP（ワンタイムパスコード）」方式を採用します。（詳細は 4\. 認証フロー仕様 を参照）
 
 ## **2\. データモデル (Data Model)**
 
@@ -71,7 +71,7 @@ v2.10の transactions テーブルの「メタデータ」部分を引き継ぎ�
 | debit\_amount | integer | 借方金額 (円) | 必須, デフォルト 0 |
 | credit\_amount | integer | 貸方金額 (円) | 必須, デフォルト 0 |
 
-*(2.4〜2.7は v2.10の 2.1〜2.4 と同じ)*
+*(2.4〜2.7は v3.0と同様)*
 
 ### **2.4. 政治団体テーブル**
 
@@ -121,9 +121,9 @@ v2.10の transactions テーブルの「メタデータ」部分を引き継ぎ�
 | occupation | text | 職業 | NULL許容 |
 | created\_at | timestamptz | レコード作成日時 | デフォルトで now() |
 
-### **2.8. メディア（証憑）テーブル (【v3.0 更新】)**
+### **2.8. メディア（証憑）テーブル**
 
-transaction\_id (廃止) の代わりに journal\_id に紐づけます。
+(v3.0から変更なし)
 
 * **テーブル名:** media\_assets
 
@@ -139,6 +139,8 @@ transaction\_id (廃止) の代わりに journal\_id に紐づけます。
 
 ### **2.9. 台帳メンバーテーブル**
 
+(v3.0から変更なし)
+
 * **テーブル名:** ledger\_members
 
 | 列名 (Column Name) | データ型 (Data Type) | 説明 (Description) | 備考 (Notes) |
@@ -153,6 +155,8 @@ transaction\_id (廃止) の代わりに journal\_id に紐づけます。
 
 ### **2.10. ユーザープロファイル**
 
+(v3.0から変更なし)
+
 * **テーブル名:** profiles
 
 | 列名 (Column Name) | データ型 (Data Type) | 説明 (Description) | 備考 (Notes) |
@@ -162,9 +166,9 @@ transaction\_id (廃止) の代わりに journal\_id に紐づけます。
 | email | text | ユーザーのEmail | auth.users.email と同期。招待検索用 |
 | updated\_at | timestamptz | 更新日時 |  |
 
-### **2.11. 役割と権限の定義（アプリ側） (【v3.0 更新】)**
+### **2.11. 役割と権限の定義（アプリ側）**
 
-v2.10の Transaction 関連の権限を Journal 関連に修正します。
+(v3.2から変更なし)
 
 #### **2.11.1. 権限 (Permission) の定義**
 
@@ -178,7 +182,7 @@ registerJournal, // 仕訳を即時登録（自己承認）する権限
 approveJournal,  // 他人の仕訳を承認・却下する権限
 
 // メンバー関連  
-manageMembers,     // メンバーの招待・削除・役割変更を行う権限
+manageMembers,     // ★メンバーの招待・削除・役割変更を行う権限 (v3.2 説明更新)
 
 // 台帳設定関連  
 editLedgerSettings,  // 台帳名の変更など、設定を編集する権限
@@ -189,13 +193,15 @@ viewLedger,          // 台帳（仕訳一覧など）を閲覧する権限
 
 #### **2.11.2. 役割 (Role) の定義**
 
-(...v2.10と同様...)
+(v3.0から変更なし)
 
 // lib/models/roles.dart (実装例)  
 enum AppRole { admin, approver, submitter, viewer }  
 // ... ( roleFromString, getRoleDisplayName ヘルパー )
 
 #### **2.11.3. 役割と権限の紐付け**
+
+(v3.2から変更なし)
 
 // lib/services/permission\_service.dart (実装例)
 
@@ -206,10 +212,10 @@ AppRole.admin: {
 AppPermission.viewLedger,  
 AppPermission.registerJournal, // ★即時登録（自己承認）  
 AppPermission.approveJournal,  // ★他人承認  
-AppPermission.manageMembers,  
+AppPermission.manageMembers,   // ★招待・削除・変更権限  
 AppPermission.editLedgerSettings,  
-},
-
+},  
+// ( ... approver, submitter, viewer ... v3.2と同様)  
 // 承認者  
 AppRole.approver: {  
 AppPermission.viewLedger,  
@@ -234,64 +240,107 @@ AppPermission.viewLedger,
 
 ### **3.1. 台帳選択画面 (LedgerSelectionScreen)**
 
-(...v2.10と同様...)
+(v3.2から変更なし)
 
 * **ファイル (推奨):** lib/pages/home\_page.dart
-* **機能:**
-    * **ListTileタップ:**
-        * 引数: ledger\_id (organization\_id or election\_id), my\_role (ledger\_members.role 文字列)
-        * 遷移先: JournalListScreen
 
 ### **3.2. 台帳登録画面 (AddLedgerScreen)**
 
-(...v2.10と同様...)
+(v3.2から変更なし)
 
 * **ファイル (推奨):** lib/widgets/add\_ledger\_sheet.dart
 
-### **3.3. 仕訳一覧画面 (JournalListScreen) (【v3.0 更新】)**
+### **3.3. 仕訳一覧画面 (JournalListScreen)**
 
-(旧 TransactionListScreen)
+(v3.2から変更なし)
 
 * **ファイル (推奨):** lib/pages/journal\_list\_page.dart
-* **前提:** ledger\_id (org\_id or elec\_id) と my\_role (文字列) を受け取る。
-* **ロジック:**
-    * PermissionService を使い、権限（canManageMembers, canApprove など）を決定する。
-* **レイアウト:**
-    * AppBar (v2.10と同様。canManageMembers で設定アイコン表示制御)
-    * body: StreamBuilder を使用。
-        * **データ取得:** journals テーブルから、ledger\_id が一致するレコードを journal\_date の降順で取得。
-        * **（注意）:** この時点では journal\_entries はJOINしない（一覧表示のパフォーマンスのため）。
-    * ListView.builder:
-        * ListTile:
-            * title: Text(journal.description) (摘要)
-            * subtitle: FutureBuilder を使用し、journal.id に紐づく journal\_entries と accounts をJOIN。account.type \== 'expense' または account.type \== 'revenue' の科目の account\_name を表示。
-            * leading: status が draft なら Icon(Icons.pending\_actions)、approved なら Icon(Icons.check\_circle)。
-            * trailing: FutureBuilder を使用し、journal.id に紐づく journal\_entries から合計金額（SUM(debit\_amount)など）を計算して表示。
-* **機能:**
-    * **ListTileタップ (変更):**
-        * status \== 'draft' かつ canApprove が true の場合:
-            * 「仕訳承認画面 (ApproveJournalScreen)」をモーダルで表示する。
-    * **FloatingActionButton (変更):**
-        * canSubmit または canRegister が false の場合は **非表示**。（viewerのみ）
-        * タップすると「仕訳登録画面 (AddJournalScreen)」に遷移。ledger\_idとmy\_role を渡す。
-    * **設定アイコンタップ:** (v2.10と同様 LedgerSettingsScreen へ)
 
-### **3.4. 仕訳登録画面 (AddJournalScreen) (【v3.0 更新】)**
+### **3.4. 仕訳登録画面 (AddJournalScreen)**
 
-(旧 AddTransactionScreen) 複式簿記のUIに対応。
+(v3.2から変更なし)
 
 * **ファイル (推奨):** lib/widgets/add\_journal\_sheet.dart
-* **前提:** ledger\_id と my\_role (文字列) を受け取る。
-* **ロジック:**
-    * final AppRole myAppRole \= roleFromString(widget.my\_role);
-    * final bool canRegister \= permissionService.hasPermission(myAppRole, AppPermission.registerJournal);
+
+### **3.5. メディア（証憑）管理画面**
+
+(v3.2から変更なし)
+
+* **ファイル (推奨):** lib/pages/media\_library\_page.dart
+
+### **3.6. （新設）仕訳承認画面 (ApproveJournalScreen)**
+
+(v3.2から変更なし)
+
+* **ファイル (推奨):** lib/widgets/approve\_journal\_sheet.dart
+
+### **3.7. （新設）台帳設定・メンバー管理画面 (LedgerSettingsScreen) (【v3.3 更新】)**
+
+* **ファイル (推奨):** lib/pages/ledger\_settings\_page.dart
+* **前提:** (v3.2と同様) ledger\_id と my\_role (文字列) を受け取る。
+* **ロジック:** (v3.2と同様) canManageMembers, canEditSettings を決定。
+* **レイアウト:** (v3.2と同様)
+* **機能:**
+    * **\_inviteMember (招待) (【v3.3 更新】 \- OTP方式):**
+        * (v3.2のEdge Function呼び出しロジックと同様)
+        *
+            3. 招待されたユーザーは、**4.2 招待されたユーザーの初回ログイン** のフローに従い、OTPコードと新パスワードを入力して認証を完了する。（※3.7の注釈を 4.2 への参照に変更）
+    * **\_removeMember (削除):** (v3.2と同様) ledger\_members から delete。
+
+## **4\. 認証フロー仕様 (【v3.3 新規】)**
+
+アカウント管理と認証は、ディープリンク不要の「OTP（ワンタイムパスコード）」方式を前提として実装する。
+
+### **4.1. 新規アカウント作成（マスターアカウント）**
+
+* **ファイル (推奨):** lib/pages/signup\_page.dart
+* **機能:**
+    *
+        1. ユーザーが Email, Password, 氏名 を入力して「登録」ボタンを押下。
+    *
+        2. supabase.auth.signUp() を実行。（data: {'full\_name': fullName} も同時に渡し、auth.users.raw\_user\_meta\_data に保存する）
+    *
+        3. SupabaseからOTP（数字コード）付きの確認メールが送信される。
+    *
+        4. アプリはOTP入力画面に遷移。
+    *
+        5. ユーザーがメールで受信したOTPコードを入力し supabase.auth.verifyOtp(email: email, token: otp, type: OtpType.signup) を実行して認証を完了する。
+    *
+        6. （SupabaseのAuthトリガー（README.md参照）により、profilesテーブルにもfull\_name, emailが自動でコピーされる）
+
+### **4.2. 招待されたユーザーの初回ログイン**
+
+* **ファイル (推奨):** lib/pages/login\_page.dart (または専用の lib/pages/invited\_user\_login\_page.dart)
+* **前提:** 招待されたユーザーは、3.7 のフローにより、パスワード未設定のアカウントが作成され、OTPコード付きのメールを受信している。
 * **レイアウト:**
-    * AppBar の ElevatedButton のテキストを canRegister に応じて「登録（承認済み）」「承認申請（起票）」に動的変更。(v2.10と同様)
-    * Form ウィジェットでラップされた ListView
-    * **入力フォーム:**
-        * DatePicker (仕訳日)
-        * TextFormField (摘要) \- 例: 「事務所家賃 5月分」
-        * SegmentedButton (取引タイプ) \- \_entryType (State変数) に連動
-            * expense (支出), revenue (収入), transfer (振替)
-        * TextFormField (金額) \- \`TextInputType.number
+    * login\_page.dart に「招待された方はこちら」などのタブ/ボタンを追加する。
+    * 遷移先の画面（またはタブ）に以下のフォームを設置する。
+        * TextFormField (Email)
+        * TextFormField (受信したOTPコード)
+        * TextFormField (新しいパスワード)
+        * TextFormField (新しいパスワードの確認)
+* **機能:**
+    *
+        1. ユーザーがEmailとOTPコードを入力し「認証」ボタンを押下。
+    *
+        2. supabase.auth.verifyOtp(email: email, token: otp, type: OtpType.invite) （または OtpType.recovery）を実行し、OTP認証を行う。
+    *
+        3. 認証が成功したら、続けて入力された「新しいパスワード」を使い supabase.auth.updateUser() を実行し、パスワードを設定する。
+    *
+        4. パスワード設定後、HomePage (台帳選択画面) に遷移する。
+
+### **4.3. パスワードリセット**
+
+* **ファイル (推奨):** lib/pages/login\_page.dart
+* **機能:**
+    *
+        1. ログイン画面に「パスワードをお忘れですか？」リンクを設置。
+    *
+        2. タップすると AlertDialog または別画面で Email 入力欄を表示。
+    *
+        3. supabase.auth.resetPasswordForEmail(email) を実行。（**注意:** Supabase側で「OTPを使用する」設定が有効になっている必要がある）
+    *
+        4. SupabaseからOTP（数字コード）付きのパスワードリセットメールが送信される。
+    *
+        5. ユーザーは 4.2 と同様の「Email \+ OTP \+ 新パスワード」入力フォームを使い、パスワードをリセットする。（verifyOtp の type は OtpType.recovery を使用）
 
