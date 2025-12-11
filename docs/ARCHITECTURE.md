@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Flutter Web                              │
+│                   Fresh (Deno)                               │
 │                   (フロントエンド)                           │
 └───────────────────────┬─────────────────────────────────────┘
                         │ HTTPS
@@ -51,35 +51,36 @@
 
 ### 2.1. フロントエンド
 
-| 項目 | 選択 | 理由 |
-|------|------|------|
-| フレームワーク | **Flutter Web** | 既存コード活用、Supabase SDK充実 |
-| 状態管理 | Provider or Riverpod | シンプルさと拡張性のバランス |
-| ホスティング | Azure Static Web Apps | 静的サイトとして配信 |
+| 項目           | 選択                  | 理由                                       |
+| -------------- | --------------------- | ------------------------------------------ |
+| フレームワーク | **Fresh (Deno)**      | Deno ネイティブ、Islands Architecture、SSR |
+| UI             | Preact + Tailwind CSS | 軽量、高速                                 |
+| ホスティング   | **Deno Deploy**       | Fresh と最適化、グローバルエッジ配信       |
 
 ### 2.2. バックエンド API
 
-| 項目 | 選択 | 理由 |
-|------|------|------|
-| ランタイム | **Deno (Supabase Edge Functions)** | TypeScript ネイティブ、Supabase統合 |
-| フレームワーク | **Hono** | 軽量、Edge最適化、TypeScript |
-| デプロイ | Supabase Edge Functions | グローバルエッジ配信 |
+| 項目           | 選択                               | 理由                                 |
+| -------------- | ---------------------------------- | ------------------------------------ |
+| ランタイム     | **Deno (Supabase Edge Functions)** | TypeScript ネイティブ、Supabase 統合 |
+| フレームワーク | **Hono**                           | 軽量、Edge 最適化、TypeScript        |
+| デプロイ       | Supabase Edge Functions            | グローバルエッジ配信                 |
 
 ### 2.3. データベース
 
-| 項目 | 選択 | 理由 |
-|------|------|------|
-| DB | **PostgreSQL (Supabase)** | RLS、トランザクション、JSON対応 |
-| 認証 | Supabase Auth | OTP方式、RLSとの統合 |
-| ストレージ | Supabase Storage | 領収証画像の保存 |
-| リアルタイム | Supabase Realtime | WebSocket による変更通知 |
+| 項目         | 選択                      | 理由                             |
+| ------------ | ------------------------- | -------------------------------- |
+| DB           | **PostgreSQL (Supabase)** | RLS、トランザクション、JSON 対応 |
+| 認証         | Supabase Auth             | OTP 方式、RLS との統合           |
+| ストレージ   | Supabase Storage          | 領収証画像の保存                 |
+| リアルタイム | Supabase Realtime         | WebSocket による変更通知         |
 
 ### 2.4. インフラ
 
-| 項目 | 選択 | 理由 |
-|------|------|------|
-| ホスティング | **Supabase Cloud** (初期) | 運用負荷最小化 |
-| 将来的移行先 | Azure + Supabase Self-Host | データ主権、コスト最適化 |
+| 項目            | 選択                       | 理由                       |
+| --------------- | -------------------------- | -------------------------- |
+| フロントエンド  | **Deno Deploy**            | Fresh と最適化、無料枠充実 |
+| バックエンド/DB | **Supabase Cloud** (初期)  | 運用負荷最小化             |
+| 将来的移行先    | Azure + Supabase Self-Host | データ主権、コスト最適化   |
 
 ---
 
@@ -92,12 +93,14 @@ polimoney-ledger/
 ├── .devcontainer/              # Dev Container設定
 │   ├── devcontainer.json
 │   └── Dockerfile
-├── docker-compose.yml          # ローカル開発用
-├── biome.json                  # Linter/Formatter
+├── deno.json                   # Deno設定（fmt/lint含む）
 ├── packages/
-│   ├── web/                    # Flutter Web (フロントエンド)
-│   │   ├── lib/
-│   │   └── pubspec.yaml
+│   ├── web/                    # Fresh (フロントエンド)
+│   │   ├── routes/             # ページルーティング
+│   │   ├── islands/            # インタラクティブコンポーネント
+│   │   ├── components/         # 静的コンポーネント
+│   │   ├── fresh.gen.ts
+│   │   └── deno.json
 │   ├── api/                    # Supabase Edge Functions
 │   │   ├── functions/
 │   │   │   ├── _shared/        # 共通コード
@@ -114,23 +117,23 @@ polimoney-ledger/
 
 ### 3.2. 開発ツール
 
-| ツール | 用途 |
-|--------|------|
-| **Docker Compose** | ローカル DB/Supabase 起動 |
-| **Dev Container** | VS Code / Cursor での統一環境 |
-| **Biome** | Linter/Formatter (ESLint/Prettier代替) |
-| **Supabase CLI** | ローカル開発、マイグレーション |
-| **Deno** | Edge Functions 開発 |
+| ツール            | 用途                               |
+| ----------------- | ---------------------------------- |
+| **Dev Container** | VS Code / Cursor での統一環境      |
+| **Supabase CLI**  | ローカル DB 起動、マイグレーション |
+| **Deno**          | Fresh + Edge Functions 開発        |
+| **deno fmt**      | フォーマッター（組み込み）         |
+| **deno lint**     | リンター（組み込み）               |
 
 ### 3.3. ローカル開発フロー
 
 ```bash
 # 1. リポジトリクローン
-git clone https://github.com/dd2030/polimoney-ledger.git
-cd polimoney-ledger
+git clone https://github.com/digitaldemocracy2030/polimoney_ledger.git
+cd polimoney_ledger
 
-# 2. Docker起動（Supabaseローカル）
-docker-compose up -d
+# 2. Supabase ローカル起動
+supabase start
 
 # 3. マイグレーション適用
 supabase db push
@@ -141,8 +144,8 @@ supabase db seed
 # 5. Edge Functions起動
 supabase functions serve
 
-# 6. Flutter Web起動
-cd packages/web && flutter run -d chrome
+# 6. Fresh (フロントエンド) 起動
+cd packages/web && deno task start
 ```
 
 ### 3.4. VS Code / Cursor 設定
@@ -150,14 +153,14 @@ cd packages/web && flutter run -d chrome
 ```json
 // .vscode/settings.json
 {
-  "deno.enablePaths": ["./packages/api/functions"],
-  "deno.importMap": "./packages/api/import_map.json",
+  "deno.enable": true,
+  "deno.enablePaths": ["./packages/web", "./packages/api/functions"],
   "editor.formatOnSave": true,
   "[typescript]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "denoland.vscode-deno"
   },
-  "[dart]": {
-    "editor.defaultFormatter": "Dart-Code.dart-code"
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
   }
 }
 ```
@@ -197,58 +200,62 @@ USING (
 
 ### 4.3. データ保護
 
-| 層 | 対策 |
-|----|------|
-| 通信 | HTTPS (TLS 1.3) |
-| 保存 | PostgreSQL暗号化 (At-rest) |
-| アクセス | RLS + JWT検証 |
-| 監査 | 変更ログの自動記録 |
+| 層       | 対策                        |
+| -------- | --------------------------- |
+| 通信     | HTTPS (TLS 1.3)             |
+| 保存     | PostgreSQL 暗号化 (At-rest) |
+| アクセス | RLS + JWT 検証              |
+| 監査     | 変更ログの自動記録          |
 
 ---
 
-## 5. API設計
+## 5. API 設計
 
 ### 5.1. エンドポイント一覧
 
-| メソッド | パス | 説明 |
-|----------|------|------|
-| GET | `/api/journals` | 仕訳一覧取得 |
-| POST | `/api/journals` | 仕訳登録 |
-| PUT | `/api/journals/:id` | 仕訳更新 |
-| DELETE | `/api/journals/:id` | 仕訳削除 |
-| POST | `/api/journals/:id/approve` | 仕訳承認 |
-| GET | `/api/elections` | 選挙マスタ取得 |
-| GET | `/api/organizations` | 政治団体マスタ取得 |
-| POST | `/api/export/polimoney` | Polimoney向けエクスポート |
+| メソッド | パス                        | 説明                       |
+| -------- | --------------------------- | -------------------------- |
+| GET      | `/api/journals`             | 仕訳一覧取得               |
+| POST     | `/api/journals`             | 仕訳登録                   |
+| PUT      | `/api/journals/:id`         | 仕訳更新                   |
+| DELETE   | `/api/journals/:id`         | 仕訳削除                   |
+| POST     | `/api/journals/:id/approve` | 仕訳承認                   |
+| GET      | `/api/elections`            | 選挙マスタ取得             |
+| GET      | `/api/organizations`        | 政治団体マスタ取得         |
+| POST     | `/api/export/polimoney`     | Polimoney 向けエクスポート |
 
 ### 5.2. リアルタイム通知
 
 ```typescript
 // Supabase Realtime でリッスン
 const channel = supabase
-  .channel('journals')
-  .on('postgres_changes', {
-    event: '*',
-    schema: 'public',
-    table: 'journals',
-    filter: `organization_id=eq.${orgId}`
-  }, (payload) => {
-    // UIを更新
-  })
-  .subscribe()
+  .channel("journals")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "journals",
+      filter: `organization_id=eq.${orgId}`,
+    },
+    (payload) => {
+      // UIを更新
+    }
+  )
+  .subscribe();
 ```
 
 ---
 
-## 6. Polimoney連携
+## 6. Polimoney 連携
 
 ### 6.1. 共通識別子
 
-| 識別子 | 形式 | 例 |
-|--------|------|-----|
-| 選挙ID | `{type}-{constituency}-{date}` | `HR-13-01-20241027` |
-| 政治団体ID | UUID (Supabase生成) | `123e4567-e89b-...` |
-| 政治家ID | UUID (Supabase生成) | `987fcdeb-51a2-...` |
+| 識別子      | 形式                           | 例                  |
+| ----------- | ------------------------------ | ------------------- |
+| 選挙 ID     | `{type}-{constituency}-{date}` | `HR-13-01-20241027` |
+| 政治団体 ID | UUID (Supabase 生成)           | `123e4567-e89b-...` |
+| 政治家 ID   | UUID (Supabase 生成)           | `987fcdeb-51a2-...` |
 
 ### 6.2. データ同期
 
@@ -276,9 +283,9 @@ const channel = supabase
 ```typescript
 // 借方合計 = 貸方合計 のチェック
 function validateJournal(entries: JournalEntry[]): boolean {
-  const debitSum = entries.reduce((sum, e) => sum + e.debit_amount, 0)
-  const creditSum = entries.reduce((sum, e) => sum + e.credit_amount, 0)
-  return debitSum === creditSum
+  const debitSum = entries.reduce((sum, e) => sum + e.debit_amount, 0);
+  const creditSum = entries.reduce((sum, e) => sum + e.credit_amount, 0);
+  return debitSum === creditSum;
 }
 ```
 
@@ -314,5 +321,4 @@ WHERE id = $1 AND updated_at = $2;  -- 競合検知
 
 ## 更新履歴
 
-- 2024-12-10: 初版作成
-
+- 初版作成

@@ -1,45 +1,113 @@
-# Miscellaneous
-*.class
+# ===========================================
+# Polimoney Ledger - Multi-Architecture Ignore
+# ===========================================
+
+# -------------------------------------------
+# General / Miscellaneous
+# -------------------------------------------
 *.log
 *.pyc
 *.swp
+*.class
 .DS_Store
 .atom/
-.build/
-.buildlog/
 .history
 .svn/
-.swiftpm/
-migrate_working_dir/
+Thumbs.db
 
-# IntelliJ related
+# -------------------------------------------
+# IDE / Editor
+# -------------------------------------------
+# IntelliJ / Android Studio
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code - uncomment if you don't want to track
+# .vscode/
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
+# -------------------------------------------
+# Legacy Flutter App (legacy/flutter/)
+# -------------------------------------------
+legacy/flutter/.dart_tool/
+legacy/flutter/.flutter-plugins
+legacy/flutter/.flutter-plugins-dependencies
+legacy/flutter/.pub-cache/
+legacy/flutter/.pub/
+legacy/flutter/build/
+legacy/flutter/coverage/
+legacy/flutter/**/doc/api/
+legacy/flutter/**/ios/Flutter/.last_build_id
+legacy/flutter/.build/
+legacy/flutter/.buildlog/
+legacy/flutter/.swiftpm/
+legacy/flutter/migrate_working_dir/
 
-# Symbolication related
-app.*.symbols
+# Android build artifacts
+legacy/flutter/android/app/debug
+legacy/flutter/android/app/profile
+legacy/flutter/android/app/release
+legacy/flutter/android/local.properties
 
-# Obfuscation related
-app.*.map.json
+# Symbolication / Obfuscation
+legacy/flutter/app.*.symbols
+legacy/flutter/app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# -------------------------------------------
+# Future: Backend (e.g., backend/)
+# -------------------------------------------
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.env
+.venv/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.mypy_cache/
+.pytest_cache/
+
+# -------------------------------------------
+# Future: Frontend (e.g., frontend/)
+# -------------------------------------------
+# Build outputs
+dist/
+.next/
+.nuxt/
+.output/
+out/
+
+# -------------------------------------------
+# Future: Infrastructure (e.g., infra/)
+# -------------------------------------------
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+
+# Docker
+*.env.local
+*.env.*.local
+
+# -------------------------------------------
+# Environment & Secrets
+# -------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/

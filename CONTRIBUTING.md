@@ -15,11 +15,11 @@ Polimoney Ledger の改善にご協力いただきありがとうございます
 - プロジェクトについてのやりとりは、原則[デジタル民主主義 2030 の Slack の「開発\_Polimoney」チャンネル](https://dd2030.slack.com/archives/C08FL5L6GSH)までお願いします。
 - コントリビュートにあたっては、本リポジトリの root ディレクトリにある CLA.md（コントリビューターライセンス）へ同意が必要です。
   - 同意する手順は、Pull Request のテンプレートに記載があります。
-- タスク管理は github projects を利用しています。詳細は[こちら（作成中）](./PROJECTS.md)を参照してください。
+- タスク管理は github projects を利用しています。詳細は[こちら](./docs/PROJECTS.md)を参照してください。
 
 ### Issue 管理と Pull Request について
 
-レビュアー向けのガイドラインは[こちら（作成中）](./CODE_REVIEW_GUIDELINES.md)
+レビュアー向けのガイドラインは[こちら](./docs/CODE_REVIEW_GUIDELINES.md)
 
 #### Issue の作成と参加
 
