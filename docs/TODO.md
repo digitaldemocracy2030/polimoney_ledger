@@ -119,9 +119,11 @@
 
 - [ ] 仕様書 3.5 に基づき新規作成
 
-### Polimoney JSON エクスポート
+### ~~Polimoney JSON エクスポート~~ → Hub 連携に変更
 
-- [ ] 仕様書 5 に基づき実装
+- ~~[ ] 仕様書 5 に基づき実装~~ **不要に**
+- SaaS 化により Hub 経由のリアルタイム連携に変更
+- 詳細: `docs/ARCHITECTURE.md` / `docs/IDENTITY_DESIGN.md` 参照
 
 ---
 

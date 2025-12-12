@@ -828,31 +828,40 @@ class PermissionService {
   4. Supabase から OTP（数字コード）付きのパスワードリセットメールが送信される。
   5. ユーザーは 4.2 と同様の「Email + OTP + 新パスワード」入力フォームを使い、パスワードをリセットする。（verifyOtp の type は OtpType.recovery を使用）
 
-## **5. アウトプット仕様（将来機能） (【v3.6 更新】)**
+## **5. Polimoney 連携仕様 (【v3.13 大幅更新】)**
 
-Polimoney 互換 JSON をエクスポートする際、仕訳データ（journals, journal_entries）と、勘定科目（accounts）、関係者（contacts）を JOIN する。
+### 方針変更
 
-- **「自己資金」の判別:**
-  - アウトプット（Polimoney）側は、journal_entries が accounts.account_name = '自己資金' の account_id に紐づいているか否かで、その取引が自己資金であるかを明確に判別できる。
-- **「銀行口座別」の集計:**
-  - アウトプット（Polimoney）側は、journals.contact_id と contacts.name = 'みずほ銀行' を紐付けることで、accounts.account_name = '普通預金' の内訳（補助科目）として残高を追跡できる。
-- **関係者情報の匿名化:**
-  - contacts.contact_type (person / corporation) は**常に公開**する。
-  - contacts.name は、is_name_private == true の場合、null または「非公開」という文字列で上書きする。
-  - contacts.address は、is_address_private == true の場合、null または「非公開」という文字列で上書きする。
-  - contacts.occupation は、is_occupation_private == true の場合、null または「非公開」という文字列で上書きする。
-  - 非公開項目が 1 つでもある場合、privacy_reason_type と privacy_reason_other の内容もエクスポート対象に含める。
-- **【v3.11 追加】公費負担の出力:**
-  - journals.amount_public_subsidy > 0 の仕訳について、公費負担情報を出力する。
-  - Polimoney では、法定報告書では表示されない公費負担の詳細（どの支出に対していくら）を可視化する。
-  - 出力例:
-    ```json
-    {
-      "journal_id": "...",
-      "description": "ポスター印刷代",
-      "total_amount": 600000,
-      "self_payment": 100000,
-      "public_subsidy": 500000,
-      "account_code": "EXP_PRINTING_ELEC"
-    }
-    ```
+**SaaS 化に伴い、JSON エクスポートから Hub 経由のリアルタイム連携に変更。**
+
+詳細は `docs/ARCHITECTURE.md` および `docs/IDENTITY_DESIGN.md` を参照。
+
+### 5.1. 連携アーキテクチャ
+
+```
+Ledger DB (Supabase) ──Realtime──→ Polimoney Hub ──→ Polimoney (可視化)
+```
+
+- **リアルタイム連携**: Supabase Realtime で仕訳データの変更を Hub に通知
+- **匿名化処理**: Hub 側でプライバシー設定に基づきデータ変換
+- **JSON エクスポート**: 不要（Hub が直接データを提供）
+
+### 5.2. 匿名化ルール（Hub で実装）
+
+| フィールド | 条件 | 出力 |
+|------------|------|------|
+| contacts.contact_type | 常に | 公開 |
+| contacts.name | is_name_private == true | "非公開" |
+| contacts.address | is_address_private == true | "非公開" |
+| contacts.occupation | is_occupation_private == true | "非公開" |
+| privacy_reason_* | いずれかが private | 含める |
+
+### 5.3. 公費負担の連携
+
+- journals.amount_public_subsidy > 0 の仕訳について、公費負担情報を Hub 経由で Polimoney に提供
+- Polimoney では、法定報告書では表示されない公費負担の詳細を可視化
+
+### 5.4. 自己資金の判別
+
+- journal_entries の account_code = 'REV_SELF_FINANCING' で判別
+- contact_id = NULL かつ自己資金科目 → 候補者本人からの資金
