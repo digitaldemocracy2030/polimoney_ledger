@@ -1,6 +1,6 @@
 # AI エージェントへの指示書
 
-このファイルは、AI アシスタント（特に Android Studio を使用する場合）がこのプロジェクトで作業する上での、中心的なコンテキストを定義します。
+このファイルは、AI アシスタントがこのプロジェクトで作業する上での、中心的なコンテキストを定義します。
 
 ## 担当エージェント
 
@@ -9,23 +9,40 @@
 
 ---
 
-## 1. コア設計書 (DESIGN_DOC)
+## 1. アーキテクチャ設計書 (ARCHITECTURE)
 
-アプリケーションのアーキテクチャと技術仕様に関する唯一の信頼できる情報源です。
+システム全体のアーキテクチャと技術スタックに関する唯一の信頼できる情報源です。
+
+**技術スタック:**
+- フロントエンド: Fresh (Deno) + Tailwind CSS
+- バックエンド: Supabase Edge Functions (Hono)
+- データベース: PostgreSQL (Supabase)
+- ホスティング: Deno Deploy + Supabase Cloud
+
+@./docs/ARCHITECTURE.md
+
+---
+
+## 2. 設計方針書 (DESIGN_DOC)
+
+高レベルの設計方針を定義します。
 
 @./docs/DESIGN_DOC.md
 
 ---
 
-## 2. 機能仕様書 (SPECIFICATION)
+## 3. 機能仕様書 (SPECIFICATION)
 
 実装すべき機能の具体的なデータモデルや画面仕様を定義します。
+
+> ⚠️ **注意**: 画面仕様の Flutter 固有の記述（`lib/features/` パス等）は、
+> Fresh 版では `packages/web/routes/` または `packages/web/islands/` に読み替えてください。
 
 @./docs/SPECIFICATION.md
 
 ---
 
-## 3. リファレンスドキュメント (REFERENCE)
+## 4. リファレンスドキュメント (REFERENCE)
 
 政治資金規正法、収支報告書の記載例、Polimoney との連携に必要な情報源です。
 
@@ -56,9 +73,32 @@ python make_docs_context_v2.py
 
 ---
 
-## 4. 開発環境とツール (Environment & Tooling)
+## 5. 開発環境とツール (Environment & Tooling)
 
-- **IDE:** VS Code (推奨)
+- **IDE:** VS Code / Cursor (推奨)
 - **Configuration:** `.vscode/` ディレクトリ内の設定ファイルに従ってください。
-- **Extensions:** `extensions.json` に定義された推奨拡張機能を使用します。
-- **Formatting:** 保存時に自動フォーマット (`editor.formatOnSave`) が有効になっています。
+- **Extensions:** Deno 拡張機能 (`denoland.vscode-deno`) を使用します。
+- **Formatting:** `deno fmt` による自動フォーマット。
+
+### Fresh (Deno) 開発
+
+```bash
+# Supabase ローカル起動
+supabase start
+
+# フロントエンド起動
+cd packages/web && deno task start
+```
+
+### Flutter 版 (Legacy)
+
+Flutter 版のコードは `legacy/flutter/` にあります。
+詳細は `legacy/flutter/README.md` を参照してください。
+
+---
+
+## 6. レガシーコードについて
+
+`legacy/flutter/` ディレクトリには Flutter 版のコードが保存されています。
+新規機能開発は Fresh (Deno) で行いますが、Flutter 版の保守作業が必要な場合は
+そのディレクトリ内で作業してください。

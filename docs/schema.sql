@@ -71,12 +71,13 @@ create table if not exists journals (
   status text not null, -- 'draft' or 'approved'
   submitted_by_user_id uuid references auth.users(id) not null,
   approved_by_user_id uuid references auth.users(id),
-  contact_id uuid references contacts(id) not null,
+  contact_id uuid references contacts(id), -- NULL許容: 振替の場合は関係者不要
   classification text, -- 'pre-campaign' or 'campaign'
   non_monetary_basis text,
   notes text,
   amount_political_grant integer default 0,
   amount_political_fund integer default 0,
+  amount_public_subsidy integer default 0, -- v3.11: 公費負担額
   is_receipt_hard_to_collect boolean not null default false,
   receipt_hard_to_collect_reason text,
   created_at timestamptz default now()

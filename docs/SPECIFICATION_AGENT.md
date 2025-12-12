@@ -220,7 +220,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | status                         | text                 | 承認ステータス       | draft (起票/承認前), approved (承認済)。必須                                                                                                         |
 | submitted_by_user_id           | uuid                 | 起票したユーザー ID  | auth.users.id への参照。必須                                                                                                                         |
 | approved_by_user_id            | uuid                 | 承認したユーザー ID  | status='approved'の場合必須                                                                                                                          |
-| contact_id                     | uuid                 | **紐づく関係者 ID**  | **必須**, contacts.id への FK。 （「自己資金」仕訳の場合、contacts マスタの「自分」を選択） （「みずほ銀行」からの借入の場合、「みずほ銀行」を選択） |
+| contact_id                     | uuid                 | **紐づく関係者 ID**  | **【v3.12 更新】NULL 許容**。収入・支出の場合は必須、振替の場合は NULL。contacts.id への FK。 |
 | classification                 | text                 | 選挙運動の活動区分   | pre-campaign (立候補準備), campaign (選挙運動)。election_id が設定されている場合のみ使用                                                             |
 | non_monetary_basis             | text                 | 金銭以外の見積の根拠 | NULL 許容。                                                                                                                                          |
 | notes                          | text                 | 備考                 | 任意入力。NULL 許容                                                                                                                                  |

@@ -134,7 +134,7 @@ create table if not exists journals (
   status text not null,
   submitted_by_user_id uuid references auth.users(id) not null,
   approved_by_user_id uuid references auth.users(id),
-  contact_id uuid references contacts(id) not null,
+  contact_id uuid references contacts(id), -- v3.12: NULL許容（振替の場合は関係者不要）
   classification text,
   non_monetary_basis text,
   notes text,
@@ -464,22 +464,40 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ## 開発者向け情報
 
-このプロジェクトは Flutter で開発されています。
+### 🚧 アーキテクチャ移行について
 
-## Development Setup
+このプロジェクトは **Flutter 版から Fresh (Deno) 版への移行を計画中**です。
 
-### Prerequisites
+| バージョン | 状態 | 場所 |
+|-----------|------|------|
+| **Flutter 版 (Legacy)** | 動作可能・保守モード | `legacy/flutter/` |
+| **Fresh (Deno) 版** | 開発予定 | `packages/web/` (未作成) |
 
-- Flutter SDK
-- VS Code (Recommended)
+新規開発は Fresh (Deno) 版で行う予定です。詳細は以下を参照してください：
 
-### VS Code Setup
+- **アーキテクチャ設計**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **機能仕様書**: [docs/SPECIFICATION.md](./docs/SPECIFICATION.md)
 
-1. Open this folder in VS Code.
-2. When prompted, install the recommended extensions (Flutter, Dart, etc.).
-3. Press `F5` to start debugging (select "polimoney_ledger (Windows)").
+### Flutter 版 (Legacy) の開発
 
-## Getting Started
+Flutter 版を使用する場合は、`legacy/flutter/` ディレクトリを参照してください。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+cd legacy/flutter
+flutter pub get
+flutter run
+```
+
+詳細: [legacy/flutter/README.md](./legacy/flutter/README.md)
+
+### Fresh (Deno) 版の開発（予定）
+
+```bash
+# Supabase ローカル起動
+supabase start
+
+# フロントエンド起動
+cd packages/web && deno task start
+```
+
+詳細: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
