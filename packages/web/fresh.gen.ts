@@ -10,8 +10,11 @@ import * as $api_upload from "./routes/api/upload.ts";
 import * as $elections from "./routes/elections.tsx";
 import * as $index from "./routes/index.tsx";
 import * as $organizations from "./routes/organizations.tsx";
+import * as $settings from "./routes/settings.tsx";
 import * as $ElectionSelector from "./islands/ElectionSelector.tsx";
 import * as $OrganizationSelector from "./islands/OrganizationSelector.tsx";
+import * as $ReSyncButton from "./islands/ReSyncButton.tsx";
+import * as $SyncButton from "./islands/SyncButton.tsx";
 import type { Manifest } from "$fresh/server.ts";
 
 const manifest = {
@@ -24,10 +27,13 @@ const manifest = {
     "./routes/elections.tsx": $elections,
     "./routes/index.tsx": $index,
     "./routes/organizations.tsx": $organizations,
+    "./routes/settings.tsx": $settings,
   },
   islands: {
     "./islands/ElectionSelector.tsx": $ElectionSelector,
     "./islands/OrganizationSelector.tsx": $OrganizationSelector,
+    "./islands/ReSyncButton.tsx": $ReSyncButton,
+    "./islands/SyncButton.tsx": $SyncButton,
   },
   baseUrl: import.meta.url,
 } satisfies Manifest;

@@ -4,7 +4,11 @@ import daisyui from "daisyui";
 export default {
   content: ["{routes,islands,components}/**/*.{ts,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        ud: ['"Noto Sans JP"', "sans-serif"],
+      },
+    },
   },
   plugins: [daisyui],
   daisyui: {

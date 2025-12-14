@@ -4,7 +4,7 @@ import tailwind from "$fresh/plugins/tailwind.ts";
 export default defineConfig({
   plugins: [tailwind()],
   server: {
-    port: 3001,
+    port: 3721,
     hostname: "0.0.0.0",
   },
 });

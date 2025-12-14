@@ -63,7 +63,9 @@ export interface HubLedger {
 /**
  * 関係者名を匿名化
  */
-export function anonymizeContactName(contact: LedgerContact | null): string | null {
+export function anonymizeContactName(
+  contact: LedgerContact | null
+): string | null {
   if (!contact) return null;
   if (contact.is_name_private) return "非公開";
   return contact.name;
@@ -206,3 +208,4 @@ export function shouldSync(journal: LedgerJournal): boolean {
 
   return true;
 }
+

@@ -325,10 +325,13 @@ export interface SyncStatus {
 export async function syncJournals(
   journals: SyncJournalInput[]
 ): Promise<SyncResult> {
-  const result = await fetchApi<ApiResponse<SyncResult>>("/api/v1/sync/journals", {
-    method: "POST",
-    body: JSON.stringify({ journals }),
-  });
+  const result = await fetchApi<ApiResponse<SyncResult>>(
+    "/api/v1/sync/journals",
+    {
+      method: "POST",
+      body: JSON.stringify({ journals }),
+    }
+  );
   return result.data;
 }
 
