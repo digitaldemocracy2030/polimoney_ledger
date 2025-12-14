@@ -1,0 +1,341 @@
+/**
+ * Polimoney Hub API クライアント
+ */
+
+// 環境変数から Hub API の設定を取得
+const HUB_API_URL = Deno.env.get("HUB_API_URL") || "http://localhost:8000";
+const HUB_API_KEY = Deno.env.get("HUB_API_KEY") || "";
+
+// ============================================
+// 型定義
+// ============================================
+
+export interface Election {
+  id: string;
+  name: string;
+  type: string; // HR, HC, PG, CM, GM
+  area_code: string;
+  election_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  type: string; // political_party, support_group, fund_management, other
+  politician_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Politician {
+  id: string;
+  name: string;
+  name_kana: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ElectionRequest {
+  id: string;
+  name: string;
+  type: string;
+  area_description: string;
+  election_date: string;
+  requested_by_politician_id: string | null;
+  requested_by_email: string | null;
+  evidence_url: string | null;
+  notes: string | null;
+  status: "pending" | "approved" | "rejected" | "needs_info";
+  rejection_reason: string | null;
+  approved_election_id: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export interface OrganizationRequest {
+  id: string;
+  name: string;
+  type: string;
+  registration_authority: string | null;
+  requested_by_politician_id: string | null;
+  requested_by_email: string | null;
+  evidence_type: string;
+  evidence_file_url: string;
+  evidence_file_name: string | null;
+  notes: string | null;
+  status: "pending" | "approved" | "rejected" | "needs_info";
+  rejection_reason: string | null;
+  approved_organization_id: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+}
+
+export interface ApiError {
+  error: string;
+}
+
+// ============================================
+// ヘルパー関数
+// ============================================
+
+async function fetchApi<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers = new Headers(options.headers);
+  headers.set("Content-Type", "application/json");
+  headers.set("X-API-Key", HUB_API_KEY);
+
+  const response = await fetch(`${HUB_API_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    throw new Error((json as ApiError).error || "API request failed");
+  }
+
+  return json as T;
+}
+
+// ============================================
+// 選挙 API
+// ============================================
+
+export async function getElections(): Promise<Election[]> {
+  const result = await fetchApi<ApiResponse<Election[]>>("/api/v1/elections");
+  return result.data;
+}
+
+export async function getElection(id: string): Promise<Election> {
+  const result = await fetchApi<ApiResponse<Election>>(
+    `/api/v1/elections/${id}`
+  );
+  return result.data;
+}
+
+// ============================================
+// 政治団体 API
+// ============================================
+
+export async function getOrganizations(): Promise<Organization[]> {
+  const result = await fetchApi<ApiResponse<Organization[]>>(
+    "/api/v1/organizations"
+  );
+  return result.data;
+}
+
+export async function getOrganization(id: string): Promise<Organization> {
+  const result = await fetchApi<ApiResponse<Organization>>(
+    `/api/v1/organizations/${id}`
+  );
+  return result.data;
+}
+
+// ============================================
+// 政治家 API
+// ============================================
+
+export async function getPoliticians(): Promise<Politician[]> {
+  const result = await fetchApi<ApiResponse<Politician[]>>(
+    "/api/v1/politicians"
+  );
+  return result.data;
+}
+
+export async function createPolitician(data: {
+  name: string;
+  name_kana?: string;
+}): Promise<Politician> {
+  const result = await fetchApi<ApiResponse<Politician>>(
+    "/api/v1/politicians",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+  return result.data;
+}
+
+// ============================================
+// 選挙登録リクエスト API
+// ============================================
+
+export interface CreateElectionRequestInput {
+  name: string;
+  type: string;
+  area_description: string;
+  election_date: string;
+  requested_by_politician_id?: string;
+  requested_by_email?: string;
+  evidence_url?: string;
+  notes?: string;
+}
+
+export async function createElectionRequest(
+  data: CreateElectionRequestInput
+): Promise<ElectionRequest> {
+  const result = await fetchApi<ApiResponse<ElectionRequest>>(
+    "/api/v1/election-requests",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+  return result.data;
+}
+
+export async function getElectionRequests(params?: {
+  politician_id?: string;
+  status?: string;
+}): Promise<ElectionRequest[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.politician_id)
+    searchParams.set("politician_id", params.politician_id);
+  if (params?.status) searchParams.set("status", params.status);
+
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const result = await fetchApi<ApiResponse<ElectionRequest[]>>(
+    `/api/v1/election-requests${query}`
+  );
+  return result.data;
+}
+
+export async function getElectionRequest(id: string): Promise<ElectionRequest> {
+  const result = await fetchApi<ApiResponse<ElectionRequest>>(
+    `/api/v1/election-requests/${id}`
+  );
+  return result.data;
+}
+
+// ============================================
+// 政治団体登録リクエスト API
+// ============================================
+
+export interface CreateOrganizationRequestInput {
+  name: string;
+  type: string;
+  registration_authority?: string;
+  requested_by_politician_id?: string;
+  requested_by_email?: string;
+  evidence_type: string;
+  evidence_file_url: string;
+  evidence_file_name?: string;
+  notes?: string;
+}
+
+export async function createOrganizationRequest(
+  data: CreateOrganizationRequestInput
+): Promise<OrganizationRequest> {
+  const result = await fetchApi<ApiResponse<OrganizationRequest>>(
+    "/api/v1/organization-requests",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+  return result.data;
+}
+
+export async function getOrganizationRequests(params?: {
+  politician_id?: string;
+  status?: string;
+}): Promise<OrganizationRequest[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.politician_id)
+    searchParams.set("politician_id", params.politician_id);
+  if (params?.status) searchParams.set("status", params.status);
+
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const result = await fetchApi<ApiResponse<OrganizationRequest[]>>(
+    `/api/v1/organization-requests${query}`
+  );
+  return result.data;
+}
+
+export async function getOrganizationRequest(
+  id: string
+): Promise<OrganizationRequest> {
+  const result = await fetchApi<ApiResponse<OrganizationRequest>>(
+    `/api/v1/organization-requests/${id}`
+  );
+  return result.data;
+}
+
+// ============================================
+// 同期 API
+// ============================================
+
+/** Ledger から Hub に送信する同期データ */
+export interface SyncJournalInput {
+  /** Ledger 側の仕訳 ID */
+  journal_source_id: string;
+  /** Hub 側の台帳 ID */
+  ledger_id: string;
+  /** 取引日 */
+  date: string | null;
+  /** 摘要（目的） */
+  description: string | null;
+  /** 金額 */
+  amount: number;
+  /** 関係者名（匿名化済み） */
+  contact_name: string | null;
+  /** 関係者種別 */
+  contact_type: string | null;
+  /** 勘定科目コード */
+  account_code: string;
+  /** 活動区分 (campaign / pre-campaign) */
+  classification: string | null;
+  /** 金銭以外の寄附の見積根拠 */
+  non_monetary_basis: string | null;
+  /** 備考 */
+  note: string | null;
+  /** 公費負担額 */
+  public_expense_amount: number | null;
+  /** コンテンツハッシュ（重複検知用） */
+  content_hash: string;
+}
+
+export interface SyncResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  error_details?: { journal_source_id: string; error: string }[];
+}
+
+export interface SyncStatus {
+  status: "ready" | "error";
+  message: string;
+}
+
+/**
+ * 仕訳データを Hub に同期
+ */
+export async function syncJournals(
+  journals: SyncJournalInput[]
+): Promise<SyncResult> {
+  const result = await fetchApi<ApiResponse<SyncResult>>("/api/v1/sync/journals", {
+    method: "POST",
+    body: JSON.stringify({ journals }),
+  });
+  return result.data;
+}
+
+/**
+ * 同期ステータスを確認
+ */
+export async function getSyncStatus(): Promise<SyncStatus> {
+  const result = await fetchApi<SyncStatus>("/api/v1/sync/status");
+  return result;
+}

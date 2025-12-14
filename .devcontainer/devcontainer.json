@@ -1,0 +1,44 @@
+{
+  "name": "Polimoney Ledger",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "runArgs": ["--network=polimoney-network"],
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "denoland.vscode-deno",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "deno.enable": true,
+        "deno.lint": true,
+        "deno.unstable": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "denoland.vscode-deno",
+        "[typescript]": {
+          "editor.defaultFormatter": "denoland.vscode-deno"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "denoland.vscode-deno"
+        },
+        "workbench.colorCustomizations": {
+          "titleBar.activeBackground": "#6b1c1c",
+          "titleBar.activeForeground": "#ffffff",
+          "titleBar.inactiveBackground": "#4a1414",
+          "titleBar.inactiveForeground": "#cccccc",
+          "activityBar.background": "#5c1a1a",
+          "statusBar.background": "#6b1c1c",
+          "statusBar.foreground": "#ffffff"
+        }
+      }
+    }
+  },
+  "forwardPorts": [3001],
+  "postCreateCommand": "cd packages/web && deno cache dev.ts",
+  "remoteUser": "vscode"
+}

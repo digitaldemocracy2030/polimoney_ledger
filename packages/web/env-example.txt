@@ -1,0 +1,10 @@
+# Polimoney Hub API 設定
+# ローカル（非Docker）の場合: http://localhost:8000
+# Docker共有ネットワークの場合: http://app:8000
+HUB_API_URL=http://app:8000
+HUB_API_KEY=dev-api-key-12345
+HUB_ADMIN_KEY=dev-admin-key-67890
+
+# Supabase 設定（証明書類のアップロード用）
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-publishable-key-here
