@@ -44,7 +44,10 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
 
   try {
     const supabase = getSupabase();
-    const { data: { user }, error } = await supabase.auth.getUser(accessTokenMatch[1]);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(accessTokenMatch[1]);
 
     if (error || !user) {
       return null;
