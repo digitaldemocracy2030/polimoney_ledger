@@ -134,12 +134,13 @@ create table if not exists journals (
   status text not null,
   submitted_by_user_id uuid references auth.users(id) not null,
   approved_by_user_id uuid references auth.users(id),
-  contact_id uuid references contacts(id) not null,
+  contact_id uuid references contacts(id), -- v3.12: NULL許容（振替の場合は関係者不要）
   classification text,
   non_monetary_basis text,
   notes text,
   amount_political_grant integer default 0,
   amount_political_fund integer default 0,
+  amount_public_subsidy integer default 0,  -- 【v3.11追加】公費負担額
   is_receipt_hard_to_collect boolean default false,
   receipt_hard_to_collect_reason text,
   created_at timestamptz default now()
@@ -173,48 +174,116 @@ create table if not exists ownership_transfers (
   updated_at timestamptz default now() not null
 );
 
--- ★★★ 新規追加 ★★★
+
 -- 2. 勘定科目マスターテーブルの作成
 create table if not exists account_master (
   code text primary key,
   name text not null,
-  type text not null, -- 'asset', 'liability', 'equity', 'revenue', 'expense'
+  type text not null, -- 'asset', 'liability', 'equity', 'revenue', 'expense', 'subsidy'
   report_category text not null,
-  available_ledger_types text[] not null -- array of 'political_organization', 'election'
+  available_ledger_types text[] not null, -- array of 'political_organization', 'election'
+  is_public_subsidy_eligible boolean default false -- 公費負担対象かどうか（選挙運動費用）
 );
 
--- ★★★ 新規追加 ★★★
--- 3. 勘定科目マスターへの初期データ投入
+-- 3. カラム追加（既存テーブルへの対応、IF NOT EXISTSで新規・既存どちらでも安全）
+ALTER TABLE journals ADD COLUMN IF NOT EXISTS amount_public_subsidy integer DEFAULT 0;
+ALTER TABLE account_master ADD COLUMN IF NOT EXISTS is_public_subsidy_eligible boolean DEFAULT false;
+
+-- 4. 勘定科目マスターへの初期データ投入 【v3.11 全面更新】
+-- 政治資金規正法・公職選挙法に基づく全科目
 -- (何度実行しても安全なように ON CONFLICT DO NOTHING を使用)
+
+-- === 資産科目 ===
 INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
 ('ASSET_CASH', '現金', 'asset', '資産', '{"political_organization", "election"}'),
 ('ASSET_BANK', '普通預金', 'asset', '資産', '{"political_organization", "election"}'),
+('ASSET_SAVINGS', '定期預金', 'asset', '資産', '{"political_organization", "election"}'),
 ('ASSET_PREPAID', '前払金', 'asset', '資産', '{"political_organization", "election"}'),
-('LIAB_LOAN', '借入金', 'liability', '負債', '{"political_organization", "election"}'),
-('LIAB_ACCOUNTS_PAYABLE', '未払金', 'liability', '負債', '{"political_organization", "election"}'),
-('EQUITY_CAPITAL', '元入金', 'equity', '純資産', '{"political_organization", "election"}'),
-('EQUITY_CARRYOVER', '前期繰越', 'equity', '純資産', '{"political_organization", "election"}'),
-('REV_DONATION_INDIVIDUAL', '個人からの寄付', 'revenue', '寄付', '{"political_organization", "election"}'),
-('REV_DONATION_CORPORATE', '法人その他の団体からの寄付', 'revenue', '寄付', '{"political_organization"}'),
-('REV_GRANT', '交付金', 'revenue', '交付金', '{"political_organization"}'),
-('REV_SELF_FINANCING', '自己資金', 'revenue', 'その他収入', '{"election"}'),
-('REV_MISC', '雑収入', 'revenue', 'その他収入', '{"political_organization", "election"}'),
-('EXP_PERSONNEL_PO', '人件費', 'expense', '経常経費', '{"political_organization"}'),
-('EXP_OFFICE_PO', '事務所費', 'expense', '経常経費', '{"political_organization"}'),
-('EXP_UTILITIES_PO', '光熱水費', 'expense', '経常経費', '{"political_organization"}'),
-('EXP_PERSONNEL_ELEC', '人件費', 'expense', '選挙運動費用', '{"election"}'),
-('EXP_OFFICE_ELEC', '事務所費', 'expense', '選挙運動費用', '{"election"}'),
-('EXP_TRANSPORT_ELEC', '交通費', 'expense', '選挙運動費用', '{"election"}'),
-('EXP_SUPPLIES', '備品・消耗品費', 'expense', '経常経費', '{"political_organization", "election"}'),
-('EXP_MISC', '雑費', 'expense', '経常経費', '{"political_organization", "election"}')
+('ASSET_DEPOSIT', '敷金・保証金', 'asset', '資産', '{"political_organization", "election"}')
 ON CONFLICT (code) DO NOTHING;
 
--- 4. パフォーマンス向上のためのインデックス作成 (変更なし)
+-- === 負債科目 ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('LIAB_LOAN', '借入金', 'liability', '負債', '{"political_organization", "election"}'),
+('LIAB_ACCOUNTS_PAYABLE', '未払金', 'liability', '負債', '{"political_organization", "election"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- === 純資産科目 ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('EQUITY_CAPITAL', '元入金', 'equity', '純資産', '{"political_organization", "election"}'),
+('EQUITY_CARRYOVER', '前年繰越額', 'equity', '純資産', '{"political_organization", "election"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- === 収入科目（政治団体用） ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('REV_MEMBERSHIP_FEE', '党費・会費', 'revenue', '党費・会費', '{"political_organization"}'),
+('REV_DONATION_INDIVIDUAL', '個人からの寄附', 'revenue', '寄附', '{"political_organization"}'),
+('REV_DONATION_CORPORATE', '法人その他の団体からの寄附', 'revenue', '寄附', '{"political_organization"}'),
+('REV_DONATION_POLITICAL', '政治団体からの寄附', 'revenue', '寄附', '{"political_organization"}'),
+('REV_ANONYMOUS', '政党匿名寄附', 'revenue', '寄附', '{"political_organization"}'),
+('REV_MAGAZINE', '機関紙誌の発行事業収入', 'revenue', '事業収入', '{"political_organization"}'),
+('REV_PARTY_EVENT', '政治資金パーティー収入', 'revenue', '事業収入', '{"political_organization"}'),
+('REV_OTHER_BUSINESS', 'その他の事業収入', 'revenue', '事業収入', '{"political_organization"}'),
+('REV_GRANT_HQ', '本部・支部からの交付金', 'revenue', '交付金', '{"political_organization"}'),
+('REV_INTEREST', '利子収入', 'revenue', 'その他の収入', '{"political_organization"}'),
+('REV_MISC', 'その他の収入', 'revenue', 'その他の収入', '{"political_organization"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- === 収入科目（選挙運動用） ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('REV_SELF_FINANCING', '自己資金', 'revenue', 'その他の収入', '{"election"}'),
+('REV_LOAN_ELEC', '借入金', 'revenue', 'その他の収入', '{"election"}'),
+('REV_DONATION_INDIVIDUAL_ELEC', '個人からの寄附', 'revenue', '寄附', '{"election"}'),
+('REV_DONATION_POLITICAL_ELEC', '政治団体からの寄附', 'revenue', '寄附', '{"election"}'),
+('REV_MISC_ELEC', 'その他の収入', 'revenue', 'その他の収入', '{"election"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- === 支出科目（経常経費 - 政治団体用） ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('EXP_PERSONNEL', '人件費', 'expense', '経常経費', '{"political_organization"}'),
+('EXP_UTILITIES', '光熱水費', 'expense', '経常経費', '{"political_organization"}'),
+('EXP_SUPPLIES', '備品・消耗品費', 'expense', '経常経費', '{"political_organization"}'),
+('EXP_OFFICE', '事務所費', 'expense', '経常経費', '{"political_organization"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- === 支出科目（政治活動費 - 政治団体用） ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('EXP_ORGANIZATION', '組織活動費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_ELECTION', '選挙関係費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_MAGAZINE', '機関紙誌の発行事業費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_PUBLICITY', '宣伝事業費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_PARTY_EVENT', '政治資金パーティー開催事業費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_OTHER_BUSINESS', 'その他の事業費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_RESEARCH', '調査研究費', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_DONATION', '寄附・交付金', 'expense', '政治活動費', '{"political_organization"}'),
+('EXP_MISC', 'その他の経費', 'expense', '政治活動費', '{"political_organization"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- === 支出科目（選挙運動費用 - 公職選挙法10費目） ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types, is_public_subsidy_eligible) VALUES
+('EXP_PERSONNEL_ELEC', '人件費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_BUILDING_ELEC', '家屋費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_COMMUNICATION_ELEC', '通信費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_TRANSPORT_ELEC', '交通費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_PRINTING_ELEC', '印刷費', 'expense', '選挙運動費用', '{"election"}', true),
+('EXP_ADVERTISING_ELEC', '広告費', 'expense', '選挙運動費用', '{"election"}', true),
+('EXP_STATIONERY_ELEC', '文具費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_FOOD_ELEC', '食料費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_LODGING_ELEC', '休泊費', 'expense', '選挙運動費用', '{"election"}', false),
+('EXP_MISC_ELEC', '雑費', 'expense', '選挙運動費用', '{"election"}', false)
+ON CONFLICT (code) DO NOTHING;
+
+-- === 公費負担（参考記録用） ===
+INSERT INTO public.account_master (code, name, type, report_category, available_ledger_types) VALUES
+('SUBSIDY_PUBLIC', '公費負担', 'subsidy', '公費負担', '{"election"}')
+ON CONFLICT (code) DO NOTHING;
+
+-- 5. パフォーマンス向上のためのインデックス作成
 CREATE INDEX IF NOT EXISTS idx_journals_organization_id ON public.journals (organization_id);
 CREATE INDEX IF NOT EXISTS idx_journals_election_id ON public.journals (election_id);
 CREATE INDEX IF NOT EXISTS idx_journals_journal_date ON public.journals (journal_date);
 
--- 5. 行レベルセキュリティ(RLS)の有効化 (account_master を追加)
+-- 6. 行レベルセキュリティ(RLS)の有効化
 alter table account_master enable row level security;
 alter table political_organizations enable row level security;
 alter table politicians enable row level security;
@@ -225,7 +294,7 @@ alter table journal_entries enable row level security;
 alter table ledger_members enable row level security;
 alter table ownership_transfers enable row level security;
 
--- 6. RLSポリシー (account_master を追加)
+-- 7. RLSポリシー
 -- account_masterは公開情報なので、認証済みユーザーなら誰でも読み取り可能
 drop policy if exists "Allow read access to all authenticated users" on account_master;
 create policy "Allow read access to all authenticated users" on account_master for select using (auth.role() = 'authenticated');
@@ -249,7 +318,7 @@ create policy "Allow individual read access" on ownership_transfers for select u
 drop policy if exists "Allow individual update access" on ownership_transfers;
 create policy "Allow individual update access" on ownership_transfers for update using (auth.uid() = to_user_id);
 
--- 7. データベース関数の作成
+-- 8. データベース関数の作成
 -- ユーザー数取得関数
 create or replace function get_user_count()
 returns integer language sql security definer as $$
@@ -395,22 +464,40 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ## 開発者向け情報
 
-このプロジェクトは Flutter で開発されています。
+### 🚧 アーキテクチャ移行について
 
-## Development Setup
+このプロジェクトは **Flutter 版から Fresh (Deno) 版への移行を計画中**です。
 
-### Prerequisites
+| バージョン | 状態 | 場所 |
+|-----------|------|------|
+| **Flutter 版 (Legacy)** | 動作可能・保守モード | `legacy/flutter/` |
+| **Fresh (Deno) 版** | 開発予定 | `packages/web/` (未作成) |
 
-- Flutter SDK
-- VS Code (Recommended)
+新規開発は Fresh (Deno) 版で行う予定です。詳細は以下を参照してください：
 
-### VS Code Setup
+- **アーキテクチャ設計**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **機能仕様書**: [docs/SPECIFICATION.md](./docs/SPECIFICATION.md)
 
-1. Open this folder in VS Code.
-2. When prompted, install the recommended extensions (Flutter, Dart, etc.).
-3. Press `F5` to start debugging (select "polimoney_ledger (Windows)").
+### Flutter 版 (Legacy) の開発
 
-## Getting Started
+Flutter 版を使用する場合は、`legacy/flutter/` ディレクトリを参照してください。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+cd legacy/flutter
+flutter pub get
+flutter run
+```
+
+詳細: [legacy/flutter/README.md](./legacy/flutter/README.md)
+
+### Fresh (Deno) 版の開発（予定）
+
+```bash
+# Supabase ローカル起動
+supabase start
+
+# フロントエンド起動
+cd packages/web && deno task start
+```
+
+詳細: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)

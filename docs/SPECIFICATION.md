@@ -1,11 +1,38 @@
-# **Polimoney Ledger - 機能仕様書 (v3.10)**
+# **Polimoney Ledger - 機能仕様書 (v3.11)**
+
+---
+
+## **【保留】Polimoney 連携 - 選挙識別子の課題**
+
+### 背景
+
+Polimoney との連携のため、各選挙台帳に一意の識別子を付与したい。
+
+### 課題
+
+- `city_code`（総務省の全国地方公共団体コード 6 桁）+ 年月日だけでは選挙を一意に特定できない
+- 参議院合同選挙区（鳥取・島根、徳島・高知）のような特殊ケースが存在
+- 衆院選・参院選・地方選で選挙区の定義が異なる
+- 参考: [参議院合同選挙区 - Wikipedia](https://ja.wikipedia.org/wiki/%E5%8F%82%E8%AD%B0%E9%99%A2%E5%90%88%E5%90%8C%E9%81%B8%E6%8C%99%E5%8C%BA)
+
+### 検討事項
+
+1. Polimoney 側でどのような識別子体系を採用するか
+2. 選挙種別（衆院選/参院選/都道府県議選/市区町村議選 等）の分類
+3. 選挙区の定義方法（小選挙区番号、比例ブロック、合同選挙区 等）
+
+### ステータス
+
+**保留中** - Polimoney 側に方針を提案するため、提案内容を考える。
+
+---
 
 ## **1. 機能概要 (Feature Overview)**
 
 この機能は、政治団体や候補者の会計担当者を対象としています。  
 会計担当者が、自身が管理する**「政治団体」または「政治家（候補者）」を登録し、それぞれに紐づく「選挙」**の台帳を作成します。  
 年度の締め処理と繰越は、ユーザーによる**手動入力**で行います。  
-新しい年度の開始時（1月1日付）に、ユーザーが「前期繰越」という特別な勘定科目を使い、前期末の資産・負債残高を期首残高として手動登録することを想定しています。  
+新しい年度の開始時（1 月 1 日付）に、ユーザーが「前期繰越」という特別な勘定科目を使い、前期末の資産・負債残高を期首残高として手動登録することを想定しています。  
 その際、前期末の資産・負債残高を期首残高をサジェストする様にします。
 
 役割（ロール）と権限の関係は、Flutter アプリ側で静的に定義されます。  
@@ -13,6 +40,7 @@
 関係者（contacts）のプライバシー設定（匿名化・非公開理由の明記）に対応します。
 
 ### 更新履歴概要
+
 v3.0 より、複式簿記モデルを導入します。  
 v3.5 より、台帳タイプ（政治団体 / 選挙運動）に応じて、使用する勘定科目が自動で切り替わります。  
 （例：「選挙」台帳では「人件費」「自己資金」、「政治団体」台帳では「経常経費」「政治活動費」が選択肢となります）  
@@ -40,48 +68,169 @@ v3.8 では、選挙運動費用の公費負担対応と、支払元の複数行
 | name                | text                 | **補助科目名**             | 必須。例: 「電気代」「水道代」                                           |
 | created_at          | timestamptz          | レコード作成日時           | デフォルトで now()                                                       |
 
-#### **2.1.1. 静的勘定科目マスタ（アプリ内定義）**
+#### **2.1.1. 静的勘定科目マスタ（アプリ内定義）【v3.11 大幅更新】**
 
 `lib/core/constants/account_master.dart` 等で定義します。
+政治資金規正法施行規則に基づき、収支報告書の項目分類に準拠した科目体系とします。
 
 **共通プロパティ:**
 
-- `code`: 一意な識別子 (例: 'ASSET_CASH', 'EXP_PERSONNEL')
-- `name`: 表示名 (例: '現金', '人件費')
-- `type`: 勘定タイプ (asset, liability, equity, revenue, expense)
-- `reportCategory`: 報告書上の分類 (例: '経常経費', '政治活動費')
+- `code`: 一意な識別子
+- `name`: 表示名
+- `type`: 勘定タイプ (asset, liability, equity, revenue, expense, subsidy)
+- `reportCategory`: 報告書上の分類
+- `availableLedgerTypes`: 使用可能な台帳タイプ
+- `isPublicSubsidyEligible`: **【v3.11 追加】** 公費負担対象かどうか（選挙運動費用の印刷費・広告費など）
 
-##### **(例: 政治団体用)**
+---
 
-- `EXP_UTILITIES`: { name: '光熱水費', type: expense, category: '経常経費' }
-  - ユーザーはこれに対して「電気代」「ガス代」などの `sub_accounts` を作成可能。
-- EQUITY_CARRYOVER: { name: '前期繰越', type: equity, category: '資産等' }
+##### **資産科目 (type: asset)**
 
-### **2.2. 仕訳ヘッダ (【v3.4 更新】)**
+| code          | name         | reportCategory | 備考 |
+| ------------- | ------------ | -------------- | ---- |
+| ASSET_CASH    | 現金         | 資産           | 共通 |
+| ASSET_BANK    | 普通預金     | 資産           | 共通 |
+| ASSET_SAVINGS | 定期預金     | 資産           | 共通 |
+| ASSET_PREPAID | 前払金       | 資産           | 共通 |
+| ASSET_DEPOSIT | 敷金・保証金 | 資産           | 共通 |
 
-v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ、contact_id を必須に変更。
+##### **負債科目 (type: liability)**
+
+| code                  | name   | reportCategory | 備考 |
+| --------------------- | ------ | -------------- | ---- |
+| LIAB_LOAN             | 借入金 | 負債           | 共通 |
+| LIAB_ACCOUNTS_PAYABLE | 未払金 | 負債           | 共通 |
+
+##### **純資産科目 (type: equity)**
+
+| code             | name       | reportCategory | 備考 |
+| ---------------- | ---------- | -------------- | ---- |
+| EQUITY_CAPITAL   | 元入金     | 純資産         | 共通 |
+| EQUITY_CARRYOVER | 前年繰越額 | 純資産         | 共通 |
+
+---
+
+##### **収入科目 (type: revenue)**
+
+**政治団体用:**
+
+| code                    | name                       | reportCategory | 備考                       |
+| ----------------------- | -------------------------- | -------------- | -------------------------- |
+| REV_MEMBERSHIP_FEE      | 党費・会費                 | 党費・会費     | 個人が負担する党費又は会費 |
+| REV_DONATION_INDIVIDUAL | 個人からの寄附             | 寄附           |                            |
+| REV_DONATION_CORPORATE  | 法人その他の団体からの寄附 | 寄附           |                            |
+| REV_DONATION_POLITICAL  | 政治団体からの寄附         | 寄附           |                            |
+| REV_ANONYMOUS           | 政党匿名寄附               | 寄附           | 政党支部のみ               |
+| REV_MAGAZINE            | 機関紙誌の発行事業収入     | 事業収入       |                            |
+| REV_PARTY_EVENT         | 政治資金パーティー収入     | 事業収入       |                            |
+| REV_OTHER_BUSINESS      | その他の事業収入           | 事業収入       |                            |
+| REV_GRANT_HQ            | 本部・支部からの交付金     | 交付金         |                            |
+| REV_INTEREST            | 利子収入                   | その他の収入   |                            |
+| REV_MISC                | その他の収入               | その他の収入   |                            |
+
+**選挙運動用（選挙運動費用収支報告書に基づく）:**
+
+収入は「寄附」と「その他の収入」の 2 種類に分類されます。
+
+| code                         | name               | reportCategory | 備考                 |
+| ---------------------------- | ------------------ | -------------- | -------------------- |
+| REV_SELF_FINANCING           | 自己資金           | その他の収入   | 候補者本人からの資金 |
+| REV_LOAN_ELEC                | 借入金             | その他の収入   | 選挙運動のための借入 |
+| REV_DONATION_INDIVIDUAL_ELEC | 個人からの寄附     | 寄附           |                      |
+| REV_DONATION_POLITICAL_ELEC  | 政治団体からの寄附 | 寄附           | 政党、政治団体等     |
+| REV_MISC_ELEC                | その他の収入       | その他の収入   | 上記以外（利子等）   |
+
+**公費負担（選挙公営）について:**
+
+公費負担は法定の収支報告書では収入に計上されませんが、Polimoney への透明化出力のために記録します。
+
+| code           | name     | type    | reportCategory | 備考                             |
+| -------------- | -------- | ------- | -------------- | -------------------------------- |
+| SUBSIDY_PUBLIC | 公費負担 | subsidy | 公費負担       | 選挙公営による負担（参考記録用） |
+
+※ `type: subsidy` は新しい勘定タイプとして追加（asset, liability, equity, revenue, expense に加えて）
+
+---
+
+##### **支出科目 (type: expense)**
+
+**経常経費（政治団体用）:**
+
+| code          | name           | reportCategory | 備考                                     |
+| ------------- | -------------- | -------------- | ---------------------------------------- |
+| EXP_PERSONNEL | 人件費         | 経常経費       | 給料、報酬、各種手当、社会保険料等       |
+| EXP_UTILITIES | 光熱水費       | 経常経費       | 電気、ガス、水道の使用料                 |
+| EXP_SUPPLIES  | 備品・消耗品費 | 経常経費       | 机、椅子、事務用品、ガソリン等           |
+| EXP_OFFICE    | 事務所費       | 経常経費       | 家賃、公租公課、保険料、通信費、修繕料等 |
+
+**政治活動費（政治団体用）:**
+
+| code               | name                         | reportCategory | 備考                                         |
+| ------------------ | ---------------------------- | -------------- | -------------------------------------------- |
+| EXP_ORGANIZATION   | 組織活動費                   | 政治活動費     | 大会費、行事費、組織対策費、渉外費、交際費等 |
+| EXP_ELECTION       | 選挙関係費                   | 政治活動費     | 公認推薦料、陣中見舞、選挙活動費等           |
+| EXP_MAGAZINE       | 機関紙誌の発行事業費         | 政治活動費     | 材料費、印刷費、発送費、原稿料等             |
+| EXP_PUBLICITY      | 宣伝事業費                   | 政治活動費     | 遊説費、広告料、ポスター・ビラ作成費等       |
+| EXP_PARTY_EVENT    | 政治資金パーティー開催事業費 | 政治活動費     | 会場費、記念品代、講演諸経費等               |
+| EXP_OTHER_BUSINESS | その他の事業費               | 政治活動費     |                                              |
+| EXP_RESEARCH       | 調査研究費                   | 政治活動費     | 研修会費、資料費、書籍購入費等               |
+| EXP_DONATION       | 寄附・交付金                 | 政治活動費     | 政治団体への寄附、本部・支部への交付金等     |
+| EXP_MISC           | その他の経費                 | 政治活動費     | 上記以外の政治活動費                         |
+
+**選挙運動費用（選挙用）- 公職選挙法に基づく 10 費目:**
+
+| code                   | name   | reportCategory | 公費対象 | 備考                                             |
+| ---------------------- | ------ | -------------- | -------- | ------------------------------------------------ |
+| EXP_PERSONNEL_ELEC     | 人件費 | 選挙運動費用   |          | 事務員報酬、車上運動員報酬、労務者報酬等         |
+| EXP_BUILDING_ELEC      | 家屋費 | 選挙運動費用   |          | 選挙事務所費（賃借料・設営費等）、集合会場費等   |
+| EXP_COMMUNICATION_ELEC | 通信費 | 選挙運動費用   |          | 電話料、切手代、郵便料等                         |
+| EXP_TRANSPORT_ELEC     | 交通費 | 選挙運動費用   |          | 運動員への交通費実費弁償、鉄道賃、車賃等         |
+| EXP_PRINTING_ELEC      | 印刷費 | 選挙運動費用   | ✅       | はがき、ビラ、ポスター等の印刷代                 |
+| EXP_ADVERTISING_ELEC   | 広告費 | 選挙運動費用   | ✅       | 看板・たすき作成費、拡声機借上料、新聞折込料等   |
+| EXP_STATIONERY_ELEC    | 文具費 | 選挙運動費用   |          | 用紙、ボールペン、コピー代、事務所消耗品等       |
+| EXP_FOOD_ELEC          | 食料費 | 選挙運動費用   |          | 茶菓代、弁当代、運動員への弁当料・茶菓料実費弁償 |
+| EXP_LODGING_ELEC       | 休泊費 | 選挙運動費用   |          | 運動員への宿泊料実費弁償、休憩所費用等           |
+| EXP_MISC_ELEC          | 雑費   | 選挙運動費用   |          | 上記以外の選挙運動費用                           |
+
+※ 公費対象: 選挙公営（公費負担）の対象となりうる科目。印刷費（ポスター・ビラ・はがき）、広告費（看板等）が該当。
+※ 選挙運動用自動車の使用費用は収支報告書に計上しないため、科目には含まない。
+
+---
+
+**補助科目の例:**
+
+- `EXP_UTILITIES` (光熱水費) に対して:
+  - 「電気代」「ガス代」「水道代」を `sub_accounts` として作成可能
+- `EXP_ORGANIZATION` (組織活動費) に対して:
+  - 「大会費」「渉外費」「交際費」「慶弔費」を `sub_accounts` として作成可能
+
+### **2.2. 仕訳ヘッダ (【v3.12 更新】)**
+
+v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎます。
+**【v3.12 変更】** contact_id を NULL 許容に変更（振替の場合は関係者が不要なため）。
 
 **テーブル名:** journals
 
-| 列名 (Column Name)             | データ型 (Data Type) | 説明 (Description)   | 備考 (Notes)                                                                                                                                         |
-| :----------------------------- | :------------------- | :------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                             | uuid                 | 一意な ID (仕訳 ID)  | 主キー, uuid_generate_v4()                                                                                                                           |
-| organization_id                | uuid                 | 紐づく政治団体の ID  | NULL 許容, political_organizations.id への FK                                                                                                        |
-| election_id                    | uuid                 | 紐づく選挙台帳の ID  | NULL 許容, elections.id への FK                                                                                                                      |
-| journal_date                   | date                 | 仕訳日（取引日）     | 必須                                                                                                                                                 |
-| description                    | text                 | 摘要（取引内容）     | 必須。例: 「事務所家賃 5 月分」                                                                                                                      |
-| status                         | text                 | 承認ステータス       | draft (起票/承認前), approved (承認済)。必須                                                                                                         |
-| submitted_by_user_id           | uuid                 | 起票したユーザー ID  | auth.users.id への参照。必須                                                                                                                         |
-| approved_by_user_id            | uuid                 | 承認したユーザー ID  | status='approved'の場合必須                                                                                                                          |
-| contact_id                     | uuid                 | **紐づく関係者 ID**  | **必須**, contacts.id への FK。 （「自己資金」仕訳の場合、contacts マスタの「自分」を選択） （「みずほ銀行」からの借入の場合、「みずほ銀行」を選択） |
-| classification                 | text                 | 選挙運動の活動区分   | pre-campaign (立候補準備), campaign (選挙運動)。election_id が設定されている場合のみ使用                                                             |
-| non_monetary_basis             | text                 | 金銭以外の見積の根拠 | NULL 許容。                                                                                                                                          |
-| notes                          | text                 | 備考                 | 任意入力。NULL 許容                                                                                                                                  |
-| amount_political_grant         | integer              | 政党交付金充当額     | NULL 許容, デフォルト 0                                                                                                                              |
-| amount_political_fund          | integer              | 政党基金充当額       | NULL 許容, デフォルト 0                                                                                                                              |
-| is_receipt_hard_to_collect     | boolean              | 領収証徴収困難フラグ | 必須, デフォルト false                                                                                                                               |
-| receipt_hard_to_collect_reason | text                 | 領収証徴収困難理由   | NULL 許容。                                                                                                                                          |
-| created_at                     | timestamptz          | レコード作成日時     | now()                                                                                                                                                |
+| 列名 (Column Name)             | データ型 (Data Type) | 説明 (Description)   | 備考 (Notes)                                                                                                            |
+| :----------------------------- | :------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| id                             | uuid                 | 一意な ID (仕訳 ID)  | 主キー, uuid_generate_v4()                                                                                              |
+| organization_id                | uuid                 | 紐づく政治団体の ID  | NULL 許容, political_organizations.id への FK                                                                           |
+| election_id                    | uuid                 | 紐づく選挙台帳の ID  | NULL 許容, elections.id への FK                                                                                         |
+| journal_date                   | date                 | 仕訳日（取引日）     | 必須                                                                                                                    |
+| description                    | text                 | 摘要（取引内容）     | 必須。例: 「事務所家賃 5 月分」                                                                                         |
+| status                         | text                 | 承認ステータス       | draft (起票/承認前), approved (承認済)。必須                                                                            |
+| submitted_by_user_id           | uuid                 | 起票したユーザー ID  | auth.users.id への参照。必須                                                                                            |
+| approved_by_user_id            | uuid                 | 承認したユーザー ID  | status='approved'の場合必須                                                                                             |
+| contact_id                     | uuid                 | **紐づく関係者 ID**  | **【v3.12 更新】NULL 許容**。収入・支出の場合は必須（アプリでバリデーション）、振替の場合は NULL。contacts.id への FK。 |
+| classification                 | text                 | 選挙運動の活動区分   | pre-campaign (立候補準備), campaign (選挙運動)。election_id が設定されている場合のみ使用                                |
+| non_monetary_basis             | text                 | 金銭以外の見積の根拠 | NULL 許容。                                                                                                             |
+| notes                          | text                 | 備考                 | 任意入力。NULL 許容                                                                                                     |
+| amount_political_grant         | integer              | 政党交付金充当額     | NULL 許容, デフォルト 0                                                                                                 |
+| amount_political_fund          | integer              | 政党基金充当額       | NULL 許容, デフォルト 0                                                                                                 |
+| amount_public_subsidy          | integer              | **公費負担額**       | **【v3.11 追加】** NULL 許容, デフォルト 0。選挙公営による公費負担額。                                                  |
+| is_receipt_hard_to_collect     | boolean              | 領収証徴収困難フラグ | 必須, デフォルト false                                                                                                  |
+| receipt_hard_to_collect_reason | text                 | 領収証徴収困難理由   | NULL 許容。                                                                                                             |
+| created_at                     | timestamptz          | レコード作成日時     | now()                                                                                                                   |
 
 ### **2.3. 仕訳明細 (【v3.9 更新】)**
 
@@ -379,38 +528,38 @@ class PermissionService {
 
 - **ファイル (推奨):** `lib/features/journal/presentation/pages/journal_list_page.dart`
 - **前提:**
-    - `ledgerId`（`organization_id` または `election_id`）
-    - `ledgerType`（文字列）
-    - `myRole`（文字列）
-    - `ledgerName`（文字列） を受け取る。
+  - `ledgerId`（`organization_id` または `election_id`）
+  - `ledgerType`（文字列）
+  - `myRole`（文字列）
+  - `ledgerName`（文字列） を受け取る。
 - **ロジック (State):**
-    - この画面は `StatefulWidget` として実装する。
-    - **`_currentYear` (int):** 現在表示している会計年度を保持する状態変数。初期値は現在の暦年 (`DateTime.now().year`)。
-    - **権限フラグ:** `initState`で、`myRole`に基づき各種権限（`canManageMembers`など）をbool変数として保持する。
+  - この画面は `StatefulWidget` として実装する。
+  - **`_currentYear` (int):** 現在表示している会計年度を保持する状態変数。初期値は現在の暦年 (`DateTime.now().year`)。
+  - **権限フラグ:** `initState`で、`myRole`に基づき各種権限（`canManageMembers`など）を bool 変数として保持する。
 - **レイアウト:**
-    - **AppBar:**
-        - `title`: `Text(widget.ledgerName)`
-        - `actions`:
-            - **年度選択ドロップダウン:**
-                - `DropdownButton<int>` を配置。
-                - 選択肢: この台帳に存在する仕訳の`journal_date`から、重複を除いた「年」のリストを降順で表示する。（例: `[2024, 2023]`）
-                - `onChanged`: 新しい年が選択されたら、`setState`を呼び出して `_currentYear` を更新し、データ再取得をトリガーする。
-            - `IconButton` (関係者マスタ) ※権限に応じて表示
-            - `IconButton` (台帳設定) ※権限に応じて表示
-    - **body:**
-        - `Column` を配置。
-        - **繰越残高表示エリア:**
-            - `ListView` の上に `Card` や `ListTile` を使って、「**前期繰越: ¥〇〇,〇〇〇**」を表示する。
-            - この金額は、`(_currentYear - 1)`年度の期末残高（全ての資産 - 負債 - 純資産）を計算して表示する。（この計算は`JournalRepository`に新しいメソッドとして実装することを推奨）
-        - **仕訳リスト:**
-            - `StreamBuilder` または `FutureBuilder` を使用。
-            - **データ取得:** `journals` テーブルから、`ledger_id`が一致し、かつ`journal_date`が `_currentYear` の **1月1日から12月31日まで**のレコードを、日付の降順で取得する。
-            - `ListView.builder`:
-                - `ListTile`:
-                    - `title`: `Text(journal.description)` (摘要)
-                    - `subtitle`: （勘定科目名を表示）
-                    - `leading`: （承認ステータスアイコン）
-                    - `trailing`: （金額）
+  - **AppBar:**
+    - `title`: `Text(widget.ledgerName)`
+    - `actions`:
+      - **年度選択ドロップダウン:**
+        - `DropdownButton<int>` を配置。
+        - 選択肢: この台帳に存在する仕訳の`journal_date`から、重複を除いた「年」のリストを降順で表示する。（例: `[2024, 2023]`）
+        - `onChanged`: 新しい年が選択されたら、`setState`を呼び出して `_currentYear` を更新し、データ再取得をトリガーする。
+      - `IconButton` (関係者マスタ) ※権限に応じて表示
+      - `IconButton` (台帳設定) ※権限に応じて表示
+  - **body:**
+    - `Column` を配置。
+    - **繰越残高表示エリア:**
+      - `ListView` の上に `Card` や `ListTile` を使って、「**前期繰越: ¥ 〇〇,〇〇〇**」を表示する。
+      - この金額は、`(_currentYear - 1)`年度の期末残高（全ての資産 - 負債 - 純資産）を計算して表示する。（この計算は`JournalRepository`に新しいメソッドとして実装することを推奨）
+    - **仕訳リスト:**
+      - `StreamBuilder` または `FutureBuilder` を使用。
+      - **データ取得:** `journals` テーブルから、`ledger_id`が一致し、かつ`journal_date`が `_currentYear` の **1 月 1 日から 12 月 31 日まで**のレコードを、日付の降順で取得する。
+      - `ListView.builder`:
+        - `ListTile`:
+          - `title`: `Text(journal.description)` (摘要)
+          - `subtitle`: （勘定科目名を表示）
+          - `leading`: （承認ステータスアイコン）
+          - `trailing`: （金額）
 - **機能:**
   - **ListTile タップ:**
   - status == 'draft' かつ canApprove が true の場合:
@@ -462,6 +611,13 @@ class PermissionService {
         - items: \_loadAccounts でロードした account_type = 'asset' のリスト
     - if (widget.ledger_type == 'election'):
       - SegmentedButton (区分) - （選択肢: pre-campaign (立候補準備), campaign (選挙運動)）
+    - **【v3.11 追加】公費負担入力（選挙台帳 + 公費対象科目の場合のみ表示）:**
+      - if (widget.ledger_type == 'election' && \_selectedExpenseAccount.isPublicSubsidyEligible):
+        - Text('公費負担がある場合は自己負担額を入力してください')
+        - TextFormField (自己負担額) - \_selfPaymentAmount
+        - **公費負担額:** Text('¥ ${\_totalAmount - \_selfPaymentAmount}') ← 差額を自動計算表示
+        - ※ 自己負担額が未入力または支出金額と同額の場合は公費負担なし（amount_public_subsidy = 0）
+        - ※ 公費負担額は journals.amount_public_subsidy に保存
     - **関係者 (寄付者/支出先/銀行/借入先):** DropdownButtonFormField
       - items: contacts テーブルから取得。
       - decoration: InputDecoration(labelText: '関係者', suffixIcon: IconButton(icon: Icon(Icons.person_add), onPressed: \_navigateToContacts))
@@ -672,17 +828,330 @@ class PermissionService {
   4. Supabase から OTP（数字コード）付きのパスワードリセットメールが送信される。
   5. ユーザーは 4.2 と同様の「Email + OTP + 新パスワード」入力フォームを使い、パスワードをリセットする。（verifyOtp の type は OtpType.recovery を使用）
 
-## **5. アウトプット仕様（将来機能） (【v3.6 更新】)**
+## **4.5. 登録要件と証明書 (【v3.15 新規】)**
 
-Polimoney 互換 JSON をエクスポートする際、仕訳データ（journals, journal_entries）と、勘定科目（accounts）、関係者（contacts）を JOIN する。
+### 4.5.1. 概要
 
-- **「自己資金」の判別:**
-  - アウトプット（Polimoney）側は、journal_entries が accounts.account_name = '自己資金' の account_id に紐づいているか否かで、その取引が自己資金であるかを明確に判別できる。
-- **「銀行口座別」の集計:**
-  - アウトプット（Polimoney）側は、journals.contact_id と contacts.name = 'みずほ銀行' を紐付けることで、accounts.account_name = '普通預金' の内訳（補助科目）として残高を追跡できる。
-- **関係者情報の匿名化:**
-  - contacts.contact_type (person / corporation) は**常に公開**する。
-  - contacts.name は、is_name_private == true の場合、null または「非公開」という文字列で上書きする。
-  - contacts.address は、is_address_private == true の場合、null または「非公開」という文字列で上書きする。
-  - contacts.occupation は、is_occupation_private == true の場合、null または「非公開」という文字列で上書きする。
-  - 非公開項目が 1 つでもある場合、privacy_reason_type と privacy_reason_other の内容もエクスポート対象に含める。
+不正登録を防ぎ、実際の政治家・会計担当者のみが利用できるよう、**証明書類の提出を必須**とする。
+
+### 4.5.2. ユーザー種別と証明書
+
+| ユーザー種別   | 証明書類                   | 説明                             |
+| -------------- | -------------------------- | -------------------------------- |
+| **政治家本人** | 設立届出書（代表者欄）     | 政治団体の代表者と氏名が一致     |
+| **会計責任者** | 設立届出書（会計責任者欄） | 政治団体の会計責任者と氏名が一致 |
+| **現職議員**   | 議員証 / 当選証書          | 公的な身分証明                   |
+
+### 4.5.3. 政治団体登録の証明書
+
+| 証明書類                         | コード              | 説明               |
+| -------------------------------- | ------------------- | ------------------ |
+| 政治団体設立届出書（控え）       | `registration_form` | 選管に届出した控え |
+| 政治団体名簿のスクリーンショット | `name_list`         | 総務省サイト等     |
+| 政治資金収支報告書の表紙         | `financial_report`  | 過去の報告書       |
+
+### 4.5.4. 選挙登録の証明書
+
+| 証明書類                 | コード                  | 説明               |
+| ------------------------ | ----------------------- | ------------------ |
+| 立候補届出受理証明       | `candidacy_certificate` | 選管が発行         |
+| 選挙事務所設置届（控え） | `office_registration`   | 選管に届出した控え |
+| ポスター掲示場番号通知   | `poster_number`         | 選管からの通知     |
+
+### 4.5.5. 登録フロー
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. アカウント作成                                                    │
+│    - Email + Password + 氏名                                        │
+│    - OTP 認証                                                       │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 2. 政治団体を検索                                                    │
+│    - Hub から承認済み政治団体を検索                                  │
+│    - 見つかった場合 → 紐付けリクエスト                              │
+│    - 見つからない場合 → 新規登録リクエスト                          │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 3. 登録リクエスト送信                                                │
+│    - 団体名、種別、届出先                                           │
+│    - 証明書類のアップロード（必須）                                  │
+│    - ユーザーの役割（代表者 / 会計責任者）                          │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 4. Hub Admin が承認                                                  │
+│    - 証明書と申請内容を照合                                         │
+│    - 氏名が代表者/会計責任者と一致するか確認                        │
+│    - 承認 → 台帳作成が可能に                                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.5.6. リクエスト制限
+
+| 制限項目                       | 値            |
+| ------------------------------ | ------------- |
+| 同一ユーザーの未承認リクエスト | 最大 **3 件** |
+| リクエスト間隔                 | **24 時間**   |
+
+### 4.5.7. データモデル
+
+```typescript
+// 証明書タイプ
+const EVIDENCE_TYPES = {
+  // 政治団体用
+  registration_form: "政治団体設立届出書（控え）",
+  name_list: "政治団体名簿のスクリーンショット",
+  financial_report: "政治資金収支報告書の表紙",
+  // 選挙用
+  candidacy_certificate: "立候補届出受理証明",
+  office_registration: "選挙事務所設置届（控え）",
+  poster_number: "ポスター掲示場番号通知",
+  // 議員用
+  member_id: "議員証",
+  election_certificate: "当選証書",
+};
+
+// ユーザーの役割
+const USER_ROLES = {
+  organization_representative: "政治団体の代表者",
+  organization_accountant: "政治団体の会計責任者",
+  elected_official: "現職議員",
+};
+```
+
+## **5. Polimoney 連携仕様 (【v3.13 大幅更新】)**
+
+### 方針変更
+
+**SaaS 化に伴い、JSON エクスポートから Hub 経由のリアルタイム連携に変更。**
+
+詳細は `docs/ARCHITECTURE.md` および `docs/IDENTITY_DESIGN.md` を参照。
+
+### 5.1. 連携アーキテクチャ
+
+```
+Ledger DB (Supabase) ──Realtime──→ Polimoney Hub ──→ Polimoney (可視化)
+```
+
+- **リアルタイム連携**: Supabase Realtime で仕訳データの変更を Hub に通知
+- **匿名化処理**: Hub 側でプライバシー設定に基づきデータ変換
+- **JSON エクスポート**: 不要（Hub が直接データを提供）
+
+### 5.2. 匿名化ルール（Hub で実装）
+
+| フィールド            | 条件                          | 出力     |
+| --------------------- | ----------------------------- | -------- |
+| contacts.contact_type | 常に                          | 公開     |
+| contacts.name         | is_name_private == true       | "非公開" |
+| contacts.address      | is_address_private == true    | "非公開" |
+| contacts.occupation   | is_occupation_private == true | "非公開" |
+| privacy*reason*\*     | いずれかが private            | 含める   |
+
+### 5.3. 公費負担の連携
+
+- journals.amount_public_subsidy > 0 の仕訳について、公費負担情報を Hub 経由で Polimoney に提供
+- Polimoney では、法定報告書では表示されない公費負担の詳細を可視化
+
+### 5.4. 自己資金の判別
+
+- journal_entries の account_code = 'REV_SELF_FINANCING' で判別
+- contact_id = NULL かつ自己資金科目 → 候補者本人からの資金
+
+---
+
+## **6. 外部連携・取引取込機能 (【v3.14 追加】)**
+
+### 6.1. 概要
+
+Freee 等のクラウド会計ソフトや銀行口座から取引データを取り込み、仕訳の下書きとして保存する機能。
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Freee / 銀行API │ ──→ │ transaction_    │ ──→ │ journals        │
+│ 取引明細        │     │ drafts          │     │ 仕訳            │
+│                 │     │ (取引下書き)    │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                              ↑
+                        ユーザーが確認
+                        科目を割り当て
+```
+
+### 6.2. 対応ソース
+
+| ソース                    | source_type    | 連携方法   | 優先度 | 備考            |
+| ------------------------- | -------------- | ---------- | ------ | --------------- |
+| マネーフォワード クラウド | `moneyforward` | OAuth2 API | 🔴 高  | 開発者 API 公開 |
+| CSV アップロード          | `csv`          | ファイル   | 🔴 高  | 汎用            |
+| 手動入力                  | `manual`       | フォーム   | 🔴 高  | -               |
+| Freee                     | `freee`        | OAuth2 API | 🟡 中  | -               |
+| Moneytree                 | `moneytree`    | OAuth2 API | 🟢 低  | -               |
+
+### 6.3. transaction_drafts テーブル
+
+| カラム                 | 型      | 説明                          |
+| ---------------------- | ------- | ----------------------------- |
+| id                     | UUID    | 主キー                        |
+| owner_user_id          | UUID    | 所有者                        |
+| organization_id        | UUID    | 政治団体（任意）              |
+| election_id            | UUID    | 選挙（任意）                  |
+| transaction_date       | DATE    | 取引日                        |
+| amount                 | INTEGER | 金額（正: 入金、負: 出金）    |
+| description            | TEXT    | 摘要                          |
+| counterparty           | TEXT    | 取引先名                      |
+| source_type            | TEXT    | ソース種別                    |
+| source_account_name    | TEXT    | 口座名（三菱 UFJ 銀行 等）    |
+| source_transaction_id  | TEXT    | 外部 ID（重複防止）           |
+| source_raw_data        | JSONB   | 元データ（デバッグ用）        |
+| suggested_account_code | TEXT    | 推奨科目（AI or ルール）      |
+| suggested_contact_id   | UUID    | 推奨関係者                    |
+| status                 | TEXT    | pending / converted / ignored |
+| converted_journal_id   | UUID    | 変換後の仕訳 ID               |
+
+### 6.4. ステータス遷移
+
+```
+pending ──→ converted  (仕訳に変換)
+    │
+    └────→ ignored     (無視/対象外)
+```
+
+### 6.5. UI フロー
+
+1. **取り込み画面**
+
+   - Freee 連携 / CSV アップロード / 手動追加 を選択
+   - 取引データを取得・表示
+
+2. **確認・編集画面**
+
+   - 未処理の取引一覧を表示
+   - 各取引に対して科目を割り当て（推奨科目を提示）
+   - 「仕訳に変換」または「無視」を選択
+
+3. **一括処理**
+   - 複数の取引をまとめて仕訳に変換
+
+### 6.6. マネーフォワード クラウド API 連携
+
+**開発者サイト:** https://developers.biz.moneyforward.com/
+
+#### 認証フロー
+
+```
+1. ユーザーが「マネーフォワード連携」ボタンをクリック
+2. マネーフォワードの認可画面にリダイレクト
+3. ユーザーが許可
+4. コールバックで認可コード取得
+5. アクセストークン取得
+6. 明細データ取得
+```
+
+#### API 仕様
+
+```typescript
+// OAuth2 認可エンドポイント
+const MF_AUTH_URL = "https://api.biz.moneyforward.com/authorize";
+const MF_TOKEN_URL = "https://api.biz.moneyforward.com/token";
+
+// 必要なスコープ
+const MF_SCOPES = [
+  "office",                    // 事業者情報
+  "account_item",              // 勘定科目
+  "wallet",                    // 口座
+  "wallet_txn",                // 口座明細
+];
+
+// 口座明細取得
+GET https://accounting.bizapi.moneyforward.com/api/v3/wallet_txns
+  ?office_id={office_id}
+  &from_date=2024-01-01
+  &to_date=2024-12-31
+
+// レスポンス例
+{
+  "wallet_txns": [
+    {
+      "id": 12345,
+      "date": "2024-03-01",
+      "amount": -50000,
+      "due_amount": 0,
+      "balance": 1000000,
+      "walletable_id": 1,
+      "walletable_type": "BankAccount",
+      "description": "ポスター印刷代",
+      "entry_side": "expense"
+    }
+  ]
+}
+
+// transaction_drafts に変換
+{
+  transaction_date: txn.date,
+  amount: txn.amount,  // マネーフォワードは符号付き
+  description: txn.description,
+  counterparty: null,  // 別途取得が必要
+  source_type: "moneyforward",
+  source_account_name: wallet.name,  // 口座名
+  source_transaction_id: String(txn.id),
+  source_raw_data: txn,
+}
+```
+
+### 6.7. Freee API 連携
+
+```typescript
+// 必要なスコープ
+const FREEE_SCOPES = [
+  "read",           // 基本読み取り
+  "wallet_txns",    // 口座明細
+];
+
+// 口座明細取得
+GET https://api.freee.co.jp/api/1/wallet_txns
+  ?company_id={company_id}
+  &start_date=2024-01-01
+  &end_date=2024-12-31
+
+// レスポンスを transaction_drafts に変換
+{
+  transaction_date: txn.date,
+  amount: txn.entry_side === "income" ? txn.amount : -txn.amount,
+  description: txn.description,
+  counterparty: txn.partner?.name,
+  source_type: "freee",
+  source_account_name: txn.walletable_name,
+  source_transaction_id: String(txn.id),
+  source_raw_data: txn,
+}
+```
+
+### 6.7. CSV フォーマット
+
+```csv
+日付,金額,摘要,取引先
+2024-03-01,-50000,ポスター印刷,印刷会社A
+2024-03-02,100000,寄附,山田一郎
+2024-03-05,-3000,タクシー代,
+```
+
+### 6.8. 将来拡張: AI 科目推奨
+
+取引摘要から科目を推論：
+
+```
+入力: "印刷会社A ポスター代"
+出力:
+  - 選挙運動費/印刷費 (85%)
+  - 事務費/印刷費 (15%)
+```
+
+学習データ:
+
+- 過去の仕訳パターン
+- ユーザーの選択履歴

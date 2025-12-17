@@ -1,0 +1,1 @@
+ C:\\Users\\oscar\\Documents\\work\\dd2030\\github\\polimoney_ledger\\.dart_tool\\flutter_build\\54844fcbaaa2d82367cbdfeef2b58b80\\native_assets.json: 
