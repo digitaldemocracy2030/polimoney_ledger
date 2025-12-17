@@ -260,7 +260,7 @@ export function Layout({ children, currentPath, title }: LayoutProps) {
             </ul>
           </nav>
 
-          {/* 設定リンク */}
+          {/* 設定・ログアウト */}
           <div class="border-t border-base-300 mt-auto">
             <ul class="menu p-4">
               <li>
@@ -288,6 +288,25 @@ export function Layout({ children, currentPath, title }: LayoutProps) {
                     />
                   </svg>
                   設定
+                </a>
+              </li>
+              <li>
+                <a href="/logout" class="text-error hover:bg-error/10">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="w-5 h-5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"
+                    />
+                  </svg>
+                  ログアウト
                 </a>
               </li>
             </ul>
