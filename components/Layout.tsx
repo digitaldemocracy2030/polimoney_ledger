@@ -1,4 +1,5 @@
 import { ComponentChildren } from "preact";
+import PolicyBanner from "../islands/PolicyBanner.tsx";
 
 interface NavItem {
   href: string;
@@ -184,6 +185,9 @@ export function Layout({ children, currentPath, title }: LayoutProps) {
 
       {/* メインコンテンツ */}
       <div class="drawer-content flex flex-col bg-base-200 min-h-screen">
+        {/* ポリシー変更通知バナー */}
+        <PolicyBanner />
+
         {/* ヘッダー */}
         <header class="bg-base-100 border-b border-base-300 px-6 py-4 sticky top-0 z-10">
           <div class="flex items-center gap-4">
