@@ -10,6 +10,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const HUB_API_URL = Deno.env.get("HUB_API_URL_PROD") || Deno.env.get("HUB_API_URL_DEV") || "";
 const HUB_API_KEY = Deno.env.get("HUB_API_KEY_PROD") || Deno.env.get("HUB_API_KEY_DEV") || "";
 
+// 開発モード判定
+const USE_MOCK_MODE = Deno.env.get("USE_MOCK_MODE") === "true";
+
 interface RegisterData {
   error?: string;
   success?: boolean;
@@ -142,6 +145,7 @@ export const handler: Handlers<RegisterData> = {
             verification_doc_url: verificationDocUrl || `pending:${userId}`,
             verification_doc_type: getDocType(role),
             verification_doc_name: verificationDoc.name,
+            is_test: USE_MOCK_MODE, // テスト申請フラグ
           }),
         });
 
