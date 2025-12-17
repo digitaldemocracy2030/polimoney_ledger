@@ -15,7 +15,7 @@ const IS_PRODUCTION = Deno.env.get("DENO_ENV") === "production";
 /** Hub API URL（本番/開発で自動切り替え） */
 const HUB_API_URL = IS_PRODUCTION
   ? Deno.env.get("HUB_API_URL_PROD") || "https://api.polimoney.dd2030.org"
-  : Deno.env.get("HUB_API_URL_DEV") || "http://localhost:8000";
+  : Deno.env.get("HUB_API_URL_DEV") || "http://localhost:3722";
 
 /** Hub API キー（本番/開発で自動切り替え） */
 const HUB_API_KEY = IS_PRODUCTION

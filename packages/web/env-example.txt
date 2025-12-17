@@ -21,7 +21,7 @@ USE_MOCK_MODE=false
 # -------------------------------------------
 # ローカル: http://localhost:8000
 # Docker Compose: http://app:8000
-HUB_API_URL_DEV=http://localhost:8000
+HUB_API_URL_DEV=http://localhost:3722
 HUB_API_KEY_DEV=your-dev-api-key-here
 
 # -------------------------------------------
