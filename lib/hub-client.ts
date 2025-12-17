@@ -129,10 +129,21 @@ async function fetchApi<T>(
   headers.set("Content-Type", "application/json");
   headers.set("X-API-Key", HUB_API_KEY);
 
-  const response = await fetch(`${HUB_API_URL}${endpoint}`, {
+  const url = `${HUB_API_URL}${endpoint}`;
+  console.log(`[Hub API] Fetching: ${url}`);
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });
+
+  // レスポンスのContent-Typeを確認
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    const text = await response.text();
+    console.error(`[Hub API] Non-JSON response from ${url}:`, text.slice(0, 200));
+    throw new Error(`Hub API returned non-JSON response (${response.status})`);
+  }
 
   const json = await response.json();
 

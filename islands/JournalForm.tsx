@@ -46,7 +46,8 @@ export default function JournalForm({
     text: string;
   } | null>(null);
 
-  const accounts = type === "revenue" ? ACCOUNT_CODES.revenue : ACCOUNT_CODES.expense;
+  const accounts =
+    type === "revenue" ? ACCOUNT_CODES.revenue : ACCOUNT_CODES.expense;
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
