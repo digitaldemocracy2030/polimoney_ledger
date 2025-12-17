@@ -32,6 +32,42 @@ export default function Settings() {
             </div>
           </section>
 
+          {/* データエクスポート */}
+          <section class="card bg-base-100 shadow-xl mb-8">
+            <div class="card-body">
+              <h2 class="card-title">
+                📦 データポータビリティ
+              </h2>
+              <p class="text-base-content/70 mb-4">
+                あなたのすべてのデータを JSON 形式でダウンロードできます。
+                政治団体、選挙、仕訳、連絡先などが含まれます。
+              </p>
+              <div class="card-actions">
+                <a
+                  href="/api/export"
+                  class="btn btn-outline btn-primary"
+                  download
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  データをエクスポート
+                </a>
+              </div>
+            </div>
+          </section>
+
           {/* スペーサー */}
           <div class="py-8"></div>
 
