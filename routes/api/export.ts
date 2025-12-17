@@ -32,13 +32,14 @@ export const handler: Handlers = {
     }
 
     // テストユーザーの場合は service role client を使用
-    const supabase = userId === TEST_USER_ID
-      ? getServiceRoleClient()
-      : getSupabaseClient(req);
+    const supabase =
+      userId === TEST_USER_ID ? getServiceRoleClient() : getSupabaseClient(req);
 
     try {
       // ユーザー情報取得
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       // 各テーブルからデータを取得
       const [
@@ -49,16 +50,24 @@ export const handler: Handlers = {
         subAccountsResult,
         journalsResult,
       ] = await Promise.all([
-        supabase.from("political_organizations").select("*").eq("owner_user_id", userId),
+        supabase
+          .from("political_organizations")
+          .select("*")
+          .eq("owner_user_id", userId),
         supabase.from("politicians").select("*").eq("owner_user_id", userId),
         supabase.from("elections").select("*").eq("owner_user_id", userId),
         supabase.from("contacts").select("*").eq("owner_user_id", userId),
         supabase.from("sub_accounts").select("*").eq("owner_user_id", userId),
-        supabase.from("journals").select("*").eq("submitted_by_user_id", userId),
+        supabase
+          .from("journals")
+          .select("*")
+          .eq("submitted_by_user_id", userId),
       ]);
 
       // 仕訳IDを収集
-      const journalIds = (journalsResult.data || []).map((j: { id: string }) => j.id);
+      const journalIds = (journalsResult.data || []).map(
+        (j: { id: string }) => j.id
+      );
 
       // 仕訳明細と添付ファイルを取得
       let journalEntries: unknown[] = [];
@@ -66,8 +75,14 @@ export const handler: Handlers = {
 
       if (journalIds.length > 0) {
         const [entriesResult, mediaResult] = await Promise.all([
-          supabase.from("journal_entries").select("*").in("journal_id", journalIds),
-          supabase.from("media_assets").select("*").in("journal_id", journalIds),
+          supabase
+            .from("journal_entries")
+            .select("*")
+            .in("journal_id", journalIds),
+          supabase
+            .from("media_assets")
+            .select("*")
+            .in("journal_id", journalIds),
         ]);
         journalEntries = entriesResult.data || [];
         mediaAssets = mediaResult.data || [];

@@ -35,9 +35,7 @@ export default function Settings() {
           {/* データエクスポート */}
           <section class="card bg-base-100 shadow-xl mb-8">
             <div class="card-body">
-              <h2 class="card-title">
-                📦 データポータビリティ
-              </h2>
+              <h2 class="card-title">📦 データポータビリティ</h2>
               <p class="text-base-content/70 mb-4">
                 あなたのすべてのデータを JSON 形式でダウンロードできます。
                 政治団体、選挙、仕訳、連絡先などが含まれます。
