@@ -50,13 +50,10 @@ export const handler: Handlers = {
       }
 
       if (!body.entries || body.entries.length === 0) {
-        return new Response(
-          JSON.stringify({ error: "仕訳明細は必須です" }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+        return new Response(JSON.stringify({ error: "仕訳明細は必須です" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       if (!body.organization_id && !body.election_id) {

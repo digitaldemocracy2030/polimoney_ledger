@@ -70,7 +70,10 @@ function formatDate(dateStr: string): string {
 
 // 仕訳の合計金額を計算
 function calculateTotal(entries: JournalEntry[]): number {
-  return entries.reduce((sum, entry) => sum + entry.debit_amount + entry.credit_amount, 0);
+  return entries.reduce(
+    (sum, entry) => sum + entry.debit_amount + entry.credit_amount,
+    0
+  );
 }
 
 // 収支区分を判定

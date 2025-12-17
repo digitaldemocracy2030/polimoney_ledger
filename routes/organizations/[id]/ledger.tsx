@@ -71,7 +71,8 @@ export const handler: Handlers<PageData> = {
       // 仕訳一覧を取得
       const { data: journals, error: journalError } = await supabase
         .from("journals")
-        .select(`
+        .select(
+          `
           id,
           journal_date,
           description,
@@ -87,7 +88,8 @@ export const handler: Handlers<PageData> = {
           contacts (
             name
           )
-        `)
+        `
+        )
         .eq("organization_id", organizationId)
         .eq("submitted_by_user_id", userId)
         .order("journal_date", { ascending: false });
@@ -139,7 +141,10 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
       <Head>
         <title>{organization.name} - 台帳 - Polimoney Ledger</title>
       </Head>
-      <Layout currentPath="/organizations" title={`${organization.name} の台帳`}>
+      <Layout
+        currentPath="/organizations"
+        title={`${organization.name} の台帳`}
+      >
         {/* パンくずリスト */}
         <div class="text-sm breadcrumbs mb-4">
           <ul>
@@ -154,10 +159,7 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body">
             <h2 class="card-title text-lg mb-4">仕訳を登録</h2>
-            <JournalForm
-              organizationId={organization.id}
-              electionId={null}
-            />
+            <JournalForm organizationId={organization.id} electionId={null} />
           </div>
         </div>
 

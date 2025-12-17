@@ -378,7 +378,9 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 onClick={() => setShowCalendar(!showCalendar)}
                 class="input input-bordered w-full text-left flex items-center justify-between"
               >
-                <span class={formData.election_date ? "" : "text-base-content/50"}>
+                <span
+                  class={formData.election_date ? "" : "text-base-content/50"}
+                >
                   {formatDateDisplay(formData.election_date)}
                 </span>
                 <svg
