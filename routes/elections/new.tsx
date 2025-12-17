@@ -37,7 +37,9 @@ export const handler: Handlers<NewElectionPageData> = {
   },
 };
 
-export default function NewElectionPage({ data }: PageProps<NewElectionPageData>) {
+export default function NewElectionPage({
+  data,
+}: PageProps<NewElectionPageData>) {
   const { hubElections, error } = data;
 
   return (

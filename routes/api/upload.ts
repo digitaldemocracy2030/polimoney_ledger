@@ -16,6 +16,19 @@ const STORAGE_BUCKET = "evidence-files";
 export const handler: Handlers = {
   async POST(req) {
     try {
+      // Supabase 設定のバリデーション
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        console.error("Supabase configuration missing:", {
+          hasUrl: !!SUPABASE_URL,
+          hasKey: !!SUPABASE_KEY,
+        });
+        return new Response(
+          JSON.stringify({
+            error: "サーバー設定エラー: Supabase の設定が不完全です",
+          }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
       // FormData からファイルを取得
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
@@ -93,7 +106,9 @@ export const handler: Handlers = {
           hasKey: !!SUPABASE_KEY,
           keyPrefix: SUPABASE_KEY.substring(0, 15) + "...",
         });
-        throw new Error(`ファイルのアップロードに失敗しました: ${uploadResponse.status}`);
+        throw new Error(
+          `ファイルのアップロードに失敗しました: ${uploadResponse.status}`
+        );
       }
 
       // 公開URLを生成

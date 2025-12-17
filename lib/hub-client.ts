@@ -28,6 +28,16 @@ const HUB_API_KEY = IS_PRODUCTION
   ? Deno.env.get("HUB_API_KEY_PROD") || ""
   : Deno.env.get("HUB_API_KEY_DEV") || "";
 
+// API キーが設定されていない場合は起動時に警告
+if (!HUB_API_KEY) {
+  console.warn(
+    `[Hub API] Warning: HUB_API_KEY is not set. API calls will fail. ` +
+      `Set ${
+        IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
+      } environment variable.`
+  );
+}
+
 // ============================================
 // テストユーザー定数（開発用ダミーデータの所有者）
 // ============================================
@@ -126,6 +136,15 @@ async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  // API キーのバリデーション
+  if (!HUB_API_KEY) {
+    throw new Error(
+      `Hub API key is not configured. Set ${
+        IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
+      } environment variable.`
+    );
+  }
+
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
   headers.set("X-API-Key", HUB_API_KEY);
@@ -188,6 +207,55 @@ export async function getOrganizations(): Promise<Organization[]> {
 export async function getOrganization(id: string): Promise<Organization> {
   const result = await fetchApi<ApiResponse<Organization>>(
     `/api/v1/organizations/${id}`
+  );
+  return result.data;
+}
+
+// ============================================
+// マスタデータ API（勘定科目など）
+// ============================================
+
+/** 勘定科目マスタ */
+export interface AccountCode {
+  code: string;
+  name: string;
+  name_kana: string | null;
+  type: string; // 'asset', 'liability', 'equity', 'revenue', 'expense', 'subsidy'
+  report_category: string; // '経常経費', '政治活動費', '選挙運動費用'
+  ledger_type: string; // 'both', 'organization', 'election'
+  is_public_subsidy_eligible: boolean;
+  display_order: number;
+  polimoney_category: string | null;
+  parent_code: string | null;
+  description: string | null;
+}
+
+/**
+ * 勘定科目一覧を取得
+ * @param params.ledgerType 台帳タイプでフィルタ ('organization' | 'election')
+ * @param params.type 勘定科目タイプでフィルタ ('asset' | 'liability' | 'equity' | 'revenue' | 'expense')
+ */
+export async function getAccountCodes(params?: {
+  ledgerType?: string;
+  type?: string;
+}): Promise<AccountCode[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.ledgerType) searchParams.set("ledger_type", params.ledgerType);
+  if (params?.type) searchParams.set("type", params.type);
+
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const result = await fetchApi<ApiResponse<AccountCode[]>>(
+    `/api/v1/master/account-codes${query}`
+  );
+  return result.data;
+}
+
+/**
+ * 特定の勘定科目を取得
+ */
+export async function getAccountCode(code: string): Promise<AccountCode> {
+  const result = await fetchApi<ApiResponse<AccountCode>>(
+    `/api/v1/master/account-codes/${code}`
   );
   return result.data;
 }

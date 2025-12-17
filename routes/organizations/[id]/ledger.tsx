@@ -2,6 +2,7 @@ import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../../../components/Layout.tsx";
 import { getSupabaseClient, getServiceClient } from "../../../lib/supabase.ts";
+import { getAccountCodes, type AccountCode } from "../../../lib/hub-client.ts";
 import JournalForm from "../../../islands/JournalForm.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 
@@ -10,7 +11,6 @@ const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 interface Organization {
   id: string;
   name: string;
-  organization_type: string;
 }
 
 interface Journal {
@@ -31,9 +31,24 @@ interface Journal {
   } | null;
 }
 
+interface Contact {
+  id: string;
+  name: string;
+  contact_type: string;
+}
+
+interface SubAccount {
+  id: string;
+  name: string;
+  parent_account_code: string;
+}
+
 interface PageData {
   organization: Organization | null;
   journals: Journal[];
+  accountCodes: AccountCode[];
+  contacts: Contact[];
+  subAccounts: SubAccount[];
   error?: string;
 }
 
@@ -56,7 +71,7 @@ export const handler: Handlers<PageData> = {
       // 政治団体情報を取得
       const { data: organization, error: orgError } = await supabase
         .from("political_organizations")
-        .select("id, name, organization_type")
+        .select("id, name")
         .eq("id", organizationId)
         .single();
 
@@ -64,49 +79,79 @@ export const handler: Handlers<PageData> = {
         return ctx.render({
           organization: null,
           journals: [],
+          accountCodes: [],
+          contacts: [],
+          subAccounts: [],
           error: "政治団体が見つかりません",
         });
       }
 
-      // 仕訳一覧を取得
-      const { data: journals, error: journalError } = await supabase
-        .from("journals")
-        .select(
-          `
-          id,
-          journal_date,
-          description,
-          status,
-          contact_id,
-          created_at,
-          journal_entries (
-            id,
-            account_code,
-            debit_amount,
-            credit_amount
-          ),
-          contacts (
-            name
-          )
-        `
-        )
-        .eq("organization_id", organizationId)
-        .eq("submitted_by_user_id", userId)
-        .order("journal_date", { ascending: false });
+      // 並列で各種データを取得
+      const [journalsResult, contactsResult, subAccountsResult, accountCodes] =
+        await Promise.all([
+          // 仕訳一覧
+          supabase
+            .from("journals")
+            .select(
+              `
+              id,
+              journal_date,
+              description,
+              status,
+              contact_id,
+              created_at,
+              journal_entries (
+                id,
+                account_code,
+                debit_amount,
+                credit_amount
+              ),
+              contacts (
+                name
+              )
+            `
+            )
+            .eq("organization_id", organizationId)
+            .order("journal_date", { ascending: false }),
+          // 関係者一覧
+          supabase
+            .from("contacts")
+            .select("id, name, contact_type")
+            .eq("owner_user_id", userId)
+            .order("name"),
+          // 補助科目一覧
+          supabase
+            .from("sub_accounts")
+            .select("id, name, parent_account_code")
+            .eq("owner_user_id", userId)
+            .eq("ledger_type", "political_organization")
+            .order("name"),
+          // 勘定科目マスタ（Hub から取得）
+          getAccountCodes({ ledgerType: "organization" }).catch((error) => {
+            console.error("Failed to fetch account codes from Hub:", error);
+            return [];
+          }),
+        ]);
 
-      if (journalError) {
-        console.error("Failed to fetch journals:", journalError);
+      if (journalsResult.error) {
+        console.error("Failed to fetch journals:", journalsResult.error);
       }
 
       return ctx.render({
         organization,
-        journals: journals || [],
+        journals: journalsResult.data || [],
+        accountCodes,
+        contacts: contactsResult.data || [],
+        subAccounts: subAccountsResult.data || [],
       });
     } catch (error) {
       console.error("Error:", error);
       return ctx.render({
         organization: null,
         journals: [],
+        accountCodes: [],
+        contacts: [],
+        subAccounts: [],
         error: "エラーが発生しました",
       });
     }
@@ -114,7 +159,8 @@ export const handler: Handlers<PageData> = {
 };
 
 export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
-  const { organization, journals, error } = data;
+  const { organization, journals, accountCodes, contacts, subAccounts, error } =
+    data;
 
   if (error || !organization) {
     return (
@@ -155,18 +201,50 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
           </ul>
         </div>
 
+        {/* 勘定科目取得エラー警告 */}
+        {accountCodes.length === 0 && (
+          <div class="alert alert-warning mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span>
+              勘定科目マスタの取得に失敗しました。仕訳登録には勘定科目が必要です。
+            </span>
+          </div>
+        )}
+
         {/* 仕訳入力フォーム */}
         <div class="card bg-base-100 shadow mb-6">
           <div class="card-body">
             <h2 class="card-title text-lg mb-4">仕訳を登録</h2>
-            <JournalForm organizationId={organization.id} electionId={null} />
+            <JournalForm
+              ledgerType="organization"
+              organizationId={organization.id}
+              electionId={null}
+              accountCodes={accountCodes}
+              contacts={contacts}
+              subAccounts={subAccounts}
+            />
           </div>
         </div>
 
         {/* 仕訳一覧 */}
         <div class="card bg-base-100 shadow">
           <div class="card-body">
-            <h2 class="card-title text-lg mb-4">仕訳一覧</h2>
+            <h2 class="card-title text-lg mb-4">
+              仕訳一覧
+              <span class="badge badge-ghost">{journals.length}件</span>
+            </h2>
             <JournalList
               journals={journals}
               basePath={`/organizations/${organization.id}/ledger`}
