@@ -1,0 +1,119 @@
+/**
+ * 認証ミドルウェア
+ *
+ * 保護されたルートへのアクセスを制御
+ * - /login, /register は認証不要
+ * - /api/* は API キーまたはセッション認証
+ * - その他のルートはログイン必須
+ */
+
+import { FreshContext } from "$fresh/server.ts";
+import { getCookies } from "$std/http/cookie.ts";
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+
+// 認証不要なパス
+const PUBLIC_PATHS = ["/", "/login", "/register", "/api/"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+}
+
+export async function handler(req: Request, ctx: FreshContext) {
+  const url = new URL(req.url);
+
+  // 静的ファイルはスキップ
+  if (
+    url.pathname.startsWith("/_fresh") ||
+    url.pathname.startsWith("/static")
+  ) {
+    return ctx.next();
+  }
+
+  // 公開パスはスキップ
+  if (isPublicPath(url.pathname)) {
+    return ctx.next();
+  }
+
+  // Supabase が設定されていない場合はスキップ（開発用）
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    console.warn("[Auth] Supabase not configured, skipping auth check");
+    return ctx.next();
+  }
+
+  // Cookie からアクセストークンを取得
+  const cookies = getCookies(req.headers);
+  const accessToken = cookies["sb-access-token"];
+  const refreshToken = cookies["sb-refresh-token"];
+
+  if (!accessToken) {
+    // ログインページにリダイレクト
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/login?redirect=${encodeURIComponent(url.pathname)}`,
+      },
+    });
+  }
+
+  // トークンを検証
+  const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(accessToken);
+
+  if (error || !user) {
+    // リフレッシュトークンで再取得を試みる
+    if (refreshToken) {
+      const { data: refreshData, error: refreshError } =
+        await supabase.auth.refreshSession({
+          refresh_token: refreshToken,
+        });
+
+      if (!refreshError && refreshData.session) {
+        // 新しいトークンをセット
+        const response = await ctx.next();
+        const headers = new Headers(response.headers);
+
+        headers.append(
+          "Set-Cookie",
+          `sb-access-token=${refreshData.session.access_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`
+        );
+        headers.append(
+          "Set-Cookie",
+          `sb-refresh-token=${refreshData.session.refresh_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
+        );
+
+        // ユーザー情報をコンテキストに追加
+        ctx.state.user = refreshData.user;
+
+        return new Response(response.body, {
+          status: response.status,
+          headers,
+        });
+      }
+    }
+
+    // 認証失敗、ログインページにリダイレクト
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/login?redirect=${encodeURIComponent(url.pathname)}`,
+      },
+    });
+  }
+
+  // ユーザー情報をコンテキストに追加
+  ctx.state.user = user;
+
+  return ctx.next();
+}
