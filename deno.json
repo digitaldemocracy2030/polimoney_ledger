@@ -26,7 +26,8 @@
     "tailwindcss/plugin": "npm:tailwindcss@3.4.15/plugin.js",
     "daisyui": "npm:daisyui@4.12.14",
     "$std/": "https://deno.land/std@0.216.0/",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "@deno/gfm": "jsr:@deno/gfm@0.10"
   },
   "compilerOptions": {
     "jsx": "react-jsx",

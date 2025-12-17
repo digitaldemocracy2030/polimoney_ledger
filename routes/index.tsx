@@ -14,7 +14,10 @@ export default function LandingPage() {
             <div class="flex-1">
               <a href="/" class="flex items-center gap-2">
                 <img src="/logo-ledger.svg" alt="" class="h-8 w-8" />
-                <span class="font-bold text-xl text-emerald-600" style="font-feature-settings: 'palt' 1;">
+                <span
+                  class="font-bold text-xl text-emerald-600"
+                  style="font-feature-settings: 'palt' 1;"
+                >
                   Polimoney Ledger
                 </span>
                 <span class="badge badge-warning badge-sm">β</span>
@@ -36,7 +39,11 @@ export default function LandingPage() {
           <div class="hero-content text-center">
             <div class="max-w-2xl">
               <div class="flex items-center justify-center gap-3 mb-6">
-                <img src="/logo-ledger.svg" alt="Polimoney Ledger" class="h-24 w-24" />
+                <img
+                  src="/logo-ledger.svg"
+                  alt="Polimoney Ledger"
+                  class="h-24 w-24"
+                />
               </div>
               <div class="badge badge-warning badge-lg mb-4">🚧 ベータ版</div>
               <h1 class="text-4xl md:text-5xl font-bold mb-6">
