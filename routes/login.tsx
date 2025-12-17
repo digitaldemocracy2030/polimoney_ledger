@@ -14,7 +14,7 @@ interface LoginData {
 export const handler: Handlers<LoginData> = {
   GET(req, ctx) {
     const url = new URL(req.url);
-    const redirect = url.searchParams.get("redirect") || "/";
+    const redirect = url.searchParams.get("redirect") || "/dashboard";
     return ctx.render({ redirect });
   },
 
@@ -25,7 +25,10 @@ export const handler: Handlers<LoginData> = {
     const redirect = form.get("redirect")?.toString() || "/";
 
     if (!email || !password) {
-      return ctx.render({ error: "メールアドレスとパスワードを入力してください", redirect });
+      return ctx.render({
+        error: "メールアドレスとパスワードを入力してください",
+        redirect,
+      });
     }
 
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
@@ -91,15 +94,29 @@ export default function LoginPage({ data }: PageProps<LoginData>) {
 
             {data?.error && (
               <div class="alert alert-error mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="stroke-current shrink-0 h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <span>{data.error}</span>
               </div>
             )}
 
             <form method="POST" class="space-y-4">
-              <input type="hidden" name="redirect" value={data?.redirect || "/"} />
+              <input
+                type="hidden"
+                name="redirect"
+                value={data?.redirect || "/dashboard"}
+              />
 
               <div class="form-control">
                 <label class="label">

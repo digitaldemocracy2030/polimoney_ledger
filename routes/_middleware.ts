@@ -15,7 +15,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
 
 // 認証不要なパス
-const PUBLIC_PATHS = ["/login", "/register", "/api/"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/api/"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
@@ -25,7 +25,10 @@ export async function handler(req: Request, ctx: FreshContext) {
   const url = new URL(req.url);
 
   // 静的ファイルはスキップ
-  if (url.pathname.startsWith("/_fresh") || url.pathname.startsWith("/static")) {
+  if (
+    url.pathname.startsWith("/_fresh") ||
+    url.pathname.startsWith("/static")
+  ) {
     return ctx.next();
   }
 
@@ -49,7 +52,9 @@ export async function handler(req: Request, ctx: FreshContext) {
     // ログインページにリダイレクト
     return new Response(null, {
       status: 302,
-      headers: { Location: `/login?redirect=${encodeURIComponent(url.pathname)}` },
+      headers: {
+        Location: `/login?redirect=${encodeURIComponent(url.pathname)}`,
+      },
     });
   }
 
@@ -61,14 +66,18 @@ export async function handler(req: Request, ctx: FreshContext) {
     },
   });
 
-  const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(accessToken);
 
   if (error || !user) {
     // リフレッシュトークンで再取得を試みる
     if (refreshToken) {
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
-        refresh_token: refreshToken,
-      });
+      const { data: refreshData, error: refreshError } =
+        await supabase.auth.refreshSession({
+          refresh_token: refreshToken,
+        });
 
       if (!refreshError && refreshData.session) {
         // 新しいトークンをセット
@@ -97,7 +106,9 @@ export async function handler(req: Request, ctx: FreshContext) {
     // 認証失敗、ログインページにリダイレクト
     return new Response(null, {
       status: 302,
-      headers: { Location: `/login?redirect=${encodeURIComponent(url.pathname)}` },
+      headers: {
+        Location: `/login?redirect=${encodeURIComponent(url.pathname)}`,
+      },
     });
   }
 
