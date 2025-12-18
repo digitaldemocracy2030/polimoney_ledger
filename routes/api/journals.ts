@@ -5,7 +5,7 @@ const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 interface JournalEntry {
   account_code: string;
-  sub_account_id?: string;
+  sub_account_id?: string | null;
   debit_amount: number;
   credit_amount: number;
 }
@@ -15,9 +15,14 @@ interface CreateJournalRequest {
   election_id: string | null;
   journal_date: string;
   description: string;
-  contact_id?: string;
-  classification?: string;
-  notes?: string;
+  contact_id?: string | null;
+  classification?: string | null;
+  non_monetary_basis?: string | null;
+  notes?: string | null;
+  amount_political_grant?: number;
+  amount_political_fund?: number;
+  is_receipt_hard_to_collect?: boolean;
+  receipt_hard_to_collect_reason?: string | null;
   entries: JournalEntry[];
 }
 
@@ -56,6 +61,22 @@ export const handler: Handlers = {
         });
       }
 
+      // 借方・貸方の合計が一致するかチェック
+      const totalDebit = body.entries.reduce(
+        (sum, e) => sum + e.debit_amount,
+        0
+      );
+      const totalCredit = body.entries.reduce(
+        (sum, e) => sum + e.credit_amount,
+        0
+      );
+      if (totalDebit !== totalCredit) {
+        return new Response(
+          JSON.stringify({ error: "借方と貸方の合計が一致しません" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       if (!body.organization_id && !body.election_id) {
         return new Response(
           JSON.stringify({ error: "政治団体または選挙を指定してください" }),
@@ -63,6 +84,17 @@ export const handler: Handlers = {
             status: 400,
             headers: { "Content-Type": "application/json" },
           }
+        );
+      }
+
+      // 領収証徴収困難の場合、理由が必須
+      if (
+        body.is_receipt_hard_to_collect &&
+        !body.receipt_hard_to_collect_reason
+      ) {
+        return new Response(
+          JSON.stringify({ error: "領収証を徴し難い理由を入力してください" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
 
@@ -79,7 +111,13 @@ export const handler: Handlers = {
           description: body.description,
           contact_id: body.contact_id || null,
           classification: body.classification || null,
+          non_monetary_basis: body.non_monetary_basis || null,
           notes: body.notes || null,
+          amount_political_grant: body.amount_political_grant || 0,
+          amount_political_fund: body.amount_political_fund || 0,
+          is_receipt_hard_to_collect: body.is_receipt_hard_to_collect || false,
+          receipt_hard_to_collect_reason:
+            body.receipt_hard_to_collect_reason || null,
           status: "draft",
           submitted_by_user_id: userId,
         })

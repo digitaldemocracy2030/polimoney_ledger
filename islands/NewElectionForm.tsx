@@ -32,7 +32,9 @@ function groupByYear(elections: Election[]): Record<string, Election[]> {
   }, {} as Record<string, Election[]>);
 }
 
-export default function NewElectionForm({ hubElections }: NewElectionFormProps) {
+export default function NewElectionForm({
+  hubElections,
+}: NewElectionFormProps) {
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(
     null
   );
@@ -43,7 +45,9 @@ export default function NewElectionForm({ hubElections }: NewElectionFormProps) 
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const groupedByYear = groupByYear(hubElections);
-  const years = Object.keys(groupedByYear).sort((a, b) => Number(b) - Number(a));
+  const years = Object.keys(groupedByYear).sort(
+    (a, b) => Number(b) - Number(a)
+  );
 
   // フィルタリング
   const filteredElections = hubElections.filter((election) => {
@@ -126,7 +130,9 @@ export default function NewElectionForm({ hubElections }: NewElectionFormProps) 
               placeholder="選挙名で検索..."
               class="input input-bordered"
               value={searchQuery}
-              onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
+              onInput={(e) =>
+                setSearchQuery((e.target as HTMLInputElement).value)
+              }
             />
           </div>
           <div class="form-control">
@@ -168,7 +174,9 @@ export default function NewElectionForm({ hubElections }: NewElectionFormProps) 
                     <label
                       key={election.id}
                       class={`flex items-center gap-4 p-4 cursor-pointer hover:bg-base-200 border-b ${
-                        selectedElectionId === election.id ? "bg-primary/10" : ""
+                        selectedElectionId === election.id
+                          ? "bg-primary/10"
+                          : ""
                       }`}
                     >
                       <input
@@ -185,9 +193,9 @@ export default function NewElectionForm({ hubElections }: NewElectionFormProps) 
                             {ELECTION_TYPES[election.type] || election.type}
                           </span>
                           <span class="text-xs text-base-content/70">
-                            {new Date(election.election_date).toLocaleDateString(
-                              "ja-JP"
-                            )}
+                            {new Date(
+                              election.election_date
+                            ).toLocaleDateString("ja-JP")}
                           </span>
                         </div>
                       </div>
@@ -245,7 +253,9 @@ export default function NewElectionForm({ hubElections }: NewElectionFormProps) 
         <button
           type="submit"
           class={`btn btn-primary flex-1 ${isSubmitting ? "loading" : ""}`}
-          disabled={isSubmitting || !selectedElectionId || !politicianName.trim()}
+          disabled={
+            isSubmitting || !selectedElectionId || !politicianName.trim()
+          }
         >
           {isSubmitting ? "作成中..." : "選挙台帳を作成"}
         </button>
