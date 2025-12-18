@@ -239,10 +239,7 @@ export function Layout({ children, currentPath, title }: LayoutProps) {
               <img src="/logo-ledger.svg" alt="" class="h-10 w-10" />
               <div class="text-left">
                 <div class="flex items-center gap-2">
-                  <span
-                    class="text-xl font-bold"
-                    style="color: #7C3AED; font-feature-settings: 'palt' 1;"
-                  >
+                  <span class="text-xl font-bold text-violet-600">
                     Polimoney
                   </span>
                   <span class="badge badge-warning badge-sm">β</span>
