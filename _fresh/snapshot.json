@@ -1,0 +1,95 @@
+{
+  "build_id": "8ce666273a78acde2dfdfcdc9e5752e81733216c",
+  "files": {
+    "island-journallist.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-newelectionform.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-neworganizationform.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-organizationselector.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-policybanner.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-resyncbutton.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-receiptuploader.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-syncbutton.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "main.js": [
+      "chunk-RQATRPXP.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "deserializer.js": [],
+    "signals.js": [
+      "chunk-RQATRPXP.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "chunk-RQATRPXP.js": [],
+    "island-addcontactmodal.js": [
+      "chunk-C56BR5IP.js",
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-approvebutton.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-electionrequestform.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-electionselector.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "island-journalform.js": [
+      "chunk-C56BR5IP.js",
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js",
+      "chunk-H4FMBZ3H.js"
+    ],
+    "chunk-C56BR5IP.js": [
+      "chunk-GUCFFKTL.js",
+      "chunk-NJU4TC5B.js"
+    ],
+    "chunk-GUCFFKTL.js": [
+      "chunk-H4FMBZ3H.js"
+    ],
+    "chunk-NJU4TC5B.js": [
+      "chunk-H4FMBZ3H.js"
+    ],
+    "chunk-H4FMBZ3H.js": [],
+    "metafile.json": []
+  }
+}
