@@ -81,7 +81,7 @@ export default function LoginPage({ data }: PageProps<LoginData>) {
     <>
       <Head>
         <title>ログイン - Polimoney Ledger</title>
-        <link href="/static/styles.css" rel="stylesheet" />
+        <link href="/styles.css" rel="stylesheet" />
       </Head>
       <div class="min-h-screen bg-base-200 flex items-center justify-center p-4">
         <div class="card w-full max-w-md bg-base-100 shadow-xl">

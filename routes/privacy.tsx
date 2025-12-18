@@ -19,7 +19,7 @@ export default function PrivacyPage({ data }: PageProps<PageData>) {
     <>
       <Head>
         <title>プライバシーポリシー - Polimoney Ledger</title>
-        <link href="/static/styles.css" rel="stylesheet" />
+        <link href="/styles.css" rel="stylesheet" />
         <style dangerouslySetInnerHTML={{ __html: CSS }} />
         <style
           dangerouslySetInnerHTML={{
