@@ -5,7 +5,7 @@ export default function LandingPage() {
     <>
       <Head>
         <title>Polimoney Ledger - 政治資金収支管理ツール</title>
-        <link href="/static/styles.css" rel="stylesheet" />
+        <link href="/styles.css" rel="stylesheet" />
       </Head>
       <div class="min-h-screen bg-gradient-to-b from-base-200 to-base-300">
         {/* ヘッダー */}

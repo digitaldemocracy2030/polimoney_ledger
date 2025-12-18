@@ -6,6 +6,7 @@ export default function App({ Component }: PageProps) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" type="image/svg+xml" href="/logo-ledger.svg" />
         <title>Polimoney Ledger</title>
         {/* Noto Sans JP - 日本語対応の読みやすいフォント */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
