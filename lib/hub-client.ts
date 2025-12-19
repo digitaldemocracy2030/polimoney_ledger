@@ -79,8 +79,69 @@ export interface Politician {
   id: string;
   name: string;
   name_kana: string | null;
+  ledger_user_id: string | null;
+  official_url: string | null;
+  party: string | null;
+  photo_url: string | null;
+  is_verified: boolean;
+  verified_at: string | null;
+  verified_domain: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================
+// 政治家認証申請 API【v2 追加】
+// ============================================
+
+export interface PoliticianVerification {
+  id: string;
+  ledger_user_id: string;
+  politician_id: string | null;
+  name: string;
+  official_email: string;
+  official_url: string | null;
+  party: string | null;
+  email_verified: boolean;
+  status: "pending" | "email_sent" | "email_verified" | "approved" | "rejected";
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePoliticianVerificationInput {
+  ledger_user_id: string;
+  name: string;
+  official_email: string;
+  official_url?: string;
+  party?: string;
+  politician_id?: string;
+}
+
+// ============================================
+// 政治団体管理者認証申請 API【v2 追加】
+// ============================================
+
+export interface OrganizationManagerVerification {
+  id: string;
+  ledger_user_id: string;
+  organization_id: string | null;
+  organization_name: string;
+  official_email: string;
+  role_in_organization: string | null;
+  email_verified: boolean;
+  status: "pending" | "email_sent" | "email_verified" | "approved" | "rejected";
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOrganizationManagerVerificationInput {
+  ledger_user_id: string;
+  organization_id?: string;
+  organization_name: string;
+  official_email: string;
+  role_in_organization?: string;
 }
 
 export interface ElectionRequest {
@@ -315,6 +376,149 @@ export async function createPolitician(data: {
     }
   );
   return result.data;
+}
+
+/**
+ * 認証済み政治家かどうかをチェック
+ * ledger_user_id で Hub を検索し、認証済みの政治家を返す
+ */
+export async function getVerifiedPoliticianByUserId(
+  ledgerUserId: string
+): Promise<Politician | null> {
+  try {
+    const politicians = await getPoliticians();
+    const verified = politicians.find(
+      (p) => p.ledger_user_id === ledgerUserId && p.is_verified
+    );
+    return verified || null;
+  } catch (error) {
+    console.warn("Failed to get verified politician:", error);
+    return null;
+  }
+}
+
+// ============================================
+// 政治家認証申請 API【v2 追加】
+// ============================================
+
+/**
+ * 政治家認証申請を作成
+ */
+export async function createPoliticianVerification(
+  data: CreatePoliticianVerificationInput
+): Promise<PoliticianVerification> {
+  const result = await fetchApi<ApiResponse<PoliticianVerification>>(
+    "/api/v1/politician-verifications",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+  return result.data;
+}
+
+/**
+ * ユーザーの政治家認証申請一覧を取得
+ */
+export async function getPoliticianVerificationsByUser(
+  ledgerUserId: string
+): Promise<PoliticianVerification[]> {
+  const result = await fetchApi<ApiResponse<PoliticianVerification[]>>(
+    `/api/v1/politician-verifications/user/${ledgerUserId}`
+  );
+  return result.data;
+}
+
+/**
+ * メール認証コードを送信
+ */
+export async function sendPoliticianVerificationCode(
+  verificationId: string
+): Promise<{ message: string; code?: string }> {
+  const result = await fetchApi<{ message: string; code?: string }>(
+    `/api/v1/politician-verifications/${verificationId}/send-verification`,
+    { method: "POST" }
+  );
+  return result;
+}
+
+/**
+ * メール認証コードを検証
+ */
+export async function verifyPoliticianEmail(
+  verificationId: string,
+  code: string
+): Promise<{ message: string }> {
+  const result = await fetchApi<{ message: string }>(
+    `/api/v1/politician-verifications/${verificationId}/verify-email`,
+    {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }
+  );
+  return result;
+}
+
+// ============================================
+// 政治団体管理者認証申請 API【v2 追加】
+// ============================================
+
+/**
+ * 政治団体管理者認証申請を作成
+ */
+export async function createOrganizationManagerVerification(
+  data: CreateOrganizationManagerVerificationInput
+): Promise<OrganizationManagerVerification> {
+  const result = await fetchApi<ApiResponse<OrganizationManagerVerification>>(
+    "/api/v1/organization-manager-verifications",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+  return result.data;
+}
+
+/**
+ * ユーザーの政治団体管理者認証申請一覧を取得
+ */
+export async function getOrganizationManagerVerificationsByUser(
+  ledgerUserId: string
+): Promise<OrganizationManagerVerification[]> {
+  const result = await fetchApi<ApiResponse<OrganizationManagerVerification[]>>(
+    `/api/v1/organization-manager-verifications/user/${ledgerUserId}`
+  );
+  return result.data;
+}
+
+/**
+ * メール認証コードを送信
+ */
+export async function sendOrganizationManagerVerificationCode(
+  verificationId: string
+): Promise<{ message: string; code?: string }> {
+  const result = await fetchApi<{ message: string; code?: string }>(
+    `/api/v1/organization-manager-verifications/${verificationId}/send-verification`,
+    { method: "POST" }
+  );
+  return result;
+}
+
+/**
+ * メール認証コードを検証
+ */
+export async function verifyOrganizationManagerEmail(
+  verificationId: string,
+  code: string
+): Promise<{ message: string }> {
+  const result = await fetchApi<{ message: string }>(
+    `/api/v1/organization-manager-verifications/${verificationId}/verify-email`,
+    {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }
+  );
+  return result;
 }
 
 // ============================================
