@@ -256,15 +256,15 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
               <div class="flex items-center gap-2">
                 <ExportCSVButton organizationId={organization.id} />
                 <JournalFormDrawer
-                  ledgerType="organization"
-                  organizationId={organization.id}
-                  electionId={null}
-                  accountCodes={accountCodes}
-                  contacts={contacts}
-                  subAccounts={subAccounts}
-                />
-              </div>
-            </div>
+              ledgerType="organization"
+              organizationId={organization.id}
+              electionId={null}
+              accountCodes={accountCodes}
+              contacts={contacts}
+              subAccounts={subAccounts}
+            />
+          </div>
+        </div>
             <JournalList
               journals={journals}
               basePath={`/organizations/${organization.id}/ledger`}

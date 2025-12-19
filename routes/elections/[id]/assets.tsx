@@ -316,4 +316,3 @@ export default function ElectionAssetsPage({ data }: PageProps<PageData>) {
     </>
   );
 }
-
