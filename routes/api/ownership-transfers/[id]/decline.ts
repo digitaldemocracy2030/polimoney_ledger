@@ -5,7 +5,10 @@
  */
 
 import { Handlers } from "$fresh/server.ts";
-import { getServiceClient, getSupabaseClient } from "../../../../lib/supabase.ts";
+import {
+  getServiceClient,
+  getSupabaseClient,
+} from "../../../../lib/supabase.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -63,10 +66,10 @@ export const handler: Handlers = {
 
       if (updateError) {
         console.error("Failed to decline transfer:", updateError);
-        return new Response(
-          JSON.stringify({ error: "拒否に失敗しました" }),
-          { status: 500, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "拒否に失敗しました" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       return new Response(

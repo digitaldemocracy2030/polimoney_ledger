@@ -11,7 +11,7 @@ import { getServiceClient, getSupabaseClient } from "../../lib/supabase.ts";
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 interface CreateTransferRequest {
-  to_user_email: string;
+  to_user_id: string;
   organization_id?: string;
   election_id?: string;
 }
@@ -92,9 +92,9 @@ export const handler: Handlers = {
       const body: CreateTransferRequest = await req.json();
 
       // バリデーション
-      if (!body.to_user_email?.trim()) {
+      if (!body.to_user_id?.trim()) {
         return new Response(
-          JSON.stringify({ error: "譲渡先のメールアドレスは必須です" }),
+          JSON.stringify({ error: "譲渡先のユーザーを選択してください" }),
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
@@ -115,41 +115,15 @@ export const handler: Handlers = {
         );
       }
 
-      const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
-
-      // 譲渡先ユーザーを検索（メールアドレスから）
-      const serviceClient = getServiceClient();
-      const { data: users, error: userError } =
-        await serviceClient.auth.admin.listUsers();
-
-      if (userError) {
-        console.error("Failed to list users:", userError);
-        return new Response(
-          JSON.stringify({ error: "ユーザー検索に失敗しました" }),
-          { status: 500, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      const toUser = users.users.find(
-        (u) => u.email === body.to_user_email.trim()
-      );
-
-      if (!toUser) {
-        return new Response(
-          JSON.stringify({
-            error: "指定されたメールアドレスのユーザーが見つかりません",
-          }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      if (toUser.id === userId) {
+      if (body.to_user_id === userId) {
         return new Response(
           JSON.stringify({ error: "自分自身には譲渡できません" }),
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
+
+      const supabase =
+        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
 
       // オーナー権限の確認と既存申請チェック
       if (body.organization_id) {
@@ -233,7 +207,7 @@ export const handler: Handlers = {
         .from("ownership_transfers")
         .insert({
           from_user_id: userId,
-          to_user_id: toUser.id,
+          to_user_id: body.to_user_id,
           organization_id: body.organization_id || null,
           election_id: body.election_id || null,
           status: "pending",

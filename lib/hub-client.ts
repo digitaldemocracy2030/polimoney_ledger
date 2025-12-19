@@ -34,7 +34,7 @@ if (!HUB_API_KEY) {
     `[Hub API] Warning: HUB_API_KEY is not set. API calls will fail. ` +
       `Set ${
         IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
-      } environment variable.`,
+      } environment variable.`
   );
 }
 
@@ -134,14 +134,14 @@ export interface ApiError {
 
 async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit = {}
 ): Promise<T> {
   // API キーのバリデーション
   if (!HUB_API_KEY) {
     throw new Error(
       `Hub API key is not configured. Set ${
         IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
-      } environment variable.`,
+      } environment variable.`
     );
   }
 
@@ -163,7 +163,7 @@ async function fetchApi<T>(
     const text = await response.text();
     console.error(
       `[Hub API] Non-JSON response from ${url}:`,
-      text.slice(0, 200),
+      text.slice(0, 200)
     );
     throw new Error(`Hub API returned non-JSON response (${response.status})`);
   }
@@ -188,7 +188,7 @@ export async function getElections(): Promise<Election[]> {
 
 export async function getElection(id: string): Promise<Election> {
   const result = await fetchApi<ApiResponse<Election>>(
-    `/api/v1/elections/${id}`,
+    `/api/v1/elections/${id}`
   );
   return result.data;
 }
@@ -199,14 +199,14 @@ export async function getElection(id: string): Promise<Election> {
 
 export async function getOrganizations(): Promise<Organization[]> {
   const result = await fetchApi<ApiResponse<Organization[]>>(
-    "/api/v1/organizations",
+    "/api/v1/organizations"
   );
   return result.data;
 }
 
 export async function getOrganization(id: string): Promise<Organization> {
   const result = await fetchApi<ApiResponse<Organization>>(
-    `/api/v1/organizations/${id}`,
+    `/api/v1/organizations/${id}`
   );
   return result.data;
 }
@@ -245,7 +245,7 @@ export async function getAccountCodes(params?: {
 
   const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
   const result = await fetchApi<ApiResponse<AccountCode[]>>(
-    `/api/v1/master/account-codes${query}`,
+    `/api/v1/master/account-codes${query}`
   );
   return result.data;
 }
@@ -255,7 +255,7 @@ export async function getAccountCodes(params?: {
  */
 export async function getAccountCode(code: string): Promise<AccountCode> {
   const result = await fetchApi<ApiResponse<AccountCode>>(
-    `/api/v1/master/account-codes/${code}`,
+    `/api/v1/master/account-codes/${code}`
   );
   return result.data;
 }
@@ -266,14 +266,14 @@ export async function getAccountCode(code: string): Promise<AccountCode> {
 
 export async function getPoliticians(): Promise<Politician[]> {
   const result = await fetchApi<ApiResponse<Politician[]>>(
-    "/api/v1/politicians",
+    "/api/v1/politicians"
   );
   return result.data;
 }
 
 export async function getPolitician(id: string): Promise<Politician> {
   const result = await fetchApi<ApiResponse<Politician>>(
-    `/api/v1/politicians/${id}`,
+    `/api/v1/politicians/${id}`
   );
   return result.data;
 }
@@ -287,7 +287,7 @@ export async function createPolitician(data: {
     {
       method: "POST",
       body: JSON.stringify(data),
-    },
+    }
   );
   return result.data;
 }
@@ -308,14 +308,14 @@ export interface CreateElectionRequestInput {
 }
 
 export async function createElectionRequest(
-  data: CreateElectionRequestInput,
+  data: CreateElectionRequestInput
 ): Promise<ElectionRequest> {
   const result = await fetchApi<ApiResponse<ElectionRequest>>(
     "/api/v1/election-requests",
     {
       method: "POST",
       body: JSON.stringify(data),
-    },
+    }
   );
   return result.data;
 }
@@ -332,14 +332,14 @@ export async function getElectionRequests(params?: {
 
   const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
   const result = await fetchApi<ApiResponse<ElectionRequest[]>>(
-    `/api/v1/election-requests${query}`,
+    `/api/v1/election-requests${query}`
   );
   return result.data;
 }
 
 export async function getElectionRequest(id: string): Promise<ElectionRequest> {
   const result = await fetchApi<ApiResponse<ElectionRequest>>(
-    `/api/v1/election-requests/${id}`,
+    `/api/v1/election-requests/${id}`
   );
   return result.data;
 }
@@ -361,14 +361,14 @@ export interface CreateOrganizationRequestInput {
 }
 
 export async function createOrganizationRequest(
-  data: CreateOrganizationRequestInput,
+  data: CreateOrganizationRequestInput
 ): Promise<OrganizationRequest> {
   const result = await fetchApi<ApiResponse<OrganizationRequest>>(
     "/api/v1/organization-requests",
     {
       method: "POST",
       body: JSON.stringify(data),
-    },
+    }
   );
   return result.data;
 }
@@ -385,16 +385,16 @@ export async function getOrganizationRequests(params?: {
 
   const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
   const result = await fetchApi<ApiResponse<OrganizationRequest[]>>(
-    `/api/v1/organization-requests${query}`,
+    `/api/v1/organization-requests${query}`
   );
   return result.data;
 }
 
 export async function getOrganizationRequest(
-  id: string,
+  id: string
 ): Promise<OrganizationRequest> {
   const result = await fetchApi<ApiResponse<OrganizationRequest>>(
-    `/api/v1/organization-requests/${id}`,
+    `/api/v1/organization-requests/${id}`
   );
   return result.data;
 }
@@ -483,14 +483,14 @@ export interface SyncLedgerResult {
  * 仕訳データを Hub に同期
  */
 export async function syncJournals(
-  journals: SyncJournalInput[],
+  journals: SyncJournalInput[]
 ): Promise<SyncResult> {
   const result = await fetchApi<ApiResponse<SyncResult>>(
     "/api/v1/sync/journals",
     {
       method: "POST",
       body: JSON.stringify({ journals }),
-    },
+    }
   );
   return result.data;
 }
@@ -499,7 +499,7 @@ export async function syncJournals(
  * 台帳データを Hub に同期
  */
 export async function syncLedger(
-  ledger: SyncLedgerInput,
+  ledger: SyncLedgerInput
 ): Promise<SyncLedgerResult> {
   const result = await fetchApi<SyncLedgerResult>("/api/v1/sync/ledger", {
     method: "POST",

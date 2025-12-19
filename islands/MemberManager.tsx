@@ -25,7 +25,8 @@ interface MemberManagerProps {
 
 interface PendingTransfer {
   id: string;
-  to_user_email?: string;
+  to_user_id?: string;
+  to_user_name?: string;
   status: string;
   requested_at: string;
 }
@@ -49,10 +50,9 @@ export default function MemberManager({
 
   // オーナー譲渡の状態
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferEmail, setTransferEmail] = useState("");
-  const [pendingTransfer, setPendingTransfer] = useState<PendingTransfer | null>(
-    null
-  );
+  const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [pendingTransfer, setPendingTransfer] =
+    useState<PendingTransfer | null>(null);
 
   const roles: AppRole[] = [
     "admin",
@@ -170,18 +170,20 @@ export default function MemberManager({
     setIsLoading(true);
     setError(null);
 
-    if (!transferEmail.trim()) {
-      setError("譲渡先のメールアドレスを入力してください");
+    if (!selectedMemberId) {
+      setError("譲渡先のメンバーを選択してください");
       setIsLoading(false);
       return;
     }
+
+    const selectedMember = members.find((m) => m.user_id === selectedMemberId);
 
     try {
       const res = await fetch("/api/ownership-transfers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to_user_email: transferEmail.trim(),
+          to_user_id: selectedMemberId,
           organization_id: organizationId || undefined,
           election_id: electionId || undefined,
         }),
@@ -195,13 +197,15 @@ export default function MemberManager({
       const { data, message } = await res.json();
       setPendingTransfer({
         id: data.id,
-        to_user_email: transferEmail,
+        to_user_id: selectedMemberId,
+        to_user_name:
+          selectedMember?.display_name || selectedMember?.email || "メンバー",
         status: data.status,
         requested_at: data.requested_at,
       });
       setSuccess(message || "譲渡申請を作成しました");
       setShowTransferModal(false);
-      setTransferEmail("");
+      setSelectedMemberId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -218,9 +222,12 @@ export default function MemberManager({
     setError(null);
 
     try {
-      const res = await fetch(`/api/ownership-transfers/${pendingTransfer.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/ownership-transfers/${pendingTransfer.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!res.ok) {
         const data = await res.json();
@@ -299,7 +306,9 @@ export default function MemberManager({
               </p>
               <div class="flex items-center gap-2 mt-2">
                 <span class="badge badge-primary">オーナー</span>
-                {isOwner && <span class="text-sm text-success">（あなた）</span>}
+                {isOwner && (
+                  <span class="text-sm text-success">（あなた）</span>
+                )}
               </div>
             </div>
             {isOwner && !pendingTransfer && (
@@ -331,7 +340,7 @@ export default function MemberManager({
               <div>
                 <p class="font-medium">オーナー譲渡申請中</p>
                 <p class="text-sm">
-                  {pendingTransfer.to_user_email} さんへの譲渡申請が承認待ちです
+                  {pendingTransfer.to_user_name} さんへの譲渡申請が承認待ちです
                 </p>
               </div>
               <button
@@ -586,21 +595,37 @@ export default function MemberManager({
               <div class="form-control mb-4">
                 <label class="label">
                   <span class="label-text font-medium">
-                    譲渡先のメールアドレス<span class="text-error ml-1">*</span>
+                    譲渡先のメンバー<span class="text-error ml-1">*</span>
                   </span>
                 </label>
-                <input
-                  type="email"
-                  class="input input-bordered"
-                  value={transferEmail}
-                  onChange={(e) =>
-                    setTransferEmail((e.target as HTMLInputElement).value)
-                  }
-                  placeholder="example@example.com"
-                />
+                {members.length === 0 ? (
+                  <div class="alert alert-info">
+                    <span>
+                      譲渡先となるメンバーがいません。先にメンバーを招待してください。
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    class="select select-bordered"
+                    value={selectedMemberId}
+                    onChange={(e) =>
+                      setSelectedMemberId(
+                        (e.target as HTMLSelectElement).value
+                      )
+                    }
+                  >
+                    <option value="">選択してください</option>
+                    {members.map((member) => (
+                      <option key={member.user_id} value={member.user_id}>
+                        {member.display_name || member.email || "未設定"}{" "}
+                        ({roleDisplayNames[member.role]})
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <label class="label">
                   <span class="label-text-alt text-base-content/60">
-                    登録済みのユーザーのメールアドレスを入力してください
+                    選択したメンバーに譲渡申請メールが送信されます
                   </span>
                 </label>
               </div>
@@ -612,7 +637,7 @@ export default function MemberManager({
                   onClick={() => {
                     setShowTransferModal(false);
                     setError(null);
-                    setTransferEmail("");
+                    setSelectedMemberId("");
                   }}
                   disabled={isLoading}
                 >
@@ -621,7 +646,7 @@ export default function MemberManager({
                 <button
                   type="submit"
                   class="btn btn-warning"
-                  disabled={isLoading}
+                  disabled={isLoading || members.length === 0}
                 >
                   {isLoading && (
                     <span class="loading loading-spinner loading-sm" />
@@ -636,7 +661,7 @@ export default function MemberManager({
               onClick={() => {
                 setShowTransferModal(false);
                 setError(null);
-                setTransferEmail("");
+                setSelectedMemberId("");
               }}
             >
               close
