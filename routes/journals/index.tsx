@@ -1,7 +1,7 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../../components/Layout.tsx";
-import { getSupabaseClient, getServiceClient } from "../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from "../../lib/supabase.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -34,8 +34,8 @@ interface PageData {
 export const handler: Handlers<PageData> = {
   async GET(req, ctx) {
     const url = new URL(req.url);
-    const filter =
-      (url.searchParams.get("filter") as PageData["filter"]) || "all";
+    const filter = (url.searchParams.get("filter") as PageData["filter"]) ||
+      "all";
 
     const userId = ctx.state.userId as string;
     if (!userId) {
@@ -46,8 +46,9 @@ export const handler: Handlers<PageData> = {
     }
 
     try {
-      const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+      const supabase = userId === TEST_USER_ID
+        ? getServiceClient()
+        : getSupabaseClient(req);
 
       let query = supabase
         .from("journals")
@@ -70,7 +71,7 @@ export const handler: Handlers<PageData> = {
           contacts (
             name
           )
-        `
+        `,
         )
         .eq("submitted_by_user_id", userId)
         .order("journal_date", { ascending: false });
@@ -171,62 +172,72 @@ export default function JournalsPage({ data }: PageProps<PageData>) {
         )}
 
         {/* 仕訳一覧 */}
-        {journals.length === 0 ? (
-          <div class="text-center py-12">
-            <div class="text-6xl mb-4">📋</div>
-            <p class="text-base-content/70">仕訳がありません</p>
-          </div>
-        ) : (
-          <div class="overflow-x-auto">
-            <table class="table table-zebra">
-              <thead>
-                <tr>
-                  <th>日付</th>
-                  <th>摘要</th>
-                  <th>関係者</th>
-                  <th class="text-right">金額</th>
-                  <th>ステータス</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {journals.map((journal) => (
-                  <tr key={journal.id}>
-                    <td class="whitespace-nowrap">
-                      {formatDate(journal.journal_date)}
-                    </td>
-                    <td>
-                      <div class="max-w-xs truncate">{journal.description}</div>
-                    </td>
-                    <td>
-                      {journal.contacts?.name || (
-                        <span class="text-base-content/50">-</span>
-                      )}
-                    </td>
-                    <td class="text-right font-mono">
-                      ¥{formatAmount(calculateTotal(journal.journal_entries))}
-                    </td>
-                    <td>
-                      {journal.status === "draft" ? (
-                        <span class="badge badge-warning badge-sm">下書き</span>
-                      ) : (
-                        <span class="badge badge-success badge-sm">承認済</span>
-                      )}
-                    </td>
-                    <td>
-                      <a
-                        href={`/journals/${journal.id}`}
-                        class="btn btn-ghost btn-sm"
-                      >
-                        詳細
-                      </a>
-                    </td>
+        {journals.length === 0
+          ? (
+            <div class="text-center py-12">
+              <div class="text-6xl mb-4">📋</div>
+              <p class="text-base-content/70">仕訳がありません</p>
+            </div>
+          )
+          : (
+            <div class="overflow-x-auto">
+              <table class="table table-zebra">
+                <thead>
+                  <tr>
+                    <th>日付</th>
+                    <th>摘要</th>
+                    <th>関係者</th>
+                    <th class="text-right">金額</th>
+                    <th>ステータス</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {journals.map((journal) => (
+                    <tr key={journal.id}>
+                      <td class="whitespace-nowrap">
+                        {formatDate(journal.journal_date)}
+                      </td>
+                      <td>
+                        <div class="max-w-xs truncate">
+                          {journal.description}
+                        </div>
+                      </td>
+                      <td>
+                        {journal.contacts?.name || (
+                          <span class="text-base-content/50">-</span>
+                        )}
+                      </td>
+                      <td class="text-right font-mono">
+                        ¥{formatAmount(calculateTotal(journal.journal_entries))}
+                      </td>
+                      <td>
+                        {journal.status === "draft"
+                          ? (
+                            <span class="badge badge-warning badge-sm">
+                              下書き
+                            </span>
+                          )
+                          : (
+                            <span class="badge badge-success badge-sm">
+                              承認済
+                            </span>
+                          )}
+                      </td>
+                      <td>
+                        <a
+                          href={`/journals/${journal.id}`}
+                          class="btn btn-ghost btn-sm"
+                        >
+                          詳細
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
       </Layout>
     </>
   );

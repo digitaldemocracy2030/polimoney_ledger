@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { Election } from "../lib/hub-client.ts";
 
 interface Props {
@@ -54,8 +54,7 @@ export default function ElectionSelector({ initialElections }: Props) {
                 type="text"
                 value={searchTerm}
                 onInput={(e) =>
-                  setSearchTerm((e.target as HTMLInputElement).value)
-                }
+                  setSearchTerm((e.target as HTMLInputElement).value)}
                 placeholder="選挙名または選挙区コードで検索..."
                 class="input input-bordered w-full"
               />
@@ -67,8 +66,7 @@ export default function ElectionSelector({ initialElections }: Props) {
               <select
                 value={selectedType}
                 onChange={(e) =>
-                  setSelectedType((e.target as HTMLSelectElement).value)
-                }
+                  setSelectedType((e.target as HTMLSelectElement).value)}
                 class="select select-bordered w-full"
               >
                 <option value="">すべて</option>
@@ -85,56 +83,59 @@ export default function ElectionSelector({ initialElections }: Props) {
 
       {/* 選挙一覧 */}
       <div class="space-y-6">
-        {years.length > 0 ? (
-          years.map((year) => (
-            <div key={year}>
-              <h2 class="text-xl font-semibold mb-3 flex items-center">
-                <span class="mr-2">📅</span>
-                {year}年
-              </h2>
-              <div class="card bg-base-100 shadow-xl">
-                <div class="card-body p-0">
-                  <ul class="menu p-0">
-                    {groupedByYear[year].map((election) => (
-                      <li key={election.id}>
-                        <div class="flex justify-between items-center py-4 px-6 border-b border-base-200 last:border-b-0">
-                          <div>
-                            <h3 class="font-medium">{election.name}</h3>
-                            <div class="mt-1 flex flex-wrap items-center gap-2">
-                              <span class="badge badge-info badge-sm">
-                                {ELECTION_TYPES[election.type] || election.type}
-                              </span>
-                              <span class="text-xs opacity-70">
-                                {new Date(
-                                  election.election_date
-                                ).toLocaleDateString("ja-JP")}
-                              </span>
-                              <span class="text-xs opacity-70">
-                                選挙区: {election.area_code}
-                              </span>
+        {years.length > 0
+          ? (
+            years.map((year) => (
+              <div key={year}>
+                <h2 class="text-xl font-semibold mb-3 flex items-center">
+                  <span class="mr-2">📅</span>
+                  {year}年
+                </h2>
+                <div class="card bg-base-100 shadow-xl">
+                  <div class="card-body p-0">
+                    <ul class="menu p-0">
+                      {groupedByYear[year].map((election) => (
+                        <li key={election.id}>
+                          <div class="flex justify-between items-center py-4 px-6 border-b border-base-200 last:border-b-0">
+                            <div>
+                              <h3 class="font-medium">{election.name}</h3>
+                              <div class="mt-1 flex flex-wrap items-center gap-2">
+                                <span class="badge badge-info badge-sm">
+                                  {ELECTION_TYPES[election.type] ||
+                                    election.type}
+                                </span>
+                                <span class="text-xs opacity-70">
+                                  {new Date(
+                                    election.election_date,
+                                  ).toLocaleDateString("ja-JP")}
+                                </span>
+                                <span class="text-xs opacity-70">
+                                  選挙区: {election.area_code}
+                                </span>
+                              </div>
                             </div>
+                            <a
+                              href={`/elections/${election.id}/ledger`}
+                              class="btn btn-primary btn-sm"
+                            >
+                              台帳を開く
+                            </a>
                           </div>
-                          <a
-                            href={`/elections/${election.id}/ledger`}
-                            class="btn btn-primary btn-sm"
-                          >
-                            台帳を開く
-                          </a>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
+            ))
+          )
+          : (
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body items-center text-center">
+                <p class="text-base-content/70">該当する選挙が見つかりません</p>
+              </div>
             </div>
-          ))
-        ) : (
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body items-center text-center">
-              <p class="text-base-content/70">該当する選挙が見つかりません</p>
-            </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* 登録リクエストセクション */}
@@ -313,8 +314,7 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   name: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="例: 2025年〇〇市議会議員選挙"
               class="input input-bordered w-full"
             />
@@ -333,8 +333,7 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   type: (e.target as HTMLSelectElement).value,
-                })
-              }
+                })}
               class="select select-bordered w-full"
             >
               {Object.entries(ELECTION_TYPES).map(([code, name]) => (
@@ -359,8 +358,7 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   area_description: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="例: 東京都第1区、〇〇市全域"
               class="input input-bordered w-full"
             />
@@ -446,8 +444,7 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   evidence_url: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="https://..."
               class="input input-bordered w-full"
             />
@@ -464,8 +461,7 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   requested_by_email: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="example@email.com"
               class="input input-bordered w-full"
             />
@@ -481,8 +477,7 @@ function ElectionRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   notes: (e.target as HTMLTextAreaElement).value,
-                })
-              }
+                })}
               rows={3}
               class="textarea textarea-bordered w-full"
             />

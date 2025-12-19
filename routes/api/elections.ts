@@ -1,5 +1,5 @@
 import { Handlers } from "$fresh/server.ts";
-import { getSupabaseClient, getServiceClient } from "../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from "../../lib/supabase.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -45,8 +45,9 @@ export const handler: Handlers = {
         });
       }
 
-      const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+      const supabase = userId === TEST_USER_ID
+        ? getServiceClient()
+        : getSupabaseClient(req);
 
       // まず政治家を作成
       const { data: politician, error: politicianError } = await supabase
@@ -65,7 +66,7 @@ export const handler: Handlers = {
           {
             status: 500,
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
       }
 
@@ -90,7 +91,7 @@ export const handler: Handlers = {
           {
             status: 500,
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
       }
 
@@ -103,7 +104,7 @@ export const handler: Handlers = {
         {
           status: 201,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     } catch (error) {
       console.error("Error creating election:", error);
@@ -112,7 +113,7 @@ export const handler: Handlers = {
         {
           status: 500,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
   },

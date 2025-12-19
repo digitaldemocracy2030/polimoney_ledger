@@ -1,6 +1,7 @@
 # AI エージェントへの指示書
 
-このファイルは、AI アシスタントがこのプロジェクトで作業する上での、中心的なコンテキストを定義します。
+このファイルは、AI
+アシスタントがこのプロジェクトで作業する上での、中心的なコンテキストを定義します。
 
 ## 担当エージェント
 
@@ -14,6 +15,7 @@
 システム全体のアーキテクチャと技術スタックに関する唯一の信頼できる情報源です。
 
 **技術スタック:**
+
 - フロントエンド: Fresh (Deno) + Tailwind CSS
 - バックエンド: Supabase Edge Functions (Hono)
 - データベース: PostgreSQL (Supabase)
@@ -35,8 +37,9 @@
 
 実装すべき機能の具体的なデータモデルや画面仕様を定義します。
 
-> ⚠️ **注意**: 画面仕様の Flutter 固有の記述（`lib/features/` パス等）は、
-> Fresh 版では `packages/web/routes/` または `packages/web/islands/` に読み替えてください。
+> ⚠️ **注意**: 画面仕様の Flutter 固有の記述（`lib/features/` パス等）は、 Fresh
+> 版では `packages/web/routes/` または `packages/web/islands/`
+> に読み替えてください。
 
 @./docs/SPECIFICATION.md
 
@@ -61,7 +64,8 @@
 
 ### 自動生成されたコンテキスト
 
-`docs/reference/` フォルダ内の PDF・Excel ファイルの内容は、以下のコマンドで統合ファイルに変換できます：
+`docs/reference/` フォルダ内の PDF・Excel
+ファイルの内容は、以下のコマンドで統合ファイルに変換できます：
 
 ```bash
 python make_docs_context_v2.py
@@ -69,7 +73,9 @@ python make_docs_context_v2.py
 
 生成されたファイル: `agent_reference_context.md`
 
-**注意:** REFERENCE.md のリンク先を直接読めない場合は、上記コマンドを実行してから `agent_reference_context.md` を参照してください。
+**注意:** REFERENCE.md
+のリンク先を直接読めない場合は、上記コマンドを実行してから
+`agent_reference_context.md` を参照してください。
 
 ---
 
@@ -92,8 +98,8 @@ cd packages/web && deno task start
 
 ### Flutter 版 (Legacy)
 
-Flutter 版のコードは `legacy/flutter/` にあります。
-詳細は `legacy/flutter/README.md` を参照してください。
+Flutter 版のコードは `legacy/flutter/` にあります。 詳細は
+`legacy/flutter/README.md` を参照してください。
 
 ---
 

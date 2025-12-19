@@ -1,6 +1,7 @@
 # 勘定科目マスタ仕様書
 
-本ドキュメントは、Polimoney Ledger で使用する勘定科目の一覧と、法令との対応関係を整理したものです。
+本ドキュメントは、Polimoney Ledger
+で使用する勘定科目の一覧と、法令との対応関係を整理したものです。
 
 ## 目次
 
@@ -251,7 +252,8 @@ sub_accounts (
 1. **政治団体用の収入・支出科目** - 法定様式に完全準拠
 2. **選挙運動用の支出科目（10 費目）** - 公職選挙法に準拠
 3. **共通科目（資産・負債・純資産）** - 複式簿記に対応
-4. **家屋費の子科目** - Hub の account_codes で `EXP_BUILDING_ELEC_OFFICE`（選挙事務所費）、`EXP_BUILDING_ELEC_VENUE`（集合会場費等）として管理
+4. **家屋費の子科目** - Hub の account_codes で
+   `EXP_BUILDING_ELEC_OFFICE`（選挙事務所費）、`EXP_BUILDING_ELEC_VENUE`（集合会場費等）として管理
 
 ### ⚠️ 検討が必要なもの
 

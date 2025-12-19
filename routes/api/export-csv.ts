@@ -3,11 +3,11 @@
  *
  * 収支報告書作成の補助データを CSV 形式で出力
  *
- * GET /api/export-csv?type=expense|revenue|summary&organization_id=xxx|election_id=xxx
+ * GET /api/export-csv?type=expense|revenue|summary|assets&organization_id=xxx|election_id=xxx
  */
 
 import { Handlers } from "$fresh/server.ts";
-import { getSupabaseClient, getServiceClient } from "../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from "../../lib/supabase.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -29,6 +29,8 @@ interface JournalData {
   amount_political_fund: number | null;
   amount_public_subsidy: number | null;
   is_receipt_hard_to_collect: boolean | null;
+  is_asset_acquisition: boolean | null;
+  asset_type: string | null;
   contacts: {
     name: string;
     contact_type: string;
@@ -42,6 +44,16 @@ interface JournalData {
     credit_amount: number;
   }[];
 }
+
+// 資産種別の表示名
+const ASSET_TYPE_LABELS: Record<string, string> = {
+  land: "土地",
+  building: "建物",
+  vehicle: "車両・動産",
+  securities: "有価証券",
+  facility_rights: "施設利用権",
+  deposit: "敷金・保証金",
+};
 
 // 補助科目データ型
 interface SubAccountData {
@@ -265,6 +277,51 @@ function generateSummaryCSV(
   return csvLines.join("\n");
 }
 
+/**
+ * 資産等一覧 CSV を生成
+ */
+function generateAssetsCSV(journals: JournalData[]): string {
+  const headers = [
+    "取得年月日",
+    "資産種別",
+    "摘要",
+    "取得先氏名",
+    "取得先住所",
+    "取得価額",
+  ];
+
+  const rows: string[][] = [];
+
+  // 資産取得の仕訳のみ抽出
+  const assetJournals = journals.filter((j) => j.is_asset_acquisition === true);
+
+  for (const journal of assetJournals) {
+    // 借方（資産取得）のエントリを取得して金額を計算
+    const amount = journal.journal_entries.reduce(
+      (sum, e) => sum + e.debit_amount,
+      0
+    );
+
+    const row = [
+      formatDate(journal.journal_date),
+      ASSET_TYPE_LABELS[journal.asset_type || ""] || journal.asset_type || "",
+      journal.description,
+      journal.contacts?.name || "",
+      journal.contacts?.address || "",
+      String(amount),
+    ];
+
+    rows.push(row);
+  }
+
+  const csvLines = [
+    headers.map(escapeCSV).join(","),
+    ...rows.map((row) => row.map(escapeCSV).join(",")),
+  ];
+
+  return csvLines.join("\n");
+}
+
 export const handler: Handlers = {
   async GET(req, ctx) {
     const userId = ctx.state.userId as string;
@@ -326,6 +383,9 @@ export const handler: Handlers = {
           amount_political_fund,
           amount_public_subsidy,
           is_receipt_hard_to_collect,
+          is_asset_acquisition,
+          asset_type,
+          status,
           contacts (
             name,
             contact_type,
@@ -377,6 +437,10 @@ export const handler: Handlers = {
           csv = generateSummaryCSV(journals as JournalData[], accountMaster);
           filename = `科目別集計_${date}.csv`;
           break;
+        case "assets":
+          csv = generateAssetsCSV(journals as JournalData[]);
+          filename = `資産等一覧_${date}.csv`;
+          break;
         case "expense":
         default:
           csv = generateExpenseCSV(
@@ -400,7 +464,9 @@ export const handler: Handlers = {
         status: 200,
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+            filename
+          )}`,
         },
       });
     } catch (error) {

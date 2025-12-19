@@ -63,7 +63,7 @@ export interface HubLedger {
  * 関係者名を匿名化
  */
 export function anonymizeContactName(
-  contact: LedgerContact | null
+  contact: LedgerContact | null,
 ): string | null {
   if (!contact) return null;
   if (contact.is_name_private) return "非公開";
@@ -144,7 +144,7 @@ export interface TransformInput {
  * Ledger の仕訳データを Hub 同期形式に変換
  */
 export async function transformJournalForSync(
-  input: TransformInput
+  input: TransformInput,
 ): Promise<SyncJournalInput> {
   const { journal, entries, contact, ledgerSourceId } = input;
 
@@ -181,7 +181,7 @@ export async function transformJournalForSync(
  * 複数の仕訳を一括変換
  */
 export async function transformJournalsForSync(
-  inputs: TransformInput[]
+  inputs: TransformInput[],
 ): Promise<SyncJournalInput[]> {
   return Promise.all(inputs.map(transformJournalForSync));
 }
@@ -208,4 +208,3 @@ export function shouldSync(journal: LedgerJournal): boolean {
 
   return true;
 }
-

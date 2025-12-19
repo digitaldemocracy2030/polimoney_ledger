@@ -1,7 +1,7 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../../components/Layout.tsx";
-import { getElections, type Election } from "../../lib/hub-client.ts";
+import { type Election, getElections } from "../../lib/hub-client.ts";
 import NewElectionForm from "../../islands/NewElectionForm.tsx";
 
 interface NewElectionPageData {
@@ -28,10 +28,9 @@ export const handler: Handlers<NewElectionPageData> = {
       console.error("Failed to fetch elections from Hub:", error);
       return ctx.render({
         hubElections: [],
-        error:
-          error instanceof Error
-            ? error.message
-            : "選挙一覧の取得に失敗しました",
+        error: error instanceof Error
+          ? error.message
+          : "選挙一覧の取得に失敗しました",
       });
     }
   },

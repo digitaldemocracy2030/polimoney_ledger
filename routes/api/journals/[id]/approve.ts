@@ -9,17 +9,17 @@
 import { Handlers } from "$fresh/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import {
-  syncJournals,
-  syncLedger,
   isTestUser,
   type SyncJournalInput,
+  syncJournals,
+  syncLedger,
   type SyncLedgerInput,
 } from "../../../../lib/hub-client.ts";
 import {
-  transformJournalForSync,
+  type LedgerContact,
   type LedgerJournal,
   type LedgerJournalEntry,
-  type LedgerContact,
+  transformJournalForSync,
 } from "../../../../lib/sync-transform.ts";
 
 // Supabase クライアント
@@ -110,7 +110,7 @@ export const handler: Handlers = {
           *,
           journal_entries (*),
           contacts (*)
-        `
+        `,
         )
         .eq("id", journalId)
         .single();
@@ -128,7 +128,7 @@ export const handler: Handlers = {
       if (journalWithRelations.status === "approved") {
         return new Response(
           JSON.stringify({ message: "Already approved", synced: false }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -147,21 +147,20 @@ export const handler: Handlers = {
       }
 
       // 3. 台帳情報を取得
-      const ledgerId =
-        journalWithRelations.ledger_id ||
+      const ledgerId = journalWithRelations.ledger_id ||
         journalWithRelations.election_id ||
         journalWithRelations.organization_id;
 
       if (!ledgerId) {
         console.warn(
-          "[Approve] Journal has no associated ledger, skipping sync"
+          "[Approve] Journal has no associated ledger, skipping sync",
         );
         return new Response(
           JSON.stringify({
             message: "Approved but not synced (no ledger)",
             synced: false,
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -173,7 +172,7 @@ export const handler: Handlers = {
         .from("ledgers")
         .select("*")
         .or(
-          `id.eq.${ledgerId},election_id.eq.${journalWithRelations.election_id},organization_id.eq.${journalWithRelations.organization_id}`
+          `id.eq.${ledgerId},election_id.eq.${journalWithRelations.election_id},organization_id.eq.${journalWithRelations.organization_id}`,
         )
         .limit(1)
         .single();
@@ -189,7 +188,7 @@ export const handler: Handlers = {
             message: "Approved but not synced (ledger not found)",
             synced: false,
           }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+          { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -213,7 +212,7 @@ export const handler: Handlers = {
         .select("*, journal_entries (*)")
         .eq("status", "approved")
         .or(
-          `election_id.eq.${ledger.election_id},organization_id.eq.${ledger.organization_id}`
+          `election_id.eq.${ledger.election_id},organization_id.eq.${ledger.organization_id}`,
         );
 
       let totalIncome = 0;
@@ -255,7 +254,7 @@ export const handler: Handlers = {
           synced: true,
           sync_result: syncResult,
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     } catch (error) {
       console.error("[Approve] Error:", error);
@@ -263,7 +262,7 @@ export const handler: Handlers = {
         JSON.stringify({
           error: error instanceof Error ? error.message : "Failed to approve",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },

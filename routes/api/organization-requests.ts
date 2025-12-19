@@ -20,7 +20,7 @@ export const handler: Handlers = {
           JSON.stringify({
             error: "name, type, evidence_type, evidence_file_url は必須です",
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -34,11 +34,13 @@ export const handler: Handlers = {
       if (!validTypes.includes(body.type)) {
         return new Response(
           JSON.stringify({
-            error: `type は ${validTypes.join(
-              ", "
-            )} のいずれかである必要があります`,
+            error: `type は ${
+              validTypes.join(
+                ", ",
+              )
+            } のいずれかである必要があります`,
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -51,11 +53,13 @@ export const handler: Handlers = {
       if (!validEvidenceTypes.includes(body.evidence_type)) {
         return new Response(
           JSON.stringify({
-            error: `evidence_type は ${validEvidenceTypes.join(
-              ", "
-            )} のいずれかである必要があります`,
+            error: `evidence_type は ${
+              validEvidenceTypes.join(
+                ", ",
+              )
+            } のいずれかである必要があります`,
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -70,12 +74,11 @@ export const handler: Handlers = {
       console.error("Organization request creation failed:", error);
       return new Response(
         JSON.stringify({
-          error:
-            error instanceof Error
-              ? error.message
-              : "リクエストの作成に失敗しました",
+          error: error instanceof Error
+            ? error.message
+            : "リクエストの作成に失敗しました",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },

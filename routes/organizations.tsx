@@ -1,7 +1,7 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../components/Layout.tsx";
-import { getSupabaseClient, getServiceClient } from "../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from "../lib/supabase.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -28,8 +28,9 @@ export const handler: Handlers<OrganizationsPageData> = {
     }
 
     try {
-      const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+      const supabase = userId === TEST_USER_ID
+        ? getServiceClient()
+        : getSupabaseClient(req);
 
       // ユーザーが作成した政治団体台帳を取得
       const { data: organizations, error } = await supabase
@@ -119,44 +120,46 @@ export default function OrganizationsPage({
         </div>
 
         {/* 政治団体台帳一覧 */}
-        {organizations.length === 0 ? (
-          <div class="card bg-base-100 shadow">
-            <div class="card-body items-center text-center py-12">
-              <div class="text-6xl mb-4">🏛️</div>
-              <h2 class="card-title">政治団体台帳がありません</h2>
-              <p class="text-base-content/70 mb-4">
-                「新しい政治団体台帳を作成」ボタンから、政治団体を登録して台帳を作成しましょう。
-              </p>
+        {organizations.length === 0
+          ? (
+            <div class="card bg-base-100 shadow">
+              <div class="card-body items-center text-center py-12">
+                <div class="text-6xl mb-4">🏛️</div>
+                <h2 class="card-title">政治団体台帳がありません</h2>
+                <p class="text-base-content/70 mb-4">
+                  「新しい政治団体台帳を作成」ボタンから、政治団体を登録して台帳を作成しましょう。
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div class="grid gap-4">
-            {organizations.map((org) => (
-              <div key={org.id} class="card bg-base-100 shadow">
-                <div class="card-body">
-                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <h2 class="card-title">{org.name}</h2>
-                      <div class="flex flex-wrap gap-2 mt-2">
-                        <span class="badge badge-outline">
-                          作成日: {formatDate(org.created_at)}
-                        </span>
+          )
+          : (
+            <div class="grid gap-4">
+              {organizations.map((org) => (
+                <div key={org.id} class="card bg-base-100 shadow">
+                  <div class="card-body">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <h2 class="card-title">{org.name}</h2>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                          <span class="badge badge-outline">
+                            作成日: {formatDate(org.created_at)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div class="flex gap-2">
-                      <a
-                        href={`/organizations/${org.id}/ledger`}
-                        class="btn btn-primary"
-                      >
-                        台帳を開く
-                      </a>
+                      <div class="flex gap-2">
+                        <a
+                          href={`/organizations/${org.id}/ledger`}
+                          class="btn btn-primary"
+                        >
+                          台帳を開く
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
       </Layout>
     </>
   );

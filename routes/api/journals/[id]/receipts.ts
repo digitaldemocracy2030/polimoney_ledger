@@ -120,7 +120,7 @@ export const handler: Handlers = {
             created_at: asset.created_at,
             url: signedUrlData?.signedUrl || null,
           };
-        })
+        }),
       );
 
       return new Response(JSON.stringify({ data: assetsWithUrls }), {
@@ -131,12 +131,11 @@ export const handler: Handlers = {
       console.error("Fetch receipts failed:", error);
       return new Response(
         JSON.stringify({
-          error:
-            error instanceof Error
-              ? error.message
-              : "領収書の取得に失敗しました",
+          error: error instanceof Error
+            ? error.message
+            : "領収書の取得に失敗しました",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },

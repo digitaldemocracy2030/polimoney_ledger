@@ -8,7 +8,7 @@ interface ExportCSVButtonProps {
 /**
  * CSV エクスポートボタン
  *
- * 支出一覧、収入一覧、科目別集計の CSV をダウンロード
+ * 支出一覧、収入一覧、科目別集計、資産等一覧の CSV をダウンロード
  */
 export default function ExportCSVButton({
   organizationId,
@@ -17,7 +17,9 @@ export default function ExportCSVButton({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
-  const handleExport = async (type: "expense" | "revenue" | "summary") => {
+  const handleExport = async (
+    type: "expense" | "revenue" | "summary" | "assets"
+  ) => {
     setIsLoading(type);
 
     try {
@@ -131,6 +133,18 @@ export default function ExportCSVButton({
                 <span class="loading loading-spinner loading-xs"></span>
               )}
               科目別集計
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => handleExport("assets")}
+              disabled={isLoading !== null}
+              class="flex items-center gap-2"
+            >
+              {isLoading === "assets" && (
+                <span class="loading loading-spinner loading-xs"></span>
+              )}
+              資産等一覧
             </button>
           </li>
         </ul>

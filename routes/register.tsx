@@ -4,8 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-const SUPABASE_SERVICE_ROLE_KEY =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+  "";
 
 // Hub API 設定
 // 注意: DENO_ENV は Deno Deploy で予約済みのため APP_ENV を使用
@@ -109,20 +109,20 @@ export const handler: Handlers<RegisterData> = {
         SUPABASE_SERVICE_ROLE_KEY,
         {
           auth: { autoRefreshToken: false, persistSession: false },
-        }
+        },
       );
 
       const fileExt = verificationDoc.name.split(".").pop();
       const filePath = `${userId}/${Date.now()}.${fileExt}`;
       const fileBuffer = await verificationDoc.arrayBuffer();
 
-      const { data: uploadData, error: uploadError } =
-        await serviceClient.storage
-          .from("verification-documents")
-          .upload(filePath, fileBuffer, {
-            contentType: verificationDoc.type,
-            upsert: false,
-          });
+      const { data: uploadData, error: uploadError } = await serviceClient
+        .storage
+        .from("verification-documents")
+        .upload(filePath, fileBuffer, {
+          contentType: verificationDoc.type,
+          upsert: false,
+        });
 
       if (uploadError) {
         console.error("[Register] Upload error:", uploadError);
@@ -157,7 +157,7 @@ export const handler: Handlers<RegisterData> = {
               verification_doc_type: getDocType(role),
               verification_doc_name: verificationDoc.name,
             }),
-          }
+          },
         );
 
         if (!hubResponse.ok) {
@@ -226,7 +226,8 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                   </div>
                 </div>
                 <p class="text-base-content/60 text-sm">
-                  <strong>{data.email}</strong> 宛に確認メールを送信しました。
+                  <strong>{data.email}</strong>{" "}
+                  宛に確認メールを送信しました。
                   メール内のリンクをクリックして、メールアドレスの確認を完了してください。
                 </p>
               </div>

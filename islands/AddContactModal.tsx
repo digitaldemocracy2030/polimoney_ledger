@@ -16,7 +16,7 @@ export default function AddContactModal({
   onSuccess,
 }: AddContactModalProps) {
   const [contactType, setContactType] = useState<"person" | "corporation">(
-    "person"
+    "person",
   );
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -34,8 +34,8 @@ export default function AddContactModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const hasPrivacySetting =
-    isNamePrivate || isAddressPrivate || isOccupationPrivate;
+  const hasPrivacySetting = isNamePrivate || isAddressPrivate ||
+    isOccupationPrivate;
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -152,9 +152,9 @@ export default function AddContactModal({
             <input
               type="text"
               class="input input-bordered"
-              placeholder={
-                contactType === "person" ? "例: 山田 太郎" : "例: 株式会社○○"
-              }
+              placeholder={contactType === "person"
+                ? "例: 山田 太郎"
+                : "例: 株式会社○○"}
               value={name}
               onChange={(e) => setName((e.target as HTMLInputElement).value)}
               required
@@ -187,8 +187,7 @@ export default function AddContactModal({
                 placeholder="例: 会社員"
                 value={occupation}
                 onChange={(e) =>
-                  setOccupation((e.target as HTMLInputElement).value)
-                }
+                  setOccupation((e.target as HTMLInputElement).value)}
               />
             </div>
           )}
@@ -203,8 +202,7 @@ export default function AddContactModal({
                 class="checkbox checkbox-sm"
                 checked={isNamePrivate}
                 onChange={(e) =>
-                  setIsNamePrivate((e.target as HTMLInputElement).checked)
-                }
+                  setIsNamePrivate((e.target as HTMLInputElement).checked)}
               />
               <span class="label-text">氏名を非公開にする</span>
             </label>
@@ -215,8 +213,7 @@ export default function AddContactModal({
                 class="checkbox checkbox-sm"
                 checked={isAddressPrivate}
                 onChange={(e) =>
-                  setIsAddressPrivate((e.target as HTMLInputElement).checked)
-                }
+                  setIsAddressPrivate((e.target as HTMLInputElement).checked)}
               />
               <span class="label-text">住所を非公開にする</span>
             </label>
@@ -229,9 +226,8 @@ export default function AddContactModal({
                   checked={isOccupationPrivate}
                   onChange={(e) =>
                     setIsOccupationPrivate(
-                      (e.target as HTMLInputElement).checked
-                    )
-                  }
+                      (e.target as HTMLInputElement).checked,
+                    )}
                 />
                 <span class="label-text">職業を非公開にする</span>
               </label>
@@ -251,9 +247,8 @@ export default function AddContactModal({
                   setPrivacyReasonType(
                     (e.target as HTMLSelectElement).value as
                       | "personal_info"
-                      | "other"
-                  )
-                }
+                      | "other",
+                  )}
               >
                 <option value="personal_info">個人情報保護のため</option>
                 <option value="other">その他</option>
@@ -266,8 +261,7 @@ export default function AddContactModal({
                   placeholder="理由を入力"
                   value={privacyReasonOther}
                   onChange={(e) =>
-                    setPrivacyReasonOther((e.target as HTMLInputElement).value)
-                  }
+                    setPrivacyReasonOther((e.target as HTMLInputElement).value)}
                 />
               )}
             </div>

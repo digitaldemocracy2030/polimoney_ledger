@@ -70,14 +70,14 @@ export const handler: Handlers = {
       if (!file) {
         return new Response(
           JSON.stringify({ error: "ファイルが選択されていません" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
       if (!journalId) {
         return new Response(
           JSON.stringify({ error: "仕訳IDが指定されていません" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -86,7 +86,7 @@ export const handler: Handlers = {
       if (file.size > MAX_SIZE) {
         return new Response(
           JSON.stringify({ error: "ファイルサイズは5MB以下にしてください" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -103,7 +103,7 @@ export const handler: Handlers = {
             error:
               "許可されていないファイル形式です。画像またはPDFをアップロードしてください",
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -141,7 +141,7 @@ export const handler: Handlers = {
       if (uploadError) {
         console.error("Storage upload error:", uploadError);
         throw new Error(
-          `ファイルのアップロードに失敗しました: ${uploadError.message}`
+          `ファイルのアップロードに失敗しました: ${uploadError.message}`,
         );
       }
 
@@ -179,18 +179,17 @@ export const handler: Handlers = {
           url: signedUrlData?.signedUrl || null,
           created_at: mediaAsset.created_at,
         }),
-        { status: 201, headers: { "Content-Type": "application/json" } }
+        { status: 201, headers: { "Content-Type": "application/json" } },
       );
     } catch (error) {
       console.error("Receipt upload failed:", error);
       return new Response(
         JSON.stringify({
-          error:
-            error instanceof Error
-              ? error.message
-              : "アップロードに失敗しました",
+          error: error instanceof Error
+            ? error.message
+            : "アップロードに失敗しました",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },
@@ -215,7 +214,7 @@ export const handler: Handlers = {
       if (!mediaAssetId) {
         return new Response(
           JSON.stringify({ error: "IDが指定されていません" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -231,7 +230,7 @@ export const handler: Handlers = {
       if (fetchError || !mediaAsset) {
         return new Response(
           JSON.stringify({ error: "ファイルが見つかりません" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
+          { status: 404, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -273,7 +272,7 @@ export const handler: Handlers = {
         JSON.stringify({
           error: error instanceof Error ? error.message : "削除に失敗しました",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },
