@@ -211,6 +211,31 @@ export async function getOrganization(id: string): Promise<Organization> {
   return result.data;
 }
 
+/** 管理する政治団体（認証済み） */
+export interface ManagedOrganization extends Organization {
+  verified_at: string;
+  verified_domain: string;
+}
+
+/**
+ * ユーザーが管理する政治団体一覧を取得
+ * Hub の organization_managers テーブルを参照
+ */
+export async function getManagedOrganizations(
+  ledgerUserId: string
+): Promise<ManagedOrganization[]> {
+  try {
+    const result = await fetchApi<ApiResponse<ManagedOrganization[]>>(
+      `/api/v1/organizations/managed?ledger_user_id=${ledgerUserId}`
+    );
+    return result.data;
+  } catch (error) {
+    // API が未実装の場合は空配列を返す
+    console.warn("getManagedOrganizations API not implemented:", error);
+    return [];
+  }
+}
+
 // ============================================
 // マスタデータ API（勘定科目など）
 // ============================================
