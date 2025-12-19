@@ -303,7 +303,7 @@ async function createTestUser(): Promise<boolean> {
 
   // 既存ユーザーをチェック
   const { data: existingUser } = await supabase.auth.admin.getUserById(
-    TEST_USER_ID
+    TEST_USER_ID,
   );
 
   if (existingUser?.user) {
@@ -414,7 +414,7 @@ async function seedJournalEntries() {
       console.log(
         `  ✓ ${entry.account_code} (${
           entry.debit_amount || entry.credit_amount
-        }円)`
+        }円)`,
       );
     }
   }

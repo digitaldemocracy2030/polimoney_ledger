@@ -8,19 +8,19 @@
 import { Handlers } from "$fresh/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import {
+  isTestUser,
+  recordChangeLog,
+  type SyncJournalInput,
   syncJournals,
   syncLedger,
-  recordChangeLog,
-  isTestUser,
-  type SyncJournalInput,
   type SyncLedgerInput,
 } from "../../lib/hub-client.ts";
 import {
-  transformJournalForSync,
-  shouldSync,
+  type LedgerContact,
   type LedgerJournal,
   type LedgerJournalEntry,
-  type LedgerContact,
+  shouldSync,
+  transformJournalForSync,
 } from "../../lib/sync-transform.ts";
 
 // Supabase クライアント
@@ -86,7 +86,7 @@ interface JournalWithEntries extends LedgerJournal {
  */
 async function getApprovedJournals(
   supabase: ReturnType<typeof getSupabase>,
-  ledger: LedgerRecord
+  ledger: LedgerRecord,
 ): Promise<JournalWithEntries[]> {
   let query = supabase
     .from("journals")
@@ -95,7 +95,7 @@ async function getApprovedJournals(
       *,
       journal_entries (*),
       contacts (*)
-    `
+    `,
     )
     .eq("status", "approved");
 
@@ -170,7 +170,7 @@ export const handler: Handlers = {
     if (!ledgerType && !ledgerId) {
       return new Response(
         JSON.stringify({ error: "type or ledger_id is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -300,12 +300,12 @@ export const handler: Handlers = {
           });
 
           console.log(
-            `[Sync] Ledger ${ledger.id}: ${syncInputs.length} journals synced`
+            `[Sync] Ledger ${ledger.id}: ${syncInputs.length} journals synced`,
           );
         } catch (ledgerError) {
           console.error(
             `[Sync] Error processing ledger ${ledger.id}:`,
-            ledgerError
+            ledgerError,
           );
           result.errors++;
         }
@@ -321,7 +321,7 @@ export const handler: Handlers = {
         JSON.stringify({
           error: error instanceof Error ? error.message : "Sync failed",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },

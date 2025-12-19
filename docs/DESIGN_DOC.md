@@ -1,11 +1,13 @@
 # polimoney_ledger 設計方針書
 
-> ⚠️ **注意**: 詳細なアーキテクチャ設計は [ARCHITECTURE.md](./ARCHITECTURE.md) を参照してください。
+> ⚠️ **注意**: 詳細なアーキテクチャ設計は [ARCHITECTURE.md](./ARCHITECTURE.md)
+> を参照してください。
 
 ## 1. バックエンド
 
 - **Supabase** を使用する。
-- DD2030 がホスティングする共有インスタンスを使用（詳細は [SERVICE_POLICY.md](./SERVICE_POLICY.md) 参照）。
+- DD2030 がホスティングする共有インスタンスを使用（詳細は
+  [SERVICE_POLICY.md](./SERVICE_POLICY.md) 参照）。
 - **利点:** データの一貫性、Polimoney との連携、ユーザビリティ向上。
 
 ## 2. フロントエンド
@@ -48,5 +50,5 @@ polimoney_ledger/
 
 ## 6. レガシーコード
 
-Flutter 版のコードは `legacy/flutter/` に保存されています。
-新規開発は Fresh (Deno) で行います。
+Flutter 版のコードは `legacy/flutter/` に保存されています。 新規開発は Fresh
+(Deno) で行います。

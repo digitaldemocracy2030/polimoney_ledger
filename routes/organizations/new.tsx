@@ -28,10 +28,9 @@ export const handler: Handlers<NewOrganizationPageData> = {
       console.error("Failed to fetch organizations from Hub:", error);
       return ctx.render({
         hubOrganizations: [],
-        error:
-          error instanceof Error
-            ? error.message
-            : "政治団体一覧の取得に失敗しました",
+        error: error instanceof Error
+          ? error.message
+          : "政治団体一覧の取得に失敗しました",
       });
     }
   },

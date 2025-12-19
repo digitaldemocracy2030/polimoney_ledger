@@ -9,7 +9,7 @@ import {
   createClient,
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2";
-import { TEST_USER_ID, isTestUser } from "./hub-client.ts";
+import { isTestUser, TEST_USER_ID } from "./hub-client.ts";
 
 // ============================================
 // 環境変数
@@ -17,8 +17,8 @@ import { TEST_USER_ID, isTestUser } from "./hub-client.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-const SUPABASE_SERVICE_ROLE_KEY =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+  "";
 
 // ============================================
 // Supabase クライアント（遅延初期化）
@@ -89,7 +89,7 @@ export function getEffectiveUserId(actualUserId: string | null): string {
 }
 
 // Re-export for convenience
-export { TEST_USER_ID, isTestUser };
+export { isTestUser, TEST_USER_ID };
 
 // ============================================
 // データ取得ヘルパー
@@ -168,7 +168,7 @@ export async function getContacts(userId: string | null) {
  */
 export async function getJournals(
   userId: string | null,
-  filter: { electionId?: string; organizationId?: string }
+  filter: { electionId?: string; organizationId?: string },
 ) {
   const client = getSupabaseClient(userId);
   const effectiveUserId = getEffectiveUserId(userId);

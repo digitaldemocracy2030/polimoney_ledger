@@ -52,9 +52,8 @@ export const handler: Handlers<PageData> = {
     }
 
     try {
-      const supabase = userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(req);
+      const supabase =
+        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
 
       // 選挙情報を取得
       const { data: election, error: electionError } = await supabase
@@ -74,7 +73,8 @@ export const handler: Handlers<PageData> = {
       // 資産取得の仕訳を取得
       const { data: journals, error: journalsError } = await supabase
         .from("journals")
-        .select(`
+        .select(
+          `
           id,
           journal_date,
           description,
@@ -86,7 +86,8 @@ export const handler: Handlers<PageData> = {
           journal_entries (
             debit_amount
           )
-        `)
+        `
+        )
         .eq("election_id", electionId)
         .eq("is_asset_acquisition", true)
         .eq("status", "approved")
@@ -102,8 +103,11 @@ export const handler: Handlers<PageData> = {
         journal_date: j.journal_date,
         description: j.description,
         asset_type: j.asset_type,
-        amount: j.journal_entries?.reduce((sum: number, e: any) =>
-          sum + (e.debit_amount || 0), 0) || 0,
+        amount:
+          j.journal_entries?.reduce(
+            (sum: number, e: any) => sum + (e.debit_amount || 0),
+            0
+          ) || 0,
         contact_name: j.contacts?.name || null,
       }));
 
@@ -233,68 +237,66 @@ export default function ElectionAssetsPage({ data }: PageProps<PageData>) {
               <span class="badge badge-ghost">{assets.length}件</span>
             </h2>
 
-            {assets.length === 0
-              ? (
-                <div class="text-center py-12">
-                  <div class="text-6xl mb-4">🏛️</div>
-                  <p class="text-base-content/70">資産の登録がありません</p>
-                  <p class="text-sm text-base-content/50 mt-2">
-                    仕訳登録時に「資産取得」にチェックを入れると、ここに表示されます
-                  </p>
-                </div>
-              )
-              : (
-                <div class="overflow-x-auto">
-                  <table class="table table-zebra">
-                    <thead>
-                      <tr>
-                        <th>取得日</th>
-                        <th>資産種別</th>
-                        <th>摘要</th>
-                        <th>取得先</th>
-                        <th class="text-right">取得価額</th>
-                        <th></th>
+            {assets.length === 0 ? (
+              <div class="text-center py-12">
+                <div class="text-6xl mb-4">🏛️</div>
+                <p class="text-base-content/70">資産の登録がありません</p>
+                <p class="text-sm text-base-content/50 mt-2">
+                  仕訳登録時に「資産取得」にチェックを入れると、ここに表示されます
+                </p>
+              </div>
+            ) : (
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>取得日</th>
+                      <th>資産種別</th>
+                      <th>摘要</th>
+                      <th>取得先</th>
+                      <th class="text-right">取得価額</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assets.map((asset) => (
+                      <tr key={asset.id}>
+                        <td class="whitespace-nowrap">
+                          {formatDate(asset.journal_date)}
+                        </td>
+                        <td>
+                          <span class="badge badge-outline">
+                            {ASSET_TYPE_LABELS[asset.asset_type] ||
+                              asset.asset_type}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="max-w-xs truncate">
+                            {asset.description}
+                          </div>
+                        </td>
+                        <td>
+                          {asset.contact_name || (
+                            <span class="text-base-content/50">-</span>
+                          )}
+                        </td>
+                        <td class="text-right font-mono">
+                          ¥{formatAmount(asset.amount)}
+                        </td>
+                        <td>
+                          <a
+                            href={`/journals/${asset.id}`}
+                            class="btn btn-ghost btn-sm"
+                          >
+                            詳細
+                          </a>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {assets.map((asset) => (
-                        <tr key={asset.id}>
-                          <td class="whitespace-nowrap">
-                            {formatDate(asset.journal_date)}
-                          </td>
-                          <td>
-                            <span class="badge badge-outline">
-                              {ASSET_TYPE_LABELS[asset.asset_type] ||
-                                asset.asset_type}
-                            </span>
-                          </td>
-                          <td>
-                            <div class="max-w-xs truncate">
-                              {asset.description}
-                            </div>
-                          </td>
-                          <td>
-                            {asset.contact_name || (
-                              <span class="text-base-content/50">-</span>
-                            )}
-                          </td>
-                          <td class="text-right font-mono">
-                            ¥{formatAmount(asset.amount)}
-                          </td>
-                          <td>
-                            <a
-                              href={`/journals/${asset.id}`}
-                              class="btn btn-ghost btn-sm"
-                            >
-                              詳細
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </Layout>

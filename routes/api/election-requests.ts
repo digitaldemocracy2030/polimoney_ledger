@@ -20,7 +20,7 @@ export const handler: Handlers = {
           JSON.stringify({
             error: "name, type, area_description, election_date は必須です",
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -29,11 +29,13 @@ export const handler: Handlers = {
       if (!validTypes.includes(body.type)) {
         return new Response(
           JSON.stringify({
-            error: `type は ${validTypes.join(
-              ", "
-            )} のいずれかである必要があります`,
+            error: `type は ${
+              validTypes.join(
+                ", ",
+              )
+            } のいずれかである必要があります`,
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -48,12 +50,11 @@ export const handler: Handlers = {
       console.error("Election request creation failed:", error);
       return new Response(
         JSON.stringify({
-          error:
-            error instanceof Error
-              ? error.message
-              : "リクエストの作成に失敗しました",
+          error: error instanceof Error
+            ? error.message
+            : "リクエストの作成に失敗しました",
         }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },

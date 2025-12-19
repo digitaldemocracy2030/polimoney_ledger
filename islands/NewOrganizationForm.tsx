@@ -30,8 +30,7 @@ export default function NewOrganizationForm({
 
   // フィルタリング
   const filteredOrganizations = hubOrganizations.filter((org) => {
-    const matchesSearch =
-      !searchQuery ||
+    const matchesSearch = !searchQuery ||
       org.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === "all" || org.type === typeFilter;
     return matchesSearch && matchesType;
@@ -52,7 +51,7 @@ export default function NewOrganizationForm({
           return;
         }
         const selectedOrg = hubOrganizations.find(
-          (o) => o.id === selectedOrgId
+          (o) => o.id === selectedOrgId,
         );
         if (!selectedOrg) {
           setError("選択された政治団体が見つかりません");
@@ -118,130 +117,131 @@ export default function NewOrganizationForm({
         </button>
       </div>
 
-      {mode === "select" ? (
-        <>
-          {/* 検索・フィルター */}
-          <div class="flex flex-col md:flex-row gap-4 mb-4">
-            <div class="form-control flex-1">
-              <input
-                type="text"
-                placeholder="政治団体名で検索..."
-                class="input input-bordered"
-                value={searchQuery}
-                onInput={(e) =>
-                  setSearchQuery((e.target as HTMLInputElement).value)
-                }
-              />
-            </div>
-            <div class="form-control">
-              <select
-                class="select select-bordered"
-                value={typeFilter}
-                onChange={(e) =>
-                  setTypeFilter((e.target as HTMLSelectElement).value)
-                }
-              >
-                <option value="all">すべての種別</option>
-                {Object.entries(ORGANIZATION_TYPES).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 政治団体一覧 */}
-          <div class="max-h-96 overflow-y-auto border rounded-lg mb-6">
-            {filteredOrganizations.length === 0 ? (
-              <div class="p-8 text-center text-base-content/60">
-                該当する政治団体がありません
+      {mode === "select"
+        ? (
+          <>
+            {/* 検索・フィルター */}
+            <div class="flex flex-col md:flex-row gap-4 mb-4">
+              <div class="form-control flex-1">
+                <input
+                  type="text"
+                  placeholder="政治団体名で検索..."
+                  class="input input-bordered"
+                  value={searchQuery}
+                  onInput={(e) =>
+                    setSearchQuery((e.target as HTMLInputElement).value)}
+                />
               </div>
-            ) : (
-              filteredOrganizations.map((org) => (
-                <label
-                  key={org.id}
-                  class={`flex items-center gap-4 p-4 cursor-pointer hover:bg-base-200 border-b ${
-                    selectedOrgId === org.id ? "bg-primary/10" : ""
-                  }`}
+              <div class="form-control">
+                <select
+                  class="select select-bordered"
+                  value={typeFilter}
+                  onChange={(e) =>
+                    setTypeFilter((e.target as HTMLSelectElement).value)}
                 >
-                  <input
-                    type="radio"
-                    name="organization"
-                    class="radio radio-primary"
-                    checked={selectedOrgId === org.id}
-                    onChange={() => setSelectedOrgId(org.id)}
-                  />
-                  <div class="flex-1">
-                    <div class="font-medium">{org.name}</div>
-                    <div class="flex gap-2 mt-1">
-                      <span class="badge badge-sm badge-info">
-                        {ORGANIZATION_TYPES[org.type] || org.type}
-                      </span>
-                    </div>
-                  </div>
-                </label>
-              ))
-            )}
-          </div>
-
-          {/* 見つからない場合 */}
-          <div class="alert alert-warning mb-6">
-            <span>
-              該当する政治団体がない場合は、「新規に登録」タブから登録してください。
-            </span>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* 新規作成フォーム */}
-          <div class="mb-6">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">
-                  政治団体名 <span class="text-error">*</span>
-                </span>
-              </label>
-              <input
-                type="text"
-                placeholder="例: 山田太郎後援会"
-                class="input input-bordered"
-                value={organizationName}
-                onInput={(e) =>
-                  setOrganizationName((e.target as HTMLInputElement).value)
-                }
-                required
-              />
-              <label class="label">
-                <span class="label-text-alt text-base-content/70">
-                  正式名称で入力してください
-                </span>
-              </label>
+                  <option value="all">すべての種別</option>
+                  {Object.entries(ORGANIZATION_TYPES).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
 
-          {/* 注意事項 */}
-          <div class="alert alert-info mb-6">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              class="stroke-current shrink-0 w-6 h-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>
-              新規作成した政治団体はまず台帳として登録されます。Hub
-              への公式登録は別途申請が必要です。
-            </span>
-          </div>
-        </>
-      )}
+            {/* 政治団体一覧 */}
+            <div class="max-h-96 overflow-y-auto border rounded-lg mb-6">
+              {filteredOrganizations.length === 0
+                ? (
+                  <div class="p-8 text-center text-base-content/60">
+                    該当する政治団体がありません
+                  </div>
+                )
+                : (
+                  filteredOrganizations.map((org) => (
+                    <label
+                      key={org.id}
+                      class={`flex items-center gap-4 p-4 cursor-pointer hover:bg-base-200 border-b ${
+                        selectedOrgId === org.id ? "bg-primary/10" : ""
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="organization"
+                        class="radio radio-primary"
+                        checked={selectedOrgId === org.id}
+                        onChange={() => setSelectedOrgId(org.id)}
+                      />
+                      <div class="flex-1">
+                        <div class="font-medium">{org.name}</div>
+                        <div class="flex gap-2 mt-1">
+                          <span class="badge badge-sm badge-info">
+                            {ORGANIZATION_TYPES[org.type] || org.type}
+                          </span>
+                        </div>
+                      </div>
+                    </label>
+                  ))
+                )}
+            </div>
+
+            {/* 見つからない場合 */}
+            <div class="alert alert-warning mb-6">
+              <span>
+                該当する政治団体がない場合は、「新規に登録」タブから登録してください。
+              </span>
+            </div>
+          </>
+        )
+        : (
+          <>
+            {/* 新規作成フォーム */}
+            <div class="mb-6">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">
+                    政治団体名 <span class="text-error">*</span>
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="例: 山田太郎後援会"
+                  class="input input-bordered"
+                  value={organizationName}
+                  onInput={(e) =>
+                    setOrganizationName((e.target as HTMLInputElement).value)}
+                  required
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    正式名称で入力してください
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* 注意事項 */}
+            <div class="alert alert-info mb-6">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                class="stroke-current shrink-0 w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>
+                新規作成した政治団体はまず台帳として登録されます。Hub
+                への公式登録は別途申請が必要です。
+              </span>
+            </div>
+          </>
+        )}
 
       {/* 送信ボタン */}
       <div class="flex gap-4">
@@ -251,11 +251,9 @@ export default function NewOrganizationForm({
         <button
           type="submit"
           class={`btn btn-primary flex-1 ${isSubmitting ? "loading" : ""}`}
-          disabled={
-            isSubmitting ||
+          disabled={isSubmitting ||
             (mode === "select" && !selectedOrgId) ||
-            (mode === "create" && !organizationName.trim())
-          }
+            (mode === "create" && !organizationName.trim())}
         >
           {isSubmitting ? "作成中..." : "政治団体台帳を作成"}
         </button>

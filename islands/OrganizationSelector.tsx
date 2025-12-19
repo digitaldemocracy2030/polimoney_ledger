@@ -1,4 +1,4 @@
-import { useState, useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { Organization } from "../lib/hub-client.ts";
 
 interface Props {
@@ -54,8 +54,7 @@ export default function OrganizationSelector({ initialOrganizations }: Props) {
                 type="text"
                 value={searchTerm}
                 onInput={(e) =>
-                  setSearchTerm((e.target as HTMLInputElement).value)
-                }
+                  setSearchTerm((e.target as HTMLInputElement).value)}
                 placeholder="団体名で検索..."
                 class="input input-bordered w-full"
               />
@@ -67,8 +66,7 @@ export default function OrganizationSelector({ initialOrganizations }: Props) {
               <select
                 value={selectedType}
                 onChange={(e) =>
-                  setSelectedType((e.target as HTMLSelectElement).value)
-                }
+                  setSelectedType((e.target as HTMLSelectElement).value)}
                 class="select select-bordered w-full"
               >
                 <option value="">すべて</option>
@@ -85,59 +83,62 @@ export default function OrganizationSelector({ initialOrganizations }: Props) {
 
       {/* 団体一覧 */}
       <div class="space-y-6">
-        {Object.keys(groupedByType).length > 0 ? (
-          Object.entries(ORGANIZATION_TYPES).map(([type, typeName]) => {
-            const orgs = groupedByType[type];
-            if (!orgs || orgs.length === 0) return null;
-            return (
-              <div key={type}>
-                <h2 class="text-xl font-semibold mb-3 flex items-center">
-                  <span class="mr-2">🏛️</span>
-                  {typeName}
-                </h2>
-                <div class="card bg-base-100 shadow-xl">
-                  <div class="card-body p-0">
-                    <ul class="menu p-0">
-                      {orgs.map((org) => (
-                        <li key={org.id}>
-                          <div class="flex justify-between items-center py-4 px-6 border-b border-base-200 last:border-b-0">
-                            <div>
-                              <h3 class="font-medium">{org.name}</h3>
-                              <div class="mt-1 flex items-center gap-2">
-                                <span class="badge badge-success badge-sm">
-                                  {ORGANIZATION_TYPES[org.type] || org.type}
-                                </span>
-                                <span class="text-xs opacity-70">
-                                  {new Date(org.created_at).toLocaleDateString(
-                                    "ja-JP"
-                                  )}
-                                </span>
+        {Object.keys(groupedByType).length > 0
+          ? (
+            Object.entries(ORGANIZATION_TYPES).map(([type, typeName]) => {
+              const orgs = groupedByType[type];
+              if (!orgs || orgs.length === 0) return null;
+              return (
+                <div key={type}>
+                  <h2 class="text-xl font-semibold mb-3 flex items-center">
+                    <span class="mr-2">🏛️</span>
+                    {typeName}
+                  </h2>
+                  <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body p-0">
+                      <ul class="menu p-0">
+                        {orgs.map((org) => (
+                          <li key={org.id}>
+                            <div class="flex justify-between items-center py-4 px-6 border-b border-base-200 last:border-b-0">
+                              <div>
+                                <h3 class="font-medium">{org.name}</h3>
+                                <div class="mt-1 flex items-center gap-2">
+                                  <span class="badge badge-success badge-sm">
+                                    {ORGANIZATION_TYPES[org.type] || org.type}
+                                  </span>
+                                  <span class="text-xs opacity-70">
+                                    {new Date(org.created_at)
+                                      .toLocaleDateString(
+                                        "ja-JP",
+                                      )}
+                                  </span>
+                                </div>
                               </div>
+                              <a
+                                href={`/organizations/${org.id}/ledger`}
+                                class="btn btn-primary btn-sm"
+                              >
+                                台帳を開く
+                              </a>
                             </div>
-                            <a
-                              href={`/organizations/${org.id}/ledger`}
-                              class="btn btn-primary btn-sm"
-                            >
-                              台帳を開く
-                            </a>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
+              );
+            })
+          )
+          : (
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body items-center text-center">
+                <p class="text-base-content/70">
+                  該当する政治団体が見つかりません
+                </p>
               </div>
-            );
-          })
-        ) : (
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body items-center text-center">
-              <p class="text-base-content/70">
-                該当する政治団体が見つかりません
-              </p>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* 登録リクエストセクション */}
@@ -309,8 +310,7 @@ function OrganizationRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   name: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="例: 山田太郎後援会"
               class="input input-bordered w-full"
             />
@@ -329,8 +329,7 @@ function OrganizationRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   type: (e.target as HTMLSelectElement).value,
-                })
-              }
+                })}
               class="select select-bordered w-full"
             >
               {Object.entries(ORGANIZATION_TYPES).map(([code, name]) => (
@@ -352,8 +351,7 @@ function OrganizationRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   registration_authority: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="例: 東京都選挙管理委員会"
               class="input input-bordered w-full"
             />
@@ -372,8 +370,7 @@ function OrganizationRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   evidence_type: (e.target as HTMLSelectElement).value,
-                })
-              }
+                })}
               class="select select-bordered w-full"
             >
               {Object.entries(EVIDENCE_TYPES).map(([code, name]) => (
@@ -426,8 +423,7 @@ function OrganizationRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   requested_by_email: (e.target as HTMLInputElement).value,
-                })
-              }
+                })}
               placeholder="example@email.com"
               class="input input-bordered w-full"
             />
@@ -443,8 +439,7 @@ function OrganizationRequestModal({ onClose }: { onClose: () => void }) {
                 setFormData({
                   ...formData,
                   notes: (e.target as HTMLTextAreaElement).value,
-                })
-              }
+                })}
               rows={3}
               class="textarea textarea-bordered w-full"
             />

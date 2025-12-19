@@ -84,65 +84,69 @@ export default function ReSyncButton({
       <div class="mb-4">
         <h4 class="font-semibold mb-1">Hub との強制再同期</h4>
         <p class="text-sm text-base-content/70">
-          通常、仕訳は承認時に自動で Hub に同期されます。
-          このボタンは Hub とのデータにズレが生じた場合にのみ使用してください。
+          通常、仕訳は承認時に自動で Hub に同期されます。 このボタンは Hub
+          とのデータにズレが生じた場合にのみ使用してください。
           承認済みの全仕訳が Hub に再送信されます。
         </p>
       </div>
 
       {/* ボタン or 確認ダイアログ */}
-      {!showConfirm ? (
-        <button
-          onClick={() => setShowConfirm(true)}
-          disabled={isLoading}
-          class="btn btn-outline btn-error"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="w-5 h-5"
+      {!showConfirm
+        ? (
+          <button
+            onClick={() => setShowConfirm(true)}
+            disabled={isLoading}
+            class="btn btn-outline btn-error"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
-            />
-          </svg>
-          強制再同期を実行
-        </button>
-      ) : (
-        <div class="flex flex-col gap-3">
-          <p class="text-sm font-semibold text-error">
-            本当に再同期を実行しますか？
-          </p>
-          <div class="flex gap-2">
-            <button
-              onClick={handleSync}
-              disabled={isLoading}
-              class={`btn btn-error ${isLoading ? "loading" : ""}`}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="w-5 h-5"
             >
-              {isLoading ? (
-                <>
-                  <span class="loading loading-spinner loading-sm"></span>
-                  再同期中...
-                </>
-              ) : (
-                "はい、再同期します"
-              )}
-            </button>
-            <button
-              onClick={() => setShowConfirm(false)}
-              disabled={isLoading}
-              class="btn btn-ghost"
-            >
-              キャンセル
-            </button>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+              />
+            </svg>
+            強制再同期を実行
+          </button>
+        )
+        : (
+          <div class="flex flex-col gap-3">
+            <p class="text-sm font-semibold text-error">
+              本当に再同期を実行しますか？
+            </p>
+            <div class="flex gap-2">
+              <button
+                onClick={handleSync}
+                disabled={isLoading}
+                class={`btn btn-error ${isLoading ? "loading" : ""}`}
+              >
+                {isLoading
+                  ? (
+                    <>
+                      <span class="loading loading-spinner loading-sm"></span>
+                      再同期中...
+                    </>
+                  )
+                  : (
+                    "はい、再同期します"
+                  )}
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={isLoading}
+                class="btn btn-ghost"
+              >
+                キャンセル
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* エラー表示 */}
       {error && (
@@ -183,10 +187,11 @@ export default function ReSyncButton({
           <div>
             <p class="font-bold">再同期完了!</p>
             <p class="text-sm">
-              作成: {result.created} 件 / 更新: {result.updated} 件 / スキップ:{" "}
+              作成: {result.created} 件 / 更新: {result.updated} 件 / スキップ:
+              {" "}
               {result.skipped} 件
               {result.errors > 0 && (
-                <span class="text-error"> / エラー: {result.errors} 件</span>
+                <span class="text-error">/ エラー: {result.errors} 件</span>
               )}
             </p>
           </div>
@@ -195,4 +200,3 @@ export default function ReSyncButton({
     </div>
   );
 }
-

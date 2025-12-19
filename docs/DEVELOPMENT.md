@@ -8,7 +8,8 @@
 
 ## 共有ネットワークの作成（初回のみ）
 
-Polimoney の各サービス（Hub, Ledger）が通信できるように、共有 Docker ネットワークを作成します。
+Polimoney の各サービス（Hub, Ledger）が通信できるように、共有 Docker
+ネットワークを作成します。
 
 ```bash
 docker network create polimoney-network

@@ -93,33 +93,34 @@ function generateExpenseCSV(
   journals: JournalData[],
   accountMaster: Map<string, AccountMaster>,
   subAccounts: Map<string, SubAccountData>,
-  ledgerType: "organization" | "election",
+  ledgerType: "organization" | "election"
 ): string {
-  const headers = ledgerType === "organization"
-    ? [
-      "年月日",
-      "支出の目的",
-      "金額",
-      "支払先氏名",
-      "支払先住所",
-      "勘定科目",
-      "補助科目",
-      "政党交付金充当額",
-      "領収証なし",
-      "備考",
-    ]
-    : [
-      "年月日",
-      "支出の目的",
-      "金額",
-      "支払先氏名",
-      "支払先住所",
-      "勘定科目",
-      "補助科目",
-      "公費負担額",
-      "領収証なし",
-      "備考",
-    ];
+  const headers =
+    ledgerType === "organization"
+      ? [
+          "年月日",
+          "支出の目的",
+          "金額",
+          "支払先氏名",
+          "支払先住所",
+          "勘定科目",
+          "補助科目",
+          "政党交付金充当額",
+          "領収証なし",
+          "備考",
+        ]
+      : [
+          "年月日",
+          "支出の目的",
+          "金額",
+          "支払先氏名",
+          "支払先住所",
+          "勘定科目",
+          "補助科目",
+          "公費負担額",
+          "領収証なし",
+          "備考",
+        ];
 
   const rows: string[][] = [];
 
@@ -168,7 +169,7 @@ function generateExpenseCSV(
 function generateRevenueCSV(
   journals: JournalData[],
   accountMaster: Map<string, AccountMaster>,
-  subAccounts: Map<string, SubAccountData>,
+  subAccounts: Map<string, SubAccountData>
 ): string {
   const headers = [
     "年月日",
@@ -221,7 +222,7 @@ function generateRevenueCSV(
  */
 function generateSummaryCSV(
   journals: JournalData[],
-  accountMaster: Map<string, AccountMaster>,
+  accountMaster: Map<string, AccountMaster>
 ): string {
   const headers = ["分類", "科目名", "件数", "金額合計"];
 
@@ -246,9 +247,8 @@ function generateSummaryCSV(
 
       const key = entry.account_code;
       const existing = summary.get(key);
-      const amount = entry.debit_amount > 0
-        ? entry.debit_amount
-        : entry.credit_amount;
+      const amount =
+        entry.debit_amount > 0 ? entry.debit_amount : entry.credit_amount;
 
       if (existing) {
         existing.count++;
@@ -299,7 +299,7 @@ function generateAssetsCSV(journals: JournalData[]): string {
     // 借方（資産取得）のエントリを取得して金額を計算
     const amount = journal.journal_entries.reduce(
       (sum, e) => sum + e.debit_amount,
-      0,
+      0
     );
 
     const row = [
@@ -342,15 +342,14 @@ export const handler: Handlers = {
         JSON.stringify({
           error: "organization_id または election_id を指定してください",
         }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
     const ledgerType = electionId ? "election" : "organization";
 
-    const supabase = userId === TEST_USER_ID
-      ? getServiceClient()
-      : getSupabaseClient(req);
+    const supabase =
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
 
     try {
       // 勘定科目マスタを取得
@@ -416,7 +415,7 @@ export const handler: Handlers = {
         console.error("Failed to fetch journals:", error);
         return new Response(
           JSON.stringify({ error: "仕訳データの取得に失敗しました" }),
-          { status: 500, headers: { "Content-Type": "application/json" } },
+          { status: 500, headers: { "Content-Type": "application/json" } }
         );
       }
 
@@ -430,7 +429,7 @@ export const handler: Handlers = {
           csv = generateRevenueCSV(
             journals as JournalData[],
             accountMaster,
-            subAccounts,
+            subAccounts
           );
           filename = `収入一覧_${date}.csv`;
           break;
@@ -448,7 +447,7 @@ export const handler: Handlers = {
             journals as JournalData[],
             accountMaster,
             subAccounts,
-            ledgerType,
+            ledgerType
           );
           filename = `支出一覧_${date}.csv`;
           break;
@@ -465,16 +464,16 @@ export const handler: Handlers = {
         status: 200,
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename*=UTF-8''${
-            encodeURIComponent(filename)
-          }`,
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(
+            filename
+          )}`,
         },
       });
     } catch (error) {
       console.error("CSV export error:", error);
       return new Response(
         JSON.stringify({ error: "CSV エクスポートに失敗しました" }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
   },

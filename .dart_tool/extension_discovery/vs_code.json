@@ -1,1 +1,6 @@
-{"version":2,"entries":[{"package":"polimoney_ledger","rootUri":"../","packageUri":"lib/"}]}
+{
+  "version": 2,
+  "entries": [
+    { "package": "polimoney_ledger", "rootUri": "../", "packageUri": "lib/" }
+  ]
+}

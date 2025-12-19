@@ -1,6 +1,7 @@
 # Polimoney Ledger - Web (Fresh)
 
-Fresh (Deno) で構築された Polimoney Ledger のフロントエンドアプリケーションです。
+Fresh (Deno) で構築された Polimoney Ledger
+のフロントエンドアプリケーションです。
 
 ## 機能
 
@@ -126,7 +127,8 @@ deno task start
 
 ## Hub API との連携
 
-このアプリケーションは [Polimoney Hub](https://github.com/your-org/polimoney-hub) の API を使用します。
+このアプリケーションは
+[Polimoney Hub](https://github.com/your-org/polimoney-hub) の API を使用します。
 
 ### 使用するエンドポイント
 

@@ -27,10 +27,12 @@ export default function ElectionRequestForm({
 
   // UI状態
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [message, setMessage] = useState<
+    {
+      type: "success" | "error";
+      text: string;
+    } | null
+  >(null);
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -84,7 +86,8 @@ export default function ElectionRequestForm({
 
       setMessage({
         type: "success",
-        text: "選挙登録リクエストを送信しました。運営が確認後、承認されると選挙が利用可能になります。",
+        text:
+          "選挙登録リクエストを送信しました。運営が確認後、承認されると選挙が利用可能になります。",
       });
 
       // フォームをリセット
@@ -97,8 +100,9 @@ export default function ElectionRequestForm({
     } catch (err) {
       setMessage({
         type: "error",
-        text:
-          err instanceof Error ? err.message : "リクエストの送信に失敗しました",
+        text: err instanceof Error
+          ? err.message
+          : "リクエストの送信に失敗しました",
       });
     } finally {
       setIsSubmitting(false);
@@ -180,8 +184,7 @@ export default function ElectionRequestForm({
               rows={2}
               value={areaDescription}
               onInput={(e) =>
-                setAreaDescription((e.target as HTMLTextAreaElement).value)
-              }
+                setAreaDescription((e.target as HTMLTextAreaElement).value)}
               required
             />
             <label class="label">
@@ -203,8 +206,7 @@ export default function ElectionRequestForm({
               class="input input-bordered"
               value={electionDate}
               onInput={(e) =>
-                setElectionDate((e.target as HTMLInputElement).value)
-              }
+                setElectionDate((e.target as HTMLInputElement).value)}
               required
             />
           </div>
@@ -246,8 +248,7 @@ export default function ElectionRequestForm({
               placeholder="https://..."
               value={evidenceUrl}
               onInput={(e) =>
-                setEvidenceUrl((e.target as HTMLInputElement).value)
-              }
+                setEvidenceUrl((e.target as HTMLInputElement).value)}
             />
             <label class="label">
               <span class="label-text-alt text-base-content/70">

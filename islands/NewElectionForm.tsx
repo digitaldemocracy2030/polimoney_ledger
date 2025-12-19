@@ -36,7 +36,7 @@ export default function NewElectionForm({
   hubElections,
 }: NewElectionFormProps) {
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(
-    null
+    null,
   );
   const [politicianName, setPoliticianName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,13 +46,12 @@ export default function NewElectionForm({
 
   const groupedByYear = groupByYear(hubElections);
   const years = Object.keys(groupedByYear).sort(
-    (a, b) => Number(b) - Number(a)
+    (a, b) => Number(b) - Number(a),
   );
 
   // フィルタリング
   const filteredElections = hubElections.filter((election) => {
-    const matchesSearch =
-      searchQuery === "" ||
+    const matchesSearch = searchQuery === "" ||
       election.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === "all" || election.type === typeFilter;
     return matchesSearch && matchesType;
@@ -78,7 +77,7 @@ export default function NewElectionForm({
 
     try {
       const selectedElection = hubElections.find(
-        (e) => e.id === selectedElectionId
+        (e) => e.id === selectedElectionId,
       );
 
       const response = await fetch("/api/elections", {
@@ -131,8 +130,7 @@ export default function NewElectionForm({
               class="input input-bordered"
               value={searchQuery}
               onInput={(e) =>
-                setSearchQuery((e.target as HTMLInputElement).value)
-              }
+                setSearchQuery((e.target as HTMLInputElement).value)}
             />
           </div>
           <div class="form-control">
@@ -143,8 +141,7 @@ export default function NewElectionForm({
               class="select select-bordered"
               value={typeFilter}
               onChange={(e) =>
-                setTypeFilter((e.target as HTMLSelectElement).value)
-              }
+                setTypeFilter((e.target as HTMLSelectElement).value)}
             >
               <option value="all">すべて</option>
               {Object.entries(ELECTION_TYPES).map(([code, name]) => (
@@ -158,52 +155,54 @@ export default function NewElectionForm({
 
         {/* 選挙一覧 */}
         <div class="max-h-96 overflow-y-auto border rounded-lg">
-          {filteredElections.length === 0 ? (
-            <div class="p-8 text-center text-base-content/70">
-              該当する選挙が見つかりません
-            </div>
-          ) : (
-            Object.keys(filteredGroupedByYear)
-              .sort((a, b) => Number(b) - Number(a))
-              .map((year) => (
-                <div key={year}>
-                  <div class="sticky top-0 bg-base-200 px-4 py-2 font-bold border-b">
-                    📅 {year}年
-                  </div>
-                  {filteredGroupedByYear[year].map((election) => (
-                    <label
-                      key={election.id}
-                      class={`flex items-center gap-4 p-4 cursor-pointer hover:bg-base-200 border-b ${
-                        selectedElectionId === election.id
-                          ? "bg-primary/10"
-                          : ""
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="election"
-                        class="radio radio-primary"
-                        checked={selectedElectionId === election.id}
-                        onChange={() => setSelectedElectionId(election.id)}
-                      />
-                      <div class="flex-1">
-                        <div class="font-medium">{election.name}</div>
-                        <div class="flex gap-2 mt-1">
-                          <span class="badge badge-sm badge-info">
-                            {ELECTION_TYPES[election.type] || election.type}
-                          </span>
-                          <span class="text-xs text-base-content/70">
-                            {new Date(
-                              election.election_date
-                            ).toLocaleDateString("ja-JP")}
-                          </span>
+          {filteredElections.length === 0
+            ? (
+              <div class="p-8 text-center text-base-content/70">
+                該当する選挙が見つかりません
+              </div>
+            )
+            : (
+              Object.keys(filteredGroupedByYear)
+                .sort((a, b) => Number(b) - Number(a))
+                .map((year) => (
+                  <div key={year}>
+                    <div class="sticky top-0 bg-base-200 px-4 py-2 font-bold border-b">
+                      📅 {year}年
+                    </div>
+                    {filteredGroupedByYear[year].map((election) => (
+                      <label
+                        key={election.id}
+                        class={`flex items-center gap-4 p-4 cursor-pointer hover:bg-base-200 border-b ${
+                          selectedElectionId === election.id
+                            ? "bg-primary/10"
+                            : ""
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="election"
+                          class="radio radio-primary"
+                          checked={selectedElectionId === election.id}
+                          onChange={() => setSelectedElectionId(election.id)}
+                        />
+                        <div class="flex-1">
+                          <div class="font-medium">{election.name}</div>
+                          <div class="flex gap-2 mt-1">
+                            <span class="badge badge-sm badge-info">
+                              {ELECTION_TYPES[election.type] || election.type}
+                            </span>
+                            <span class="text-xs text-base-content/70">
+                              {new Date(
+                                election.election_date,
+                              ).toLocaleDateString("ja-JP")}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              ))
-          )}
+                      </label>
+                    ))}
+                  </div>
+                ))
+            )}
         </div>
 
         {/* 選挙が見つからない場合 */}
@@ -233,8 +232,7 @@ export default function NewElectionForm({
             class="input input-bordered"
             value={politicianName}
             onInput={(e) =>
-              setPoliticianName((e.target as HTMLInputElement).value)
-            }
+              setPoliticianName((e.target as HTMLInputElement).value)}
             required
           />
           <label class="label">
@@ -253,9 +251,8 @@ export default function NewElectionForm({
         <button
           type="submit"
           class={`btn btn-primary flex-1 ${isSubmitting ? "loading" : ""}`}
-          disabled={
-            isSubmitting || !selectedElectionId || !politicianName.trim()
-          }
+          disabled={isSubmitting || !selectedElectionId ||
+            !politicianName.trim()}
         >
           {isSubmitting ? "作成中..." : "選挙台帳を作成"}
         </button>

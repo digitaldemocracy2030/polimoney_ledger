@@ -18,7 +18,7 @@ export default function ExportCSVButton({
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
   const handleExport = async (
-    type: "expense" | "revenue" | "summary" | "assets",
+    type: "expense" | "revenue" | "summary" | "assets"
   ) => {
     setIsLoading(type);
 
@@ -63,7 +63,7 @@ export default function ExportCSVButton({
     } catch (error) {
       console.error("Export error:", error);
       alert(
-        error instanceof Error ? error.message : "エクスポートに失敗しました",
+        error instanceof Error ? error.message : "エクスポートに失敗しました"
       );
     } finally {
       setIsLoading(null);
