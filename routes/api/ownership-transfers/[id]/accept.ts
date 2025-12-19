@@ -5,7 +5,10 @@
  */
 
 import { Handlers } from "$fresh/server.ts";
-import { getServiceClient, getSupabaseClient } from "../../../../lib/supabase.ts";
+import {
+  getServiceClient,
+  getSupabaseClient,
+} from "../../../../lib/supabase.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -28,7 +31,9 @@ export const handler: Handlers = {
       // 譲渡申請を取得
       const { data: transfer, error: fetchError } = await supabase
         .from("ownership_transfers")
-        .select("id, from_user_id, to_user_id, organization_id, election_id, status")
+        .select(
+          "id, from_user_id, to_user_id, organization_id, election_id, status"
+        )
         .eq("id", transferId)
         .single();
 

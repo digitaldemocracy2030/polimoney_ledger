@@ -46,7 +46,8 @@ export const handler: Handlers = {
       console.error("Failed to fetch politician:", error);
       return new Response(
         JSON.stringify({
-          error: "指定された政治家IDが見つかりません。Hubに登録されている政治家IDを入力してください。",
+          error:
+            "指定された政治家IDが見つかりません。Hubに登録されている政治家IDを入力してください。",
         }),
         {
           status: 404,
