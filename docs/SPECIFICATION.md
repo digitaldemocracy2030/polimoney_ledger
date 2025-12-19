@@ -1,4 +1,4 @@
-# **Polimoney Ledger - 機能仕様書 (v3.11)**
+# **Polimoney Ledger - 機能仕様書 (v3.16)**
 
 ---
 
@@ -259,44 +259,45 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | debit_amount       | integer              | 借方金額 (円)       | 必須, デフォルト 0                           |
 | credit_amount      | integer              | 貸方金額 (円)       | 必須, デフォルト 0                           |
 
-### **2.4. 政治団体テーブル**
+### **2.4. 政治団体テーブル (【v3.16 更新】)**
+
+> ⚠️ **Hub 参照方式**: 政治団体マスタは Hub で管理。Ledger は `hub_organization_id` で参照。
 
 **テーブル名:** political_organizations
 
-| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                    |
-| :----------------- | :------------------- | :------------------------ | :------------------------------ |
-| id                 | uuid                 | 一意な ID (政治団体 ID)   | 主キー, uuid_generate_v4()      |
-| owner_user_id      | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用) |
-| name               | text                 | 政治団体の名称            | 必須                            |
-| created_at         | timestamptz          | レコード作成日時          | デフォルトで now()              |
+| 列名 (Column Name)   | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                                     |
+| :------------------- | :------------------- | :------------------------ | :----------------------------------------------- |
+| id                   | uuid                 | 一意な ID (政治団体 ID)   | 主キー, uuid_generate_v4()                       |
+| owner_user_id        | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)                  |
+| name                 | text                 | 政治団体の名称            | 必須                                             |
+| hub_organization_id  | uuid                 | **Hub 上の政治団体 ID**   | **【v3.16 追加】** Hub DB への参照（FK 制約なし）|
+| created_at           | timestamptz          | レコード作成日時          | デフォルトで now()                               |
 
-### **2.5. 政治家テーブル**
+### **2.5. 政治家テーブル (【v3.16 削除】)**
 
-**テーブル名:** politicians
+> ⚠️ **削除**: 政治家マスタは Hub で一元管理。Ledger に `politicians` テーブルは存在しません。
+> 選挙台帳は `hub_politician_id` で Hub 上の政治家を参照します。
 
-| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description)            | 備考 (Notes)                    |
-| :----------------- | :------------------- | :---------------------------- | :------------------------------ |
-| id                 | uuid                 | 一意な ID (政治家 ID)         | 主キー, uuid_generate_v4()      |
-| owner_user_id      | uuid                 | このマスターの管理ユーザー ID | auth.users.id への参照 (RLS 用) |
-| name               | text                 | 政治家の氏名                  | 必須                            |
-| created_at         | timestamptz          | レコード作成日時              | デフォルトで now()              |
+### **2.6. 選挙テーブル (【v3.16 更新】)**
 
-### **2.6. 選挙テーブル**
+> ⚠️ **Hub 参照方式**: 政治家・選挙マスタは Hub で管理。
 
 **テーブル名:** elections
 
-| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                             |
-| :----------------- | :------------------- | :------------------------ | :--------------------------------------- |
-| id                 | uuid                 | 一意な ID (選挙 ID)       | 主キー, uuid_generate_v4()               |
-| owner_user_id      | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)          |
-| politician_id      | uuid                 | 紐づく政治家の ID         | politicians.id への FK。必須             |
-| election_name      | text                 | 選挙の名称                | 必須。例: 「2025 年 〇〇市議会議員選挙」 |
-| election_date      | date                 | 選挙の投開票日            | 必須                                     |
-| created_at         | timestamptz          | レコード作成日時          | デフォルトで now()                       |
+| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                                        |
+| :----------------- | :------------------- | :------------------------ | :-------------------------------------------------- |
+| id                 | uuid                 | 一意な ID (選挙 ID)       | 主キー, uuid_generate_v4()                          |
+| owner_user_id      | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)                     |
+| hub_politician_id  | uuid                 | **Hub 上の政治家 ID**     | **【v3.16 変更】** Hub DB への参照（FK 制約なし）   |
+| hub_election_id    | uuid                 | **Hub 上の選挙マスタ ID** | **【v3.16 追加】** Hub DB への参照（任意）          |
+| election_name      | text                 | 選挙の名称                | 必須。例: 「2025 年 〇〇市議会議員選挙」            |
+| election_date      | date                 | 選挙の投開票日            | 必須                                                |
+| created_at         | timestamptz          | レコード作成日時          | デフォルトで now()                                  |
 
-### **2.7. 関係者テーブル (【v3.4 大幅更新】)**
+### **2.7. 関係者テーブル (【v3.16 更新】)**
 
 プライバシー設定（匿名化）のためのカラムを追加。
+**【v3.16 変更】** 関係者は台帳（選挙または政治団体）に紐付けられます。
 
 **テーブル名:** contacts
 
@@ -304,6 +305,8 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | :-------------------- | :------------------- | :------------------------------ | :----------------------------------------------------------------------------------- |
 | id                    | uuid                 | 一意な ID (関係者 ID)           | 主キー, uuid_generate_v4()                                                           |
 | owner_user_id         | uuid                 | このマスターの管理ユーザー ID   | auth.users.id への参照 (RLS 用)                                                      |
+| organization_id       | uuid                 | **紐づく政治団体 ID**           | **【v3.16 追加】** political_organizations.id への FK。NULL 許容                     |
+| election_id           | uuid                 | **紐づく選挙台帳 ID**           | **【v3.16 追加】** elections.id への FK。NULL 許容                                   |
 | contact_type          | text                 | **関係者種別**                  | **person (個人) or corporation (法人/団体)**。必須                                   |
 | name                  | text                 | 氏名 又は 団体名                | 必須。例: 「田中太郎（寄付者）」, 「みずほ銀行」                                     |
 | address               | text                 | 住所                            | NULL 許容                                                                            |
@@ -314,6 +317,8 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | privacy_reason_type   | text                 | **非公開理由（種別）**          | personal_info (個人情報保護), other (その他)。いずれかが \_private = true の場合必須 |
 | privacy_reason_other  | text                 | **非公開理由（その他）**        | privacy_reason_type = 'other' の場合必須                                             |
 | created_at            | timestamptz          | レコード作成日時                | デフォルトで now()                                                                   |
+
+> **注意**: `organization_id` または `election_id` のいずれか一方が設定されます（両方 NULL または両方設定は不可）。
 
 ### **2.8. メディア（証憑）テーブル**
 
@@ -347,137 +352,97 @@ v2.6 の仕様に基づき、役割名を text で直接保持します。
 | invited_by_user_id | uuid                 | 招待したユーザー ID     | auth.users.id への参照                                                                                |
 | created_at         | timestamptz          | 招待日時                | デフォルトで now()                                                                                    |
 
-### **2.10. ユーザープロファイル**
+### **2.10. ユーザープロファイル (【v3.16 更新】)**
 
 **テーブル名:** profiles
 
-| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description) | 備考 (Notes)                        |
-| :----------------- | :------------------- | :----------------- | :---------------------------------- |
-| id                 | uuid                 | ユーザー ID        | auth.users.id への FK, 主キー       |
-| full_name          | text                 | ユーザーの氏名     | 招待時に表示するため                |
-| email              | text                 | ユーザーの Email   | auth.users.email と同期。招待検索用 |
-| updated_at         | timestamptz          | 更新日時           |                                     |
+| 列名 (Column Name)           | データ型 (Data Type) | 説明 (Description)                | 備考 (Notes)                                           |
+| :--------------------------- | :------------------- | :-------------------------------- | :----------------------------------------------------- |
+| id                           | uuid                 | ユーザー ID                       | auth.users.id への FK, 主キー                          |
+| full_name                    | text                 | ユーザーの氏名                    | 招待時に表示するため                                   |
+| email                        | text                 | ユーザーの Email                  | auth.users.email と同期。招待検索用                    |
+| hub_politician_id            | uuid                 | **Hub 上の認証済み政治家 ID**     | **【v3.16 追加】** NULL = 未認証                       |
+| tos_accepted_at              | timestamptz          | **利用規約同意日時**              | **【v3.16 追加】** NULL = 未同意                       |
+| privacy_policy_accepted_at   | timestamptz          | **プライバシーポリシー同意日時**  | **【v3.16 追加】**                                     |
+| verified_email_domain        | text                 | **認証済み公式ドメイン**          | **【v3.16 追加】** 公式メール認証で使用したドメイン    |
+| updated_at                   | timestamptz          | 更新日時                          |                                                        |
 
-### **2.11. 役割と権限の定義（アプリ側） (【v3.4 更新】)**
+### **2.11. 役割と権限の定義（アプリ側） (【v3.16 更新】)**
 
-manageContacts 権限を追加。
+Fresh (Deno) 版では `lib/permissions.ts` で定義。
 
 #### **2.11.1. 権限 (Permission) の定義**
 
-アプリ内でユーザーが実行可能な操作（権限）を enum（または const
-String）で定義します。
-
-// lib/core/models/permissions.dart (実装例)
-
-/// アプリ内でチェックされる権限の種類\
-enum AppPermission {\
-// 仕訳（収支）関連\
-submitJournal, // 仕訳を起票（承認申請）する権限\
-registerJournal, // 仕訳を即時登録（自己承認）する権限\
-approveJournal, // 他人の仕訳を承認・却下する権限
-
-// メンバー関連\
-manageMembers, // メンバーの招待・削除・役割変更を行う権限
-
-// 台帳設定関連\
-editLedgerSettings, // 台帳名の変更など、設定を編集する権限
-
-// 閲覧権限\
-viewLedger, // 台帳（仕訳一覧など）を閲覧する権限
-
-// v3.4 で「関係者マスタ」管理権限を追加\
-manageContacts, // ★ 関係者マスタ（非公開設定含む）を編集する権限\
-}
+```typescript
+// lib/permissions.ts
+export type Permission =
+  | "viewLedger"        // 台帳（仕訳一覧など）を閲覧する
+  | "submitJournal"     // 仕訳を起票（承認申請）する
+  | "registerJournal"   // 仕訳を即時登録（自己承認）する
+  | "approveJournal"    // 他人の仕訳を承認・却下する
+  | "manageMembers"     // メンバーの招待・削除・役割変更を行う
+  | "manageContacts"    // 関係者マスタを編集する
+  | "editLedgerSettings"; // 台帳設定を編集する
+```
 
 #### **2.11.2. 役割 (Role) の定義**
 
-ledger_members.role カラムに保存される役割キーを enum で定義します。
+```typescript
+export type Role = "admin" | "accountant" | "approver" | "submitter" | "viewer";
 
-// lib/core/models/roles.dart (実装例)
-
-/// ユーザーに割り当てられる役割。\
-/// この enum の \`name\` (例: 'admin') が DB の \`ledger_members.role\` (text)
-に保存される。\
-enum AppRole {\
-admin,\
-approver,\
-submitter,\
-viewer,\
-}
-
-/// DB の文字列から AppRole enum に変換するヘルパー\
-AppRole roleFromString(String roleString) {\
-return AppRole.values.firstWhere(\
-(role) => role.name == roleString,\
-orElse: () => AppRole.viewer, // 不正な値の場合は閲覧者扱い\
-);\
-}
-
-/// UI 表示用の役割名（日本語）\
-String getRoleDisplayName(AppRole role) {\
-switch (role) {\
-case AppRole.admin:\
-return '管理者';\
-case AppRole.approver:\
-return '承認者';\
-case AppRole.submitter:\
-return '起票者';\
-case AppRole.viewer:\
-return '閲覧者';\
-}\
-}
+export const ROLE_NAMES: Record<Role, string> = {
+  admin: "管理者",
+  accountant: "経理担当者",  // 【v3.16 追加】
+  approver: "承認者",
+  submitter: "起票者",
+  viewer: "閲覧者",
+};
+```
 
 #### **2.11.3. 役割と権限の紐付け**
 
-どの役割（Role）がどの権限（Permission）のセットを持つかを Map で定義します。
-
-// lib/core/services/permission_service.dart (実装例)
-
-/// 各役割が持つ権限の静的な定義マップ\
-const Map<AppRole, Set<AppPermission>> rolePermissions = {\
-// 管理者\
-AppRole.admin: {\
-AppPermission.viewLedger,\
-AppPermission.registerJournal,\
-AppPermission.approveJournal,\
-AppPermission.manageMembers,\
-AppPermission.editLedgerSettings,\
-AppPermission.manageContacts, // ★ 管理者に関係者マスタ編集権限を付与\
-},
-
-// 承認者\
-AppRole.approver: {\
-AppPermission.viewLedger,\
-AppPermission.submitJournal,\
-AppPermission.approveJournal,\
-AppPermission.manageContacts, // ★ 承認者にも付与（起票時に必要になるため）\
-},
-
-// 起票者\
-AppRole.submitter: {\
-AppPermission.viewLedger,\
-AppPermission.submitJournal,\
-AppPermission.manageContacts, // ★ 起票者にも付与\
-},
-
-// 閲覧者\
-AppRole.viewer: {\
-AppPermission.viewLedger,\
-},\
+```typescript
+export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  // 管理者（全権限）
+  admin: [
+    "viewLedger",
+    "submitJournal",
+    "registerJournal",
+    "approveJournal",
+    "manageMembers",
+    "manageContacts",
+    "editLedgerSettings",
+  ],
+  // 経理担当者（メンバー管理以外の全権限）【v3.16 追加】
+  accountant: [
+    "viewLedger",
+    "submitJournal",
+    "registerJournal",
+    "approveJournal",
+    "manageContacts",
+    "editLedgerSettings",
+  ],
+  // 承認者
+  approver: [
+    "viewLedger",
+    "submitJournal",
+    "approveJournal",
+    "manageContacts",
+  ],
+  // 起票者
+  submitter: [
+    "viewLedger",
+    "submitJournal",
+    "manageContacts",
+  ],
+  // 閲覧者
+  viewer: [
+    "viewLedger",
+  ],
 };
+```
 
-/// 権限チェックを行うためのヘルパークラス（または Provider）\
-class PermissionService {\
-///
-現在のユーザー（\`myRole\`）が、指定された権限（\`permission\`）を持つかチェックする\
-bool hasPermission(AppRole myRole, AppPermission permission) {\
-final permissions = rolePermissions[myRole];\
-if (permissions == null) {\
-return false;\
-}\
-return permissions.contains(permission);\
-}\
-}
+> **注意**: `registerJournal` 権限を持つロールは、自動的に自己承認が可能です（セルフ approve）。
 
 ## **3. 画面仕様 (Screen Specifications)**
 
@@ -913,68 +878,108 @@ return permissions.contains(permission);\
     - contacts テーブルに insert または update を実行する。
     - Navigator.pop() でモーダルを閉じる。
 
-## **4. 認証フロー仕様 (【v3.3 新規】)**
+## **4. 認証フロー仕様 (【v3.16 大幅更新】)**
 
-アカウント管理と認証は、ディープリンク不要の「OTP（ワンタイムパスコード）」方式を前提として実装する。
+### **4.0. アカウントとアイデンティティの基本方針**
 
-### **4.1. 新規アカウント作成（マスターアカウント）**
+> ⚠️ **重要**: なりすまし防止のため、以下の方針を採用しています。
+>
+> - **1 人（1 メールアドレス）につき 1 アカウント**
+> - **登録時に政治家 ID は発行しない**（別途申請・承認が必要）
+> - **公式ドメインのメール認証を必須**とする
 
-- **ファイル (推奨):** lib/features/auth/presentation/pages/signup_page.dart
+**アカウント種別:**
+
+| 種別                   | 説明                                       | 権限                       |
+| ---------------------- | ------------------------------------------ | -------------------------- |
+| **一般ユーザー**       | メール認証のみ完了したアカウント           | 招待された台帳の閲覧・操作 |
+| **認証済み政治家**     | 政治家 ID が付与されたアカウント           | 選挙台帳の作成・管理       |
+| **認証済み団体管理者** | 政治団体の管理者として認証されたアカウント | 政治団体台帳の作成・管理   |
+
+### **4.1. 新規アカウント作成**
+
+- **ファイル:** `routes/register.tsx`
 - **機能:**
-  1. ユーザーが Email, Password, 氏名 を入力して「登録」ボタンを押下。
-  2. supabase.auth.signUp() を実行。（data: {'full_name': fullName}
-     も同時に渡し、auth.users.raw_user_meta_data に保存する）
-  3. Supabase から OTP（数字コード）付きの確認メールが送信される。
-  4. アプリは OTP 入力画面に遷移。
-  5. ユーザーがメールで受信した OTP コードを入力し
-     supabase.auth.verifyOtp(email: email, token: otp, type: OtpType.signup)
-     を実行して認証を完了する。
-  6. （Supabase の Auth トリガー（README.md 参照）により、profiles テーブルにも
-     full_name, email が自動でコピーされる）
+  1. ユーザーが Email, Password, 氏名, 役割, 本人確認書類 を入力
+  2. **【v3.16 追加】利用規約・プライバシーポリシーへの同意チェックボックス（必須）**
+  3. **【v3.16 追加】フィッシング注意の警告を表示**
+  4. supabase.auth.signUp() を実行
+  5. OTP 認証完了後、Hub に登録申請を送信
+  6. Hub Admin が承認後、台帳作成が可能に
 
-### **4.2. 招待されたユーザーの初回ログイン**
+### **4.2. 政治家認証申請フロー**
 
-- **ファイル (推奨):** lib/features/auth/presentation/pages/login_page.dart
-  (または専用の
-  lib/features/auth/presentation/pages/invited_user_login_page.dart)
-- **前提:** 招待されたユーザーは、3.7
-  のフローにより、パスワード未設定のアカウントが作成され、OTP
-  コード付きのメールを受信している。
-- **レイアウト:**
-  - login_page.dart に「招待された方はこちら」などのタブ/ボタンを追加する。
-  - 遷移先の画面（またはタブ）に以下のフォームを設置する。
-    - TextFormField (Email)
-    - TextFormField (受信した OTP コード)
-    - TextFormField (新しいパスワード)
-    - TextFormField (新しいパスワードの確認)
-- **機能:**
-  1. ユーザーが Email と OTP コードを入力し「認証」ボタンを押下。
-  2. supabase.auth.verifyOtp(email: email, token: otp, type: OtpType.invite)
-     （または OtpType.recovery）を実行し、OTP 認証を行う。
-  3. 認証が成功したら、続けて入力された「新しいパスワード」を使い
-     supabase.auth.updateUser() を実行し、パスワードを設定する。
-  4. パスワード設定後、HomePage (台帳選択画面) に遷移する。
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. アカウント作成（一般ユーザー）                                   │
+│    - メールアドレス + パスワード                                    │
+│    - OTP認証                                                        │
+│    - 利用規約・プライバシーポリシーへの同意（必須）                 │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 2. 政治家として認証申請                                             │
+│    - 公式ドメインのメールアドレスを入力（例: tanaka@tanaka-taro.jp）│
+│    - そのメールアドレスに認証コードを送信                           │
+│    - 認証コードを入力して確認                                       │
+│    ※ 公式メールを持っていない場合は認証不可（フォールバックなし）  │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 3. Hub管理者が承認                                                  │
+│    - 申請内容を確認                                                 │
+│    - 承認 → 政治家IDをアカウントに付与（profiles.hub_politician_id）│
+│    - 政治家ページに公開                                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-### **4.3. パスワードリセット**
+### **4.3. 政治団体管理者認証フロー**
 
-- **ファイル (推奨):** lib/features/auth/presentation/pages/login_page.dart
-- **機能:**
-  1. ログイン画面に「パスワードをお忘れですか？」リンクを設置。
-  2. タップすると AlertDialog または別画面で Email 入力欄を表示。
-  3. supabase.auth.resetPasswordForEmail(email) を実行。（**注意:** Supabase
-     側で「OTP を使用する」設定が有効になっている必要がある）
-  4. Supabase から OTP（数字コード）付きのパスワードリセットメールが送信される。
-  5. ユーザーは 4.2 と同様の「Email + OTP +
-     新パスワード」入力フォームを使い、パスワードをリセットする。（verifyOtp の
-     type は OtpType.recovery を使用）
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. アカウント作成（一般ユーザー）                                   │
+│    - （上記と同様）                                                 │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 2. 政治団体の管理者として認証申請                                   │
+│    - 政治団体名を検索・選択（または新規申請）                       │
+│    - 政治団体の公式メールアドレスを入力                             │
+│    - そのメールアドレスに認証コードを送信                           │
+│    - 認証コードを入力して確認                                       │
+│    ※ 公式メールを持っていない場合は認証不可（フォールバックなし）  │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 3. Hub管理者が承認                                                  │
+│    - 申請内容を確認                                                 │
+│    - 承認 → そのアカウントを政治団体の管理者として登録              │
+│    - Hub の organization_managers テーブルに登録                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-## **4.5. 登録要件と証明書 (【v3.15 新規】)**
+### **4.4. 台帳作成の前提条件**
 
-### 4.5.1. 概要
+| 台帳タイプ   | 作成可能なアカウント                                 |
+| ------------ | ---------------------------------------------------- |
+| 選挙台帳     | 政治家 ID 保持者本人、または招待されたメンバー       |
+| 政治団体台帳 | 政治団体の管理者アカウント、または招待されたメンバー |
+
+### **4.5. 招待されたユーザーの初回ログイン**
+
+招待されたユーザーは、OTP コード付きのメールを受信し、パスワードを設定して認証を完了します。
+
+## **4.6. 登録要件と証明書 (【v3.15 新規】)**
+
+### 4.6.1. 概要
 
 不正登録を防ぎ、実際の政治家・会計担当者のみが利用できるよう、**証明書類の提出を必須**とする。
 
-### 4.5.2. ユーザー種別と証明書
+### 4.6.2. ユーザー種別と証明書
 
 | ユーザー種別   | 証明書類                   | 説明                             |
 | -------------- | -------------------------- | -------------------------------- |
@@ -982,7 +987,7 @@ return permissions.contains(permission);\
 | **会計責任者** | 設立届出書（会計責任者欄） | 政治団体の会計責任者と氏名が一致 |
 | **現職議員**   | 議員証 / 当選証書          | 公的な身分証明                   |
 
-### 4.5.3. 政治団体登録の証明書
+### 4.6.3. 政治団体登録の証明書
 
 | 証明書類                         | コード              | 説明               |
 | -------------------------------- | ------------------- | ------------------ |
@@ -990,7 +995,7 @@ return permissions.contains(permission);\
 | 政治団体名簿のスクリーンショット | `name_list`         | 総務省サイト等     |
 | 政治資金収支報告書の表紙         | `financial_report`  | 過去の報告書       |
 
-### 4.5.4. 選挙登録の証明書
+### 4.6.4. 選挙登録の証明書
 
 | 証明書類                 | コード                  | 説明               |
 | ------------------------ | ----------------------- | ------------------ |
@@ -998,7 +1003,7 @@ return permissions.contains(permission);\
 | 選挙事務所設置届（控え） | `office_registration`   | 選管に届出した控え |
 | ポスター掲示場番号通知   | `poster_number`         | 選管からの通知     |
 
-### 4.5.5. 登録フロー
+### 4.6.5. 登録フロー
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -1032,14 +1037,14 @@ return permissions.contains(permission);\
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.5.6. リクエスト制限
+### 4.6.6. リクエスト制限
 
 | 制限項目                       | 値            |
 | ------------------------------ | ------------- |
 | 同一ユーザーの未承認リクエスト | 最大 **3 件** |
 | リクエスト間隔                 | **24 時間**   |
 
-### 4.5.7. データモデル
+### 4.6.7. データモデル
 
 ```typescript
 // 証明書タイプ
