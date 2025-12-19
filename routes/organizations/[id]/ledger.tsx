@@ -1,8 +1,8 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../../../components/Layout.tsx";
-import { getSupabaseClient, getServiceClient } from "../../../lib/supabase.ts";
-import { getAccountCodes, type AccountCode } from "../../../lib/hub-client.ts";
+import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import { type AccountCode, getAccountCodes } from "../../../lib/hub-client.ts";
 import JournalFormDrawer from "../../../islands/JournalFormDrawer.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 import ExportCSVButton from "../../../islands/ExportCSVButton.tsx";
@@ -66,8 +66,9 @@ export const handler: Handlers<PageData> = {
     }
 
     try {
-      const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+      const supabase = userId === TEST_USER_ID
+        ? getServiceClient()
+        : getSupabaseClient(req);
 
       // 政治団体情報を取得
       const { data: organization, error: orgError } = await supabase
@@ -110,7 +111,7 @@ export const handler: Handlers<PageData> = {
               contacts (
                 name
               )
-            `
+            `,
             )
             .eq("organization_id", organizationId)
             .order("journal_date", { ascending: false }),
@@ -200,6 +201,14 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
             </li>
             <li>{organization.name}</li>
           </ul>
+        </div>
+
+        {/* タブナビゲーション */}
+        <div class="tabs tabs-boxed mb-6">
+          <a class="tab tab-active">仕訳一覧</a>
+          <a href={`/organizations/${organization.id}/assets`} class="tab">
+            資産一覧
+          </a>
         </div>
 
         {/* 勘定科目取得エラー警告 */}

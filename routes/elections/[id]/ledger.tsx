@@ -1,8 +1,8 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../../../components/Layout.tsx";
-import { getSupabaseClient, getServiceClient } from "../../../lib/supabase.ts";
-import { getAccountCodes, type AccountCode } from "../../../lib/hub-client.ts";
+import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import { type AccountCode, getAccountCodes } from "../../../lib/hub-client.ts";
 import JournalFormDrawer from "../../../islands/JournalFormDrawer.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 import ExportCSVButton from "../../../islands/ExportCSVButton.tsx";
@@ -70,8 +70,9 @@ export const handler: Handlers<PageData> = {
     }
 
     try {
-      const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+      const supabase = userId === TEST_USER_ID
+        ? getServiceClient()
+        : getSupabaseClient(req);
 
       // 選挙情報を取得
       const { data: election, error: electionError } = await supabase
@@ -114,7 +115,7 @@ export const handler: Handlers<PageData> = {
               contacts (
                 name
               )
-            `
+            `,
             )
             .eq("election_id", electionId)
             .order("journal_date", { ascending: false }),
@@ -222,6 +223,14 @@ export default function ElectionLedgerPage({ data }: PageProps<PageData>) {
           <span class="badge badge-outline">
             {formatDate(election.election_date)}
           </span>
+        </div>
+
+        {/* タブナビゲーション */}
+        <div class="tabs tabs-boxed mb-6">
+          <a class="tab tab-active">仕訳一覧</a>
+          <a href={`/elections/${election.id}/assets`} class="tab">
+            資産一覧
+          </a>
         </div>
 
         {/* 勘定科目取得エラー警告 */}
