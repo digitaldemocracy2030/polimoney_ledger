@@ -231,6 +231,9 @@ export default function ElectionLedgerPage({ data }: PageProps<PageData>) {
           <a href={`/elections/${election.id}/assets`} class="tab">
             資産一覧
           </a>
+          <a href={`/elections/${election.id}/members`} class="tab">
+            メンバー
+          </a>
         </div>
 
         {/* 勘定科目取得エラー警告 */}

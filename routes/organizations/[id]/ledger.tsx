@@ -209,6 +209,9 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
           <a href={`/organizations/${organization.id}/assets`} class="tab">
             資産一覧
           </a>
+          <a href={`/organizations/${organization.id}/members`} class="tab">
+            メンバー
+          </a>
         </div>
 
         {/* 勘定科目取得エラー警告 */}
