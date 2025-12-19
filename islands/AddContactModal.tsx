@@ -194,9 +194,9 @@ export default function AddContactModal({
           )}
 
           {/* プライバシー設定 */}
-          <div class="divider text-sm">プライバシー設定</div>
+          <div class="divider text-sm mt-2 mb-0">プライバシー設定</div>
 
-          <div class="space-y-2">
+          <div class="space-y-2 pt-2">
             <label class="label cursor-pointer justify-start gap-2">
               <input
                 type="checkbox"

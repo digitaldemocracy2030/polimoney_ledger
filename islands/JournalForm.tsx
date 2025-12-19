@@ -94,6 +94,7 @@ export default function JournalForm({
 
   // 追加情報（選挙台帳・公費負担用）
   const [publicSubsidyAmount, setPublicSubsidyAmount] = useState("");
+  const [isFullPublicSubsidy, setIsFullPublicSubsidy] = useState(false);
 
   // その他
   const [nonMonetaryBasis, setNonMonetaryBasis] = useState("");
@@ -101,6 +102,9 @@ export default function JournalForm({
   const [isReceiptHardToCollect, setIsReceiptHardToCollect] = useState(false);
   const [receiptHardToCollectReason, setReceiptHardToCollectReason] =
     useState("");
+
+  // 領収書ファイル
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   // UI状態
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,6 +143,27 @@ export default function JournalForm({
     ledgerType === "election" &&
     entryType === "expense" &&
     isPublicSubsidyEligible(debitAccountCode);
+
+  // 全額公費負担モードの場合の特別処理
+  // - 日付は任意
+  // - 支払元（貸方）は自動的に「公費負担」勘定を使用
+  const PUBLIC_SUBSIDY_ACCOUNT_CODE = "SUBSIDY_PUBLIC";
+
+  // 全額公費負担チェック時の金額同期
+  useEffect(() => {
+    if (isFullPublicSubsidy && publicSubsidyAmount) {
+      setAmount(publicSubsidyAmount);
+      // 貸方を自動設定
+      setCreditAccountCode(PUBLIC_SUBSIDY_ACCOUNT_CODE);
+    }
+  }, [isFullPublicSubsidy, publicSubsidyAmount]);
+
+  // 科目が公費対象外になったら全額公費負担をリセット
+  useEffect(() => {
+    if (!showPublicSubsidyField) {
+      setIsFullPublicSubsidy(false);
+    }
+  }, [showPublicSubsidyField]);
 
   // 選択中の関係者情報を取得
   const selectedContact = contactsList.find((c) => c.id === contactId);
@@ -186,6 +211,16 @@ export default function JournalForm({
       setMessage({
         type: "error",
         text: "領収書を添付できない理由を入力してください",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 領収書を添付する場合はファイルが必須
+    if (!isReceiptHardToCollect && !receiptFile) {
+      setMessage({
+        type: "error",
+        text: "領収書ファイルを選択してください",
       });
       setIsSubmitting(false);
       return;
@@ -240,7 +275,41 @@ export default function JournalForm({
         throw new Error(json.error || "登録に失敗しました");
       }
 
-      setMessage({ type: "success", text: "仕訳を登録しました" });
+      const result = await response.json();
+      const journalId = result.data?.id;
+
+      // 領収書ファイルがある場合はアップロード
+      if (receiptFile && journalId) {
+        try {
+          const formData = new FormData();
+          formData.append("file", receiptFile);
+          formData.append("journal_id", journalId);
+
+          const uploadResponse = await fetch("/api/receipts", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            console.error("領収書のアップロードに失敗しました");
+            // 仕訳自体は成功しているので、警告のみ
+            setMessage({
+              type: "success",
+              text: "仕訳を登録しました（領収書のアップロードに失敗）",
+            });
+          } else {
+            setMessage({ type: "success", text: "仕訳と領収書を登録しました" });
+          }
+        } catch (uploadErr) {
+          console.error("Receipt upload error:", uploadErr);
+          setMessage({
+            type: "success",
+            text: "仕訳を登録しました（領収書のアップロードに失敗）",
+          });
+        }
+      } else {
+        setMessage({ type: "success", text: "仕訳を登録しました" });
+      }
 
       // フォームをリセット
       setDescription("");
@@ -255,8 +324,10 @@ export default function JournalForm({
       setPoliticalGrantAmount("");
       setPoliticalFundAmount("");
       setPublicSubsidyAmount("");
+      setIsFullPublicSubsidy(false);
       setIsReceiptHardToCollect(false);
       setReceiptHardToCollectReason("");
+      setReceiptFile(null);
 
       // コールバックを呼び出すかリロード
       if (onSuccess) {
@@ -321,7 +392,11 @@ export default function JournalForm({
             <div class="form-control">
               <label class="label">
                 <span class="label-text">
-                  日付 <span class="text-error">*</span>
+                  日付{" "}
+                  {!isFullPublicSubsidy && <span class="text-error">*</span>}
+                  {isFullPublicSubsidy && (
+                    <span class="text-base-content/60">（任意）</span>
+                  )}
                 </span>
               </label>
               <input
@@ -329,8 +404,15 @@ export default function JournalForm({
                 class="input input-bordered"
                 value={date}
                 onChange={(e) => setDate((e.target as HTMLInputElement).value)}
-                required
+                required={!isFullPublicSubsidy}
               />
+              {isFullPublicSubsidy && (
+                <label class="label">
+                  <span class="label-text-alt text-info">
+                    全額公費負担（業者直接請求）の場合、日付不明でも登録できます
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* 金額 */}
@@ -350,7 +432,15 @@ export default function JournalForm({
                   setAmount((e.target as HTMLInputElement).value)
                 }
                 required
+                disabled={isFullPublicSubsidy}
               />
+              {isFullPublicSubsidy && (
+                <label class="label">
+                  <span class="label-text-alt text-info">
+                    公費負担額から自動設定
+                  </span>
+                </label>
+              )}
             </div>
           </div>
 
@@ -534,58 +624,77 @@ export default function JournalForm({
                   )}
               </div>
 
-              <div class="space-y-2">
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text">
-                      支払元（どの資産から払ったか）{" "}
-                      <span class="text-error">*</span>
-                    </span>
-                  </label>
-                  <select
-                    class="select select-bordered"
-                    value={creditAccountCode}
-                    onChange={(e) => {
-                      setCreditAccountCode(
-                        (e.target as HTMLSelectElement).value
-                      );
-                      setCreditSubAccountId("");
-                    }}
-                    required
-                  >
-                    <option value="">選択してください</option>
-                    {assetAccounts.map((a) => (
-                      <option key={a.code} value={a.code}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {creditAccountCode &&
-                  getSubAccountsFor(creditAccountCode).length > 0 && (
-                    <div class="form-control">
-                      <label class="label">
-                        <span class="label-text">補助科目</span>
-                      </label>
-                      <select
-                        class="select select-bordered select-sm"
-                        value={creditSubAccountId}
-                        onChange={(e) =>
-                          setCreditSubAccountId(
-                            (e.target as HTMLSelectElement).value
-                          )
-                        }
-                      >
-                        <option value="">（なし）</option>
-                        {getSubAccountsFor(creditAccountCode).map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
+              {/* 全額公費負担の場合は支払元を自動設定 */}
+              {isFullPublicSubsidy ? (
+                <div class="space-y-2">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">支払元</span>
+                    </label>
+                    <div class="input input-bordered bg-base-200 flex items-center text-base-content/70">
+                      公費負担（自動設定）
                     </div>
-                  )}
-              </div>
+                    <label class="label">
+                      <span class="label-text-alt text-info">
+                        全額公費負担のため、候補者の資産からの支出はありません
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div class="space-y-2">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">
+                        支払元（どの資産から払ったか）{" "}
+                        <span class="text-error">*</span>
+                      </span>
+                    </label>
+                    <select
+                      class="select select-bordered"
+                      value={creditAccountCode}
+                      onChange={(e) => {
+                        setCreditAccountCode(
+                          (e.target as HTMLSelectElement).value
+                        );
+                        setCreditSubAccountId("");
+                      }}
+                      required
+                    >
+                      <option value="">選択してください</option>
+                      {assetAccounts.map((a) => (
+                        <option key={a.code} value={a.code}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {creditAccountCode &&
+                    getSubAccountsFor(creditAccountCode).length > 0 && (
+                      <div class="form-control">
+                        <label class="label">
+                          <span class="label-text">補助科目</span>
+                        </label>
+                        <select
+                          class="select select-bordered select-sm"
+                          value={creditSubAccountId}
+                          onChange={(e) =>
+                            setCreditSubAccountId(
+                              (e.target as HTMLSelectElement).value
+                            )
+                          }
+                        >
+                          <option value="">（なし）</option>
+                          {getSubAccountsFor(creditAccountCode).map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                </div>
+              )}
             </div>
           )}
 
@@ -779,30 +888,81 @@ export default function JournalForm({
 
           {/* 公費負担額（選挙台帳 + 公費対象科目の場合のみ） */}
           {showPublicSubsidyField && (
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">
-                  公費負担額
-                  <span class="ml-2 badge badge-info badge-sm">
-                    公費対象科目
+            <div class="space-y-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">
+                    公費負担額
+                    <span class="ml-2 badge badge-info badge-sm">
+                      公費対象科目
+                    </span>
+                    {isFullPublicSubsidy && (
+                      <span class="text-error ml-1">*</span>
+                    )}
                   </span>
-                </span>
-              </label>
-              <input
-                type="number"
-                class="input input-bordered"
-                placeholder="0"
-                min="0"
-                value={publicSubsidyAmount}
-                onChange={(e) =>
-                  setPublicSubsidyAmount((e.target as HTMLInputElement).value)
-                }
-              />
-              <label class="label">
-                <span class="label-text-alt text-base-content/60">
-                  選挙公営による公費負担がある場合に入力
-                </span>
-              </label>
+                </label>
+                <input
+                  type="number"
+                  class="input input-bordered"
+                  placeholder="0"
+                  min="0"
+                  value={publicSubsidyAmount}
+                  onChange={(e) =>
+                    setPublicSubsidyAmount((e.target as HTMLInputElement).value)
+                  }
+                  required={isFullPublicSubsidy}
+                />
+              </div>
+
+              {/* 全額公費負担チェックボックス */}
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3 p-3 border rounded-lg hover:bg-base-200">
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-info"
+                    checked={isFullPublicSubsidy}
+                    onChange={(e) =>
+                      setIsFullPublicSubsidy(
+                        (e.target as HTMLInputElement).checked
+                      )
+                    }
+                  />
+                  <div>
+                    <span class="label-text font-medium">
+                      全額公費負担（業者直接請求）
+                    </span>
+                    <span class="label-text-alt block text-base-content/60">
+                      候補者を介さず業者が直接請求する場合
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {isFullPublicSubsidy && (
+                <div class="alert alert-info">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    class="stroke-current shrink-0 w-6 h-6"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    ></path>
+                  </svg>
+                  <div>
+                    <p class="font-medium">全額公費負担モード</p>
+                    <ul class="text-sm mt-1 list-disc list-inside">
+                      <li>日付は任意（不明な場合は空欄可）</li>
+                      <li>金額は公費負担額から自動設定</li>
+                      <li>支払元は「公費負担」に自動設定</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -919,26 +1079,58 @@ export default function JournalForm({
             </div>
           </div>
 
-          {/* 領収書添付予定の注意 */}
+          {/* 領収書ファイル選択 */}
           {!isReceiptHardToCollect && (
-            <div class="alert alert-info">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                class="stroke-current shrink-0 w-6 h-6"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                ></path>
-              </svg>
-              <span>
-                仕訳登録後に<strong>必ず領収書を添付</strong>してください。
-                添付忘れがあると収支報告書の作成時に問題になります。
-              </span>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">
+                  領収書ファイル <span class="text-error">*</span>
+                </span>
+              </label>
+              <input
+                type="file"
+                class="file-input file-input-bordered w-full"
+                accept="image/*,.pdf"
+                onChange={(e) => {
+                  const files = (e.target as HTMLInputElement).files;
+                  if (files && files.length > 0) {
+                    setReceiptFile(files[0]);
+                  }
+                }}
+              />
+              {receiptFile && (
+                <div class="mt-2 flex items-center gap-2 text-sm text-success">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    class="w-5 h-5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                    />
+                  </svg>
+                  <span>{receiptFile.name}</span>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs"
+                    onClick={() => setReceiptFile(null)}
+                  >
+                    取消
+                  </button>
+                </div>
+              )}
+              {!receiptFile && (
+                <label class="label">
+                  <span class="label-text-alt text-warning">
+                    領収書のスキャン画像またはPDFを選択してください
+                  </span>
+                </label>
+              )}
             </div>
           )}
 
