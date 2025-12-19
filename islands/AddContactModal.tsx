@@ -295,7 +295,7 @@ export default function AddContactModal({
           </div>
         </form>
       </div>
-      <div class="modal-backdrop" onClick={handleClose} />
+      <div class="modal-backdrop fixed inset-0" onClick={handleClose} />
     </div>
   );
 }
