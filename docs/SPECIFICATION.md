@@ -265,13 +265,13 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 
 **テーブル名:** political_organizations
 
-| 列名 (Column Name)   | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                                     |
-| :------------------- | :------------------- | :------------------------ | :----------------------------------------------- |
-| id                   | uuid                 | 一意な ID (政治団体 ID)   | 主キー, uuid_generate_v4()                       |
-| owner_user_id        | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)                  |
-| name                 | text                 | 政治団体の名称            | 必須                                             |
-| hub_organization_id  | uuid                 | **Hub 上の政治団体 ID**   | **【v3.16 追加】** Hub DB への参照（FK 制約なし）|
-| created_at           | timestamptz          | レコード作成日時          | デフォルトで now()                               |
+| 列名 (Column Name)  | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                                      |
+| :------------------ | :------------------- | :------------------------ | :------------------------------------------------ |
+| id                  | uuid                 | 一意な ID (政治団体 ID)   | 主キー, uuid_generate_v4()                        |
+| owner_user_id       | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)                   |
+| name                | text                 | 政治団体の名称            | 必須                                              |
+| hub_organization_id | uuid                 | **Hub 上の政治団体 ID**   | **【v3.16 追加】** Hub DB への参照（FK 制約なし） |
+| created_at          | timestamptz          | レコード作成日時          | デフォルトで now()                                |
 
 ### **2.5. 政治家テーブル (【v3.16 削除】)**
 
@@ -284,15 +284,15 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 
 **テーブル名:** elections
 
-| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                                        |
-| :----------------- | :------------------- | :------------------------ | :-------------------------------------------------- |
-| id                 | uuid                 | 一意な ID (選挙 ID)       | 主キー, uuid_generate_v4()                          |
-| owner_user_id      | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)                     |
-| hub_politician_id  | uuid                 | **Hub 上の政治家 ID**     | **【v3.16 変更】** Hub DB への参照（FK 制約なし）   |
-| hub_election_id    | uuid                 | **Hub 上の選挙マスタ ID** | **【v3.16 追加】** Hub DB への参照（任意）          |
-| election_name      | text                 | 選挙の名称                | 必須。例: 「2025 年 〇〇市議会議員選挙」            |
-| election_date      | date                 | 選挙の投開票日            | 必須                                                |
-| created_at         | timestamptz          | レコード作成日時          | デフォルトで now()                                  |
+| 列名 (Column Name) | データ型 (Data Type) | 説明 (Description)        | 備考 (Notes)                                      |
+| :----------------- | :------------------- | :------------------------ | :------------------------------------------------ |
+| id                 | uuid                 | 一意な ID (選挙 ID)       | 主キー, uuid_generate_v4()                        |
+| owner_user_id      | uuid                 | 台帳のオーナーユーザー ID | auth.users.id への参照 (RLS 用)                   |
+| hub_politician_id  | uuid                 | **Hub 上の政治家 ID**     | **【v3.16 変更】** Hub DB への参照（FK 制約なし） |
+| hub_election_id    | uuid                 | **Hub 上の選挙マスタ ID** | **【v3.16 追加】** Hub DB への参照（任意）        |
+| election_name      | text                 | 選挙の名称                | 必須。例: 「2025 年 〇〇市議会議員選挙」          |
+| election_date      | date                 | 選挙の投開票日            | 必須                                              |
+| created_at         | timestamptz          | レコード作成日時          | デフォルトで now()                                |
 
 ### **2.7. 関係者テーブル (【v3.16 更新】)**
 
@@ -356,16 +356,16 @@ v2.6 の仕様に基づき、役割名を text で直接保持します。
 
 **テーブル名:** profiles
 
-| 列名 (Column Name)           | データ型 (Data Type) | 説明 (Description)                | 備考 (Notes)                                           |
-| :--------------------------- | :------------------- | :-------------------------------- | :----------------------------------------------------- |
-| id                           | uuid                 | ユーザー ID                       | auth.users.id への FK, 主キー                          |
-| full_name                    | text                 | ユーザーの氏名                    | 招待時に表示するため                                   |
-| email                        | text                 | ユーザーの Email                  | auth.users.email と同期。招待検索用                    |
-| hub_politician_id            | uuid                 | **Hub 上の認証済み政治家 ID**     | **【v3.16 追加】** NULL = 未認証                       |
-| tos_accepted_at              | timestamptz          | **利用規約同意日時**              | **【v3.16 追加】** NULL = 未同意                       |
-| privacy_policy_accepted_at   | timestamptz          | **プライバシーポリシー同意日時**  | **【v3.16 追加】**                                     |
-| verified_email_domain        | text                 | **認証済み公式ドメイン**          | **【v3.16 追加】** 公式メール認証で使用したドメイン    |
-| updated_at                   | timestamptz          | 更新日時                          |                                                        |
+| 列名 (Column Name)         | データ型 (Data Type) | 説明 (Description)               | 備考 (Notes)                                        |
+| :------------------------- | :------------------- | :------------------------------- | :-------------------------------------------------- |
+| id                         | uuid                 | ユーザー ID                      | auth.users.id への FK, 主キー                       |
+| full_name                  | text                 | ユーザーの氏名                   | 招待時に表示するため                                |
+| email                      | text                 | ユーザーの Email                 | auth.users.email と同期。招待検索用                 |
+| hub_politician_id          | uuid                 | **Hub 上の認証済み政治家 ID**    | **【v3.16 追加】** NULL = 未認証                    |
+| tos_accepted_at            | timestamptz          | **利用規約同意日時**             | **【v3.16 追加】** NULL = 未同意                    |
+| privacy_policy_accepted_at | timestamptz          | **プライバシーポリシー同意日時** | **【v3.16 追加】**                                  |
+| verified_email_domain      | text                 | **認証済み公式ドメイン**         | **【v3.16 追加】** 公式メール認証で使用したドメイン |
+| updated_at                 | timestamptz          | 更新日時                         |                                                     |
 
 ### **2.11. 役割と権限の定義（アプリ側） (【v3.16 更新】)**
 
@@ -376,12 +376,12 @@ Fresh (Deno) 版では `lib/permissions.ts` で定義。
 ```typescript
 // lib/permissions.ts
 export type Permission =
-  | "viewLedger"        // 台帳（仕訳一覧など）を閲覧する
-  | "submitJournal"     // 仕訳を起票（承認申請）する
-  | "registerJournal"   // 仕訳を即時登録（自己承認）する
-  | "approveJournal"    // 他人の仕訳を承認・却下する
-  | "manageMembers"     // メンバーの招待・削除・役割変更を行う
-  | "manageContacts"    // 関係者マスタを編集する
+  | "viewLedger" // 台帳（仕訳一覧など）を閲覧する
+  | "submitJournal" // 仕訳を起票（承認申請）する
+  | "registerJournal" // 仕訳を即時登録（自己承認）する
+  | "approveJournal" // 他人の仕訳を承認・却下する
+  | "manageMembers" // メンバーの招待・削除・役割変更を行う
+  | "manageContacts" // 関係者マスタを編集する
   | "editLedgerSettings"; // 台帳設定を編集する
 ```
 
@@ -392,7 +392,7 @@ export type Role = "admin" | "accountant" | "approver" | "submitter" | "viewer";
 
 export const ROLE_NAMES: Record<Role, string> = {
   admin: "管理者",
-  accountant: "経理担当者",  // 【v3.16 追加】
+  accountant: "経理担当者", // 【v3.16 追加】
   approver: "承認者",
   submitter: "起票者",
   viewer: "閲覧者",
@@ -423,22 +423,11 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "editLedgerSettings",
   ],
   // 承認者
-  approver: [
-    "viewLedger",
-    "submitJournal",
-    "approveJournal",
-    "manageContacts",
-  ],
+  approver: ["viewLedger", "submitJournal", "approveJournal", "manageContacts"],
   // 起票者
-  submitter: [
-    "viewLedger",
-    "submitJournal",
-    "manageContacts",
-  ],
+  submitter: ["viewLedger", "submitJournal", "manageContacts"],
   // 閲覧者
-  viewer: [
-    "viewLedger",
-  ],
+  viewer: ["viewLedger"],
 };
 ```
 
@@ -1096,7 +1085,7 @@ Ledger DB (Supabase) ──Realtime──→ Polimoney Hub ──→ Polimoney (
 | contacts.name         | is_name_private == true       | "非公開" |
 | contacts.address      | is_address_private == true    | "非公開" |
 | contacts.occupation   | is_occupation_private == true | "非公開" |
-| privacy_reason_\*     | いずれかが private            | 含める   |
+| privacy*reason*\*     | いずれかが private            | 含める   |
 
 ### 5.3. 公費負担の連携
 

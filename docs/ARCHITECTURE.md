@@ -259,7 +259,7 @@ const channel = supabase
     },
     (payload) => {
       // UIを更新
-    },
+    }
   )
   .subscribe();
 ```
@@ -277,14 +277,14 @@ const channel = supabase
 
 **詳細:** `docs/IDENTITY_DESIGN.md` を参照
 
-| 識別子            | 形式 | 保存先                  | Ledger での扱い                              |
-| ----------------- | ---- | ----------------------- | -------------------------------------------- |
-| 選挙マスタ        | UUID | 🅱️ Hub (Supabase B)     | `elections.hub_election_id` で参照           |
-| 政治団体マスタ    | UUID | 🅱️ Hub (Supabase B)     | `political_organizations.hub_organization_id` で参照 |
-| 政治家マスタ      | UUID | 🅱️ Hub (Supabase B)     | `profiles.hub_politician_id` で参照          |
-| 選挙台帳          | UUID | 🅰️ Ledger (Supabase A)  | `elections.id` で管理                        |
-| 政治団体台帳      | UUID | 🅰️ Ledger (Supabase A)  | `political_organizations.id` で管理          |
-| ユーザー ID       | UUID | 🅰️ Ledger (Supabase A)  | `auth.uid()` で管理                          |
+| 識別子         | 形式 | 保存先                 | Ledger での扱い                                      |
+| -------------- | ---- | ---------------------- | ---------------------------------------------------- |
+| 選挙マスタ     | UUID | 🅱️ Hub (Supabase B)    | `elections.hub_election_id` で参照                   |
+| 政治団体マスタ | UUID | 🅱️ Hub (Supabase B)    | `political_organizations.hub_organization_id` で参照 |
+| 政治家マスタ   | UUID | 🅱️ Hub (Supabase B)    | `profiles.hub_politician_id` で参照                  |
+| 選挙台帳       | UUID | 🅰️ Ledger (Supabase A) | `elections.id` で管理                                |
+| 政治団体台帳   | UUID | 🅰️ Ledger (Supabase A) | `political_organizations.id` で管理                  |
+| ユーザー ID    | UUID | 🅰️ Ledger (Supabase A) | `auth.uid()` で管理                                  |
 
 > **注意:** Ledger に `politicians` テーブルは存在しません（Hub で一元管理）。
 

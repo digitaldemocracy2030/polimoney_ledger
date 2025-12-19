@@ -71,8 +71,44 @@ export interface Organization {
   name: string;
   type: string; // political_party, support_group, fund_management, other
   politician_id: string | null;
+  // 詳細情報【v2.1 追加】
+  official_url: string | null;
+  registration_authority: string | null;
+  established_date: string | null;
+  office_address: string | null;
+  representative_name: string | null;
+  accountant_name: string | null;
+  contact_email: string | null;
+  description: string | null;
+  // SNS【v2.1 追加】
+  sns_x: string | null;
+  sns_instagram: string | null;
+  sns_facebook: string | null;
+  sns_tiktok: string | null;
+  // 認証情報【v2.1 追加】
+  is_verified: boolean;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** 政治団体更新用入力【v2.1 追加】 */
+export interface UpdateOrganizationInput {
+  name?: string;
+  type?: string;
+  politician_id?: string | null;
+  official_url?: string | null;
+  registration_authority?: string | null;
+  established_date?: string | null;
+  office_address?: string | null;
+  representative_name?: string | null;
+  accountant_name?: string | null;
+  contact_email?: string | null;
+  description?: string | null;
+  sns_x?: string | null;
+  sns_instagram?: string | null;
+  sns_facebook?: string | null;
+  sns_tiktok?: string | null;
 }
 
 export interface Politician {
@@ -272,10 +308,27 @@ export async function getOrganization(id: string): Promise<Organization> {
   return result.data;
 }
 
-/** 管理する政治団体（認証済み） */
+/**
+ * 政治団体を更新【v2.1 追加】
+ */
+export async function updateOrganization(
+  id: string,
+  data: UpdateOrganizationInput
+): Promise<Organization> {
+  const result = await fetchApi<ApiResponse<Organization>>(
+    `/api/v1/organizations/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+  return result.data;
+}
+
+/** 管理する政治団体（認証済み）【v2.1 更新】 */
 export interface ManagedOrganization extends Organization {
-  verified_at: string;
-  verified_domain: string;
+  manager_verified_at: string;
+  manager_verified_domain: string;
 }
 
 /**
