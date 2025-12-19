@@ -4,12 +4,33 @@ import { Layout } from "../components/Layout.tsx";
 import { getServiceClient, getSupabaseClient } from "../lib/supabase.ts";
 import ReSyncButton from "../islands/ReSyncButton.tsx";
 import ProfileEditor from "../islands/ProfileEditor.tsx";
+import VerificationSection from "../islands/VerificationSection.tsx";
+import {
+  getVerifiedPoliticianByUserId,
+  getManagedOrganizations,
+  getPoliticianVerificationsByUser,
+  getOrganizationManagerVerificationsByUser,
+  getOrganizations,
+  type Politician,
+  type ManagedOrganization,
+  type PoliticianVerification,
+  type OrganizationManagerVerification,
+  type Organization,
+} from "../lib/hub-client.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 interface PageData {
   email: string;
   displayName: string;
+  userId: string;
+  // 認証情報
+  verifiedPolitician: Politician | null;
+  managedOrganizations: ManagedOrganization[];
+  politicianVerifications: PoliticianVerification[];
+  organizationManagerVerifications: OrganizationManagerVerification[];
+  // 選択用
+  hubOrganizations: Organization[];
 }
 
 export const handler: Handlers<PageData> = {
@@ -33,15 +54,45 @@ export const handler: Handlers<PageData> = {
     const displayName =
       user?.user_metadata?.display_name || user?.user_metadata?.full_name || "";
 
+    // Hub から認証情報を取得（並列）
+    const [
+      verifiedPolitician,
+      managedOrganizations,
+      politicianVerifications,
+      organizationManagerVerifications,
+      hubOrganizations,
+    ] = await Promise.all([
+      getVerifiedPoliticianByUserId(userId).catch(() => null),
+      getManagedOrganizations(userId).catch(() => []),
+      getPoliticianVerificationsByUser(userId).catch(() => []),
+      getOrganizationManagerVerificationsByUser(userId).catch(() => []),
+      getOrganizations().catch(() => []),
+    ]);
+
     return ctx.render({
       email: user?.email || "",
       displayName,
+      userId,
+      verifiedPolitician,
+      managedOrganizations,
+      politicianVerifications,
+      organizationManagerVerifications,
+      hubOrganizations,
     });
   },
 };
 
 export default function Settings({ data }: PageProps<PageData>) {
-  const { email, displayName } = data;
+  const {
+    email,
+    displayName,
+    userId,
+    verifiedPolitician,
+    managedOrganizations,
+    politicianVerifications,
+    organizationManagerVerifications,
+    hubOrganizations,
+  } = data;
 
   return (
     <>
@@ -53,6 +104,20 @@ export default function Settings({ data }: PageProps<PageData>) {
           {/* プロフィールセクション */}
           <section class="mb-8">
             <ProfileEditor initialDisplayName={displayName} email={email} />
+          </section>
+
+          {/* 認証セクション */}
+          <section class="mb-8">
+            <VerificationSection
+              userId={userId}
+              verifiedPolitician={verifiedPolitician}
+              managedOrganizations={managedOrganizations}
+              politicianVerifications={politicianVerifications}
+              organizationManagerVerifications={
+                organizationManagerVerifications
+              }
+              hubOrganizations={hubOrganizations}
+            />
           </section>
 
           {/* 同期ステータス */}
