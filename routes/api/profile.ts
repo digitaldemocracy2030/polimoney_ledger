@@ -43,9 +43,7 @@ export const handler: Handlers = {
 
       // Supabase Auth では display_name または full_name で保存される場合がある
       const displayName =
-        user.user_metadata?.display_name ||
-        user.user_metadata?.full_name ||
-        "";
+        user.user_metadata?.display_name || user.user_metadata?.full_name || "";
 
       return new Response(
         JSON.stringify({
