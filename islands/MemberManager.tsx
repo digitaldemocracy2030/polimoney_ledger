@@ -23,6 +23,13 @@ interface MemberManagerProps {
   canManageMembers: boolean;
 }
 
+interface PendingTransfer {
+  id: string;
+  to_user_email?: string;
+  status: string;
+  requested_at: string;
+}
+
 export default function MemberManager({
   organizationId,
   electionId,
@@ -39,6 +46,13 @@ export default function MemberManager({
   // 招待フォームの状態
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AppRole>("viewer");
+
+  // オーナー譲渡の状態
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+  const [pendingTransfer, setPendingTransfer] = useState<PendingTransfer | null>(
+    null
+  );
 
   const roles: AppRole[] = [
     "admin",
@@ -150,6 +164,78 @@ export default function MemberManager({
     }
   };
 
+  // オーナー譲渡申請を作成
+  const handleTransfer = async (e: Event) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    if (!transferEmail.trim()) {
+      setError("譲渡先のメールアドレスを入力してください");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/ownership-transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to_user_email: transferEmail.trim(),
+          organization_id: organizationId || undefined,
+          election_id: electionId || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "譲渡申請の作成に失敗しました");
+      }
+
+      const { data, message } = await res.json();
+      setPendingTransfer({
+        id: data.id,
+        to_user_email: transferEmail,
+        status: data.status,
+        requested_at: data.requested_at,
+      });
+      setSuccess(message || "譲渡申請を作成しました");
+      setShowTransferModal(false);
+      setTransferEmail("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 譲渡申請をキャンセル
+  const handleCancelTransfer = async () => {
+    if (!pendingTransfer) return;
+    if (!confirm("譲渡申請をキャンセルしますか？")) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/ownership-transfers/${pendingTransfer.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "キャンセルに失敗しました");
+      }
+
+      setPendingTransfer(null);
+      setSuccess("譲渡申請をキャンセルしました");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div>
       {/* 通知 */}
@@ -205,14 +291,58 @@ export default function MemberManager({
       {/* オーナー情報 */}
       <div class="card bg-base-100 shadow-xl mb-6">
         <div class="card-body">
-          <h3 class="card-title text-base">オーナー</h3>
-          <p class="text-base-content/70 text-sm">
-            オーナーはこの台帳の所有者です。全ての権限を持ち、削除できません。
-          </p>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="badge badge-primary">オーナー</span>
-            {isOwner && <span class="text-sm text-success">（あなた）</span>}
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="card-title text-base">オーナー</h3>
+              <p class="text-base-content/70 text-sm">
+                オーナーはこの台帳の所有者です。全ての権限を持ち、削除できません。
+              </p>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="badge badge-primary">オーナー</span>
+                {isOwner && <span class="text-sm text-success">（あなた）</span>}
+              </div>
+            </div>
+            {isOwner && !pendingTransfer && (
+              <button
+                class="btn btn-outline btn-sm"
+                onClick={() => setShowTransferModal(true)}
+              >
+                オーナーを譲渡
+              </button>
+            )}
           </div>
+
+          {/* 譲渡申請中の表示 */}
+          {pendingTransfer && (
+            <div class="alert alert-info mt-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                class="stroke-current shrink-0 w-6 h-6"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div>
+                <p class="font-medium">オーナー譲渡申請中</p>
+                <p class="text-sm">
+                  {pendingTransfer.to_user_email} さんへの譲渡申請が承認待ちです
+                </p>
+              </div>
+              <button
+                class="btn btn-ghost btn-sm"
+                onClick={handleCancelTransfer}
+                disabled={isLoading}
+              >
+                キャンセル
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -409,6 +539,104 @@ export default function MemberManager({
               onClick={() => {
                 setShowInviteModal(false);
                 setError(null);
+              }}
+            >
+              close
+            </button>
+          </form>
+        </dialog>
+      )}
+
+      {/* オーナー譲渡モーダル */}
+      {showTransferModal && (
+        <dialog class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">オーナーを譲渡</h3>
+
+            <div class="alert alert-warning mb-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div>
+                <p class="font-medium">注意</p>
+                <p class="text-sm">
+                  オーナーを譲渡すると、この台帳の所有権が移ります。
+                  あなたは管理者として残ります。
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <div class="alert alert-error mb-4">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleTransfer}>
+              <div class="form-control mb-4">
+                <label class="label">
+                  <span class="label-text font-medium">
+                    譲渡先のメールアドレス<span class="text-error ml-1">*</span>
+                  </span>
+                </label>
+                <input
+                  type="email"
+                  class="input input-bordered"
+                  value={transferEmail}
+                  onChange={(e) =>
+                    setTransferEmail((e.target as HTMLInputElement).value)
+                  }
+                  placeholder="example@example.com"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    登録済みのユーザーのメールアドレスを入力してください
+                  </span>
+                </label>
+              </div>
+
+              <div class="modal-action">
+                <button
+                  type="button"
+                  class="btn btn-ghost"
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    setError(null);
+                    setTransferEmail("");
+                  }}
+                  disabled={isLoading}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  class="btn btn-warning"
+                  disabled={isLoading}
+                >
+                  {isLoading && (
+                    <span class="loading loading-spinner loading-sm" />
+                  )}
+                  譲渡申請を送信
+                </button>
+              </div>
+            </form>
+          </div>
+          <form method="dialog" class="modal-backdrop">
+            <button
+              onClick={() => {
+                setShowTransferModal(false);
+                setError(null);
+                setTransferEmail("");
               }}
             >
               close

@@ -1,21 +1,83 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Layout } from "../components/Layout.tsx";
+import { getServiceClient, getSupabaseClient } from "../lib/supabase.ts";
+import PendingTransfers from "../islands/PendingTransfers.tsx";
+
+const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
+
+interface Transfer {
+  id: string;
+  from_user_id: string;
+  organization_id: string | null;
+  election_id: string | null;
+  requested_at: string;
+  political_organizations?: {
+    id: string;
+    name: string;
+  } | null;
+  elections?: {
+    id: string;
+    election_name: string;
+  } | null;
+}
 
 interface DashboardData {
   userName: string | null;
+  pendingTransfers: Transfer[];
 }
 
 export const handler: Handlers<DashboardData> = {
-  async GET(_req, ctx) {
+  async GET(req, ctx) {
     const user = ctx.state.user as { email?: string } | undefined;
+    const userId = ctx.state.userId as string;
+
+    let pendingTransfers: Transfer[] = [];
+
+    if (userId) {
+      try {
+        const supabase =
+          userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+
+        const { data: transfers } = await supabase
+          .from("ownership_transfers")
+          .select(
+            `
+            id,
+            from_user_id,
+            organization_id,
+            election_id,
+            requested_at,
+            political_organizations (
+              id,
+              name
+            ),
+            elections (
+              id,
+              election_name
+            )
+          `
+          )
+          .eq("to_user_id", userId)
+          .eq("status", "pending")
+          .order("requested_at", { ascending: false });
+
+        pendingTransfers = (transfers || []) as Transfer[];
+      } catch (error) {
+        console.error("Failed to fetch pending transfers:", error);
+      }
+    }
+
     return ctx.render({
       userName: user?.email || null,
+      pendingTransfers,
     });
   },
 };
 
 export default function DashboardPage({ data }: PageProps<DashboardData>) {
+  const { pendingTransfers } = data;
+
   return (
     <>
       <Head>
@@ -23,6 +85,9 @@ export default function DashboardPage({ data }: PageProps<DashboardData>) {
       </Head>
       <Layout currentPath="/" title="ダッシュボード">
         <div class="grid gap-6">
+          {/* 承認待ちの譲渡申請 */}
+          <PendingTransfers initialTransfers={pendingTransfers} />
+
           {/* ウェルカムカード */}
           <div class="card bg-primary text-primary-content">
             <div class="card-body">

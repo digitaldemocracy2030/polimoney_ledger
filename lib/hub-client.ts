@@ -271,6 +271,13 @@ export async function getPoliticians(): Promise<Politician[]> {
   return result.data;
 }
 
+export async function getPolitician(id: string): Promise<Politician> {
+  const result = await fetchApi<ApiResponse<Politician>>(
+    `/api/v1/politicians/${id}`,
+  );
+  return result.data;
+}
+
 export async function createPolitician(data: {
   name: string;
   name_kana?: string;

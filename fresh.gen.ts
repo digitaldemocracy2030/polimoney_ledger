@@ -18,6 +18,11 @@ import * as $api_members from "./routes/api/members.ts";
 import * as $api_members_id_ from "./routes/api/members/[id].ts";
 import * as $api_organization_requests from "./routes/api/organization-requests.ts";
 import * as $api_organizations from "./routes/api/organizations.ts";
+import * as $api_ownership_transfers from "./routes/api/ownership-transfers.ts";
+import * as $api_ownership_transfers_id_ from "./routes/api/ownership-transfers/[id].ts";
+import * as $api_ownership_transfers_id_accept from "./routes/api/ownership-transfers/[id]/accept.ts";
+import * as $api_ownership_transfers_id_decline from "./routes/api/ownership-transfers/[id]/decline.ts";
+import * as $api_politicians_id_ from "./routes/api/politicians/[id].ts";
 import * as $api_profile from "./routes/api/profile.ts";
 import * as $api_receipts from "./routes/api/receipts.ts";
 import * as $api_sub_accounts from "./routes/api/sub-accounts.ts";
@@ -61,6 +66,7 @@ import * as $MemberManager from "./islands/MemberManager.tsx";
 import * as $NewElectionForm from "./islands/NewElectionForm.tsx";
 import * as $NewOrganizationForm from "./islands/NewOrganizationForm.tsx";
 import * as $OrganizationSelector from "./islands/OrganizationSelector.tsx";
+import * as $PendingTransfers from "./islands/PendingTransfers.tsx";
 import * as $PolicyBanner from "./islands/PolicyBanner.tsx";
 import * as $ProfileEditor from "./islands/ProfileEditor.tsx";
 import * as $ReSyncButton from "./islands/ReSyncButton.tsx";
@@ -87,6 +93,13 @@ const manifest = {
     "./routes/api/members/[id].ts": $api_members_id_,
     "./routes/api/organization-requests.ts": $api_organization_requests,
     "./routes/api/organizations.ts": $api_organizations,
+    "./routes/api/ownership-transfers.ts": $api_ownership_transfers,
+    "./routes/api/ownership-transfers/[id].ts": $api_ownership_transfers_id_,
+    "./routes/api/ownership-transfers/[id]/accept.ts":
+      $api_ownership_transfers_id_accept,
+    "./routes/api/ownership-transfers/[id]/decline.ts":
+      $api_ownership_transfers_id_decline,
+    "./routes/api/politicians/[id].ts": $api_politicians_id_,
     "./routes/api/profile.ts": $api_profile,
     "./routes/api/receipts.ts": $api_receipts,
     "./routes/api/sub-accounts.ts": $api_sub_accounts,
@@ -132,6 +145,7 @@ const manifest = {
     "./islands/NewElectionForm.tsx": $NewElectionForm,
     "./islands/NewOrganizationForm.tsx": $NewOrganizationForm,
     "./islands/OrganizationSelector.tsx": $OrganizationSelector,
+    "./islands/PendingTransfers.tsx": $PendingTransfers,
     "./islands/PolicyBanner.tsx": $PolicyBanner,
     "./islands/ProfileEditor.tsx": $ProfileEditor,
     "./islands/ReSyncButton.tsx": $ReSyncButton,
