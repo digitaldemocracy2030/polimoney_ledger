@@ -103,8 +103,8 @@ export async function handler(req: Request, ctx: FreshContext) {
   if (error || !user) {
     // リフレッシュトークンで再取得を試みる
     if (refreshToken) {
-      const { data: refreshData, error: refreshError } = await supabase.auth
-        .refreshSession({
+      const { data: refreshData, error: refreshError } =
+        await supabase.auth.refreshSession({
           refresh_token: refreshToken,
         });
 
@@ -115,11 +115,11 @@ export async function handler(req: Request, ctx: FreshContext) {
 
         headers.append(
           "Set-Cookie",
-          `sb-access-token=${refreshData.session.access_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`,
+          `sb-access-token=${refreshData.session.access_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600`
         );
         headers.append(
           "Set-Cookie",
-          `sb-refresh-token=${refreshData.session.refresh_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`,
+          `sb-refresh-token=${refreshData.session.refresh_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
         );
 
         // ユーザー情報をコンテキストに追加

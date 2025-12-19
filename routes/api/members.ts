@@ -43,8 +43,7 @@ export const handler: Handlers = {
     }
 
     try {
-      const supabase =
-        getSupabaseClient(userId);
+      const supabase = getSupabaseClient(userId);
 
       // まず台帳の所有者かどうかをチェック
       let isOwner = false;
@@ -157,8 +156,7 @@ export const handler: Handlers = {
         });
       }
 
-      const supabase =
-        getSupabaseClient(userId);
+      const supabase = getSupabaseClient(userId);
 
       // 権限チェック: 台帳のオーナーかどうか
       let isOwner = false;

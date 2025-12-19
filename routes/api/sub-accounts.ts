@@ -31,8 +31,7 @@ export const handler: Handlers = {
     const ledgerType = url.searchParams.get("ledger_type");
 
     try {
-      const supabase =
-        getSupabaseClient(userId);
+      const supabase = getSupabaseClient(userId);
 
       let query = supabase
         .from("sub_accounts")
@@ -102,8 +101,7 @@ export const handler: Handlers = {
         );
       }
 
-      const supabase =
-        getSupabaseClient(userId);
+      const supabase = getSupabaseClient(userId);
 
       const { data, error } = await supabase
         .from("sub_accounts")
