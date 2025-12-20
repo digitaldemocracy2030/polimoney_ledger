@@ -107,16 +107,23 @@ HUB_API_KEY_DEV=your-development-key
 
 ### 重要なポイント
 
-1. **テストユーザーでも本番 Hub に接続**
-   - DEV/PROD 環境の切り替えは `APP_ENV` で行う
-   - テストデータは `is_test` フラグで区別される
+1. **テストユーザーの場合は `HUB_API_KEY_DEV` を使用**
 
-2. **Hub API 環境の選択ロジック**
+   - テストユーザー（`TEST_USER_ID`）の場合、常に DEV キーを使用
+   - DEV キーで呼ぶと `is_test = true` のデータのみ返る
+   - PROD キーで呼ぶと `is_test = false` のデータのみ返る
+
+2. **Hub API キーの選択ロジック**
    ```typescript
-   const HUB_API_URL = IS_PRODUCTION
-     ? Deno.env.get("HUB_API_URL_PROD")
-     : Deno.env.get("HUB_API_URL_DEV");
+   // テストユーザーの場合は DEV キーを使用
+   const useDevKey = isTestUser(userId);
+   const apiKey = useDevKey ? HUB_API_KEY_DEV : HUB_API_KEY;
    ```
+
+3. **Hub 側のフィルタリング**
+   - Hub は API キーを見て `isTestMode` を判定
+   - `API_KEY_DEV` → `isTestMode = true` → `is_test = true` のデータを返す
+   - `API_KEY_PROD` → `isTestMode = false` → `is_test = false` のデータを返す
 
 ---
 
@@ -126,8 +133,8 @@ Hub の公開 API（`/api/public/*`）では、`is_test = false` のデータの
 
 ```sql
 -- Hub 側のクエリ例
-SELECT * FROM politicians 
-WHERE is_verified = true 
+SELECT * FROM politicians
+WHERE is_verified = true
   AND is_test = false;
 ```
 
@@ -140,10 +147,12 @@ WHERE is_verified = true
 ### テストアカウントでデータが表示されない
 
 1. **Hub にテストデータが存在するか確認**
+
    - Hub 管理画面または Supabase Dashboard で確認
    - `is_test = true` のデータが存在するか
 
 2. **`ledger_user_id` が正しいか確認**
+
    - テストユーザーの ID: `00000000-0000-0000-0000-000000000001`
 
 3. **Hub API が正しいか確認**
