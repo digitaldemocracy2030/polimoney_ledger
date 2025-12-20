@@ -14,25 +14,31 @@ const IS_PRODUCTION = Deno.env.get("APP_ENV") === "production";
  * Hub API URL / API Key
  * - 本番環境 (APP_ENV=production): PROD 設定を使用
  * - 開発環境 (APP_ENV!=production): DEV 設定を使用
+ * - テストユーザー: 常に DEV キーを使用（is_test=true のデータを取得）
  *
- * 注意: テストユーザーのデータも本番 Hub に保存され、is_test フラグで区別されます。
- * 環境による Hub の切り替えは行いません。
+ * 注意: テストユーザーのデータは is_test フラグで区別されます。
+ * DEV キーで呼ぶと is_test=true、PROD キーで呼ぶと is_test=false のデータが返ります。
  */
-const HUB_API_URL = IS_PRODUCTION
-  ? Deno.env.get("HUB_API_URL_PROD") || "https://api.polimoney.dd2030.org"
-  : Deno.env.get("HUB_API_URL_DEV") || "http://localhost:3722";
+const HUB_API_URL_PROD =
+  Deno.env.get("HUB_API_URL_PROD") || "https://api.polimoney.dd2030.org";
+const HUB_API_URL_DEV =
+  Deno.env.get("HUB_API_URL_DEV") || "http://localhost:3722";
+const HUB_API_KEY_PROD = Deno.env.get("HUB_API_KEY_PROD") || "";
+const HUB_API_KEY_DEV = Deno.env.get("HUB_API_KEY_DEV") || "";
 
-const HUB_API_KEY = IS_PRODUCTION
-  ? Deno.env.get("HUB_API_KEY_PROD") || ""
-  : Deno.env.get("HUB_API_KEY_DEV") || "";
+// デフォルト環境（非テストユーザー用）
+const HUB_API_URL = IS_PRODUCTION ? HUB_API_URL_PROD : HUB_API_URL_DEV;
+const HUB_API_KEY = IS_PRODUCTION ? HUB_API_KEY_PROD : HUB_API_KEY_DEV;
 
 // API キーが設定されていない場合は起動時に警告
-if (!HUB_API_KEY) {
+if (!HUB_API_KEY_PROD && IS_PRODUCTION) {
   console.warn(
-    `[Hub API] Warning: HUB_API_KEY is not set. API calls will fail. ` +
-      `Set ${
-        IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
-      } environment variable.`
+    "[Hub API] Warning: HUB_API_KEY_PROD is not set. Production API calls will fail."
+  );
+}
+if (!HUB_API_KEY_DEV) {
+  console.warn(
+    "[Hub API] Warning: HUB_API_KEY_DEV is not set. Test user API calls will fail."
   );
 }
 
@@ -230,28 +236,40 @@ export interface ApiError {
 // ヘルパー関数
 // ============================================
 
+interface FetchApiOptions extends RequestInit {
+  /** テストユーザー判定用の userId（テストユーザーの場合は DEV キーを使用） */
+  userId?: string;
+}
+
 async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: FetchApiOptions = {}
 ): Promise<T> {
+  const { userId, ...fetchOptions } = options;
+
+  // テストユーザーの場合は DEV キーを使用（is_test=true のデータを取得）
+  const useDevKey = isTestUser(userId);
+  const apiUrl = useDevKey ? HUB_API_URL_PROD : HUB_API_URL; // URL は常に同じ Hub
+  const apiKey = useDevKey ? HUB_API_KEY_DEV : HUB_API_KEY;
+
   // API キーのバリデーション
-  if (!HUB_API_KEY) {
+  if (!apiKey) {
     throw new Error(
       `Hub API key is not configured. Set ${
-        IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
+        useDevKey ? "HUB_API_KEY_DEV" : IS_PRODUCTION ? "HUB_API_KEY_PROD" : "HUB_API_KEY_DEV"
       } environment variable.`
     );
   }
 
-  const headers = new Headers(options.headers);
+  const headers = new Headers(fetchOptions.headers);
   headers.set("Content-Type", "application/json");
-  headers.set("X-API-Key", HUB_API_KEY);
+  headers.set("X-API-Key", apiKey);
 
-  const url = `${HUB_API_URL}${endpoint}`;
-  console.log(`[Hub API] Fetching: ${url}`);
+  const url = `${apiUrl}${endpoint}`;
+  console.log(`[Hub API] Fetching: ${url} (key: ${useDevKey ? "DEV" : "default"})`);
 
   const response = await fetch(url, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
@@ -302,9 +320,13 @@ export async function getOrganizations(): Promise<Organization[]> {
   return result.data;
 }
 
-export async function getOrganization(id: string): Promise<Organization> {
+export async function getOrganization(
+  id: string,
+  options: { userId?: string } = {}
+): Promise<Organization> {
   const result = await fetchApi<ApiResponse<Organization>>(
-    `/api/v1/organizations/${id}`
+    `/api/v1/organizations/${id}`,
+    { userId: options.userId }
   );
   return result.data;
 }
@@ -314,13 +336,15 @@ export async function getOrganization(id: string): Promise<Organization> {
  */
 export async function updateOrganization(
   id: string,
-  data: UpdateOrganizationInput
+  data: UpdateOrganizationInput,
+  options: { userId?: string } = {}
 ): Promise<Organization> {
   const result = await fetchApi<ApiResponse<Organization>>(
     `/api/v1/organizations/${id}`,
     {
       method: "PUT",
       body: JSON.stringify(data),
+      userId: options.userId,
     }
   );
   return result.data;
@@ -341,7 +365,8 @@ export async function getManagedOrganizations(
 ): Promise<ManagedOrganization[]> {
   try {
     const result = await fetchApi<ApiResponse<ManagedOrganization[]>>(
-      `/api/v1/organizations/managed?ledger_user_id=${ledgerUserId}`
+      `/api/v1/organizations/managed?ledger_user_id=${ledgerUserId}`,
+      { userId: ledgerUserId }
     );
     return result.data;
   } catch (error) {
@@ -404,29 +429,40 @@ export async function getAccountCode(code: string): Promise<AccountCode> {
 // 政治家 API
 // ============================================
 
-export async function getPoliticians(): Promise<Politician[]> {
+export async function getPoliticians(
+  options: { userId?: string } = {}
+): Promise<Politician[]> {
   const result = await fetchApi<ApiResponse<Politician[]>>(
-    "/api/v1/politicians"
+    "/api/v1/politicians",
+    { userId: options.userId }
   );
   return result.data;
 }
 
-export async function getPolitician(id: string): Promise<Politician> {
+export async function getPolitician(
+  id: string,
+  options: { userId?: string } = {}
+): Promise<Politician> {
   const result = await fetchApi<ApiResponse<Politician>>(
-    `/api/v1/politicians/${id}`
+    `/api/v1/politicians/${id}`,
+    { userId: options.userId }
   );
   return result.data;
 }
 
-export async function createPolitician(data: {
-  name: string;
-  name_kana?: string;
-}): Promise<Politician> {
+export async function createPolitician(
+  data: {
+    name: string;
+    name_kana?: string;
+  },
+  options: { userId?: string } = {}
+): Promise<Politician> {
   const result = await fetchApi<ApiResponse<Politician>>(
     "/api/v1/politicians",
     {
       method: "POST",
       body: JSON.stringify(data),
+      userId: options.userId,
     }
   );
   return result.data;
@@ -446,13 +482,15 @@ export interface UpdatePoliticianInput {
  */
 export async function updatePolitician(
   id: string,
-  data: UpdatePoliticianInput
+  data: UpdatePoliticianInput,
+  options: { userId?: string } = {}
 ): Promise<Politician> {
   const result = await fetchApi<ApiResponse<Politician>>(
     `/api/v1/politicians/${id}`,
     {
       method: "PUT",
       body: JSON.stringify(data),
+      userId: options.userId,
     }
   );
   return result.data;
@@ -466,7 +504,8 @@ export async function getVerifiedPoliticianByUserId(
   ledgerUserId: string
 ): Promise<Politician | null> {
   try {
-    const politicians = await getPoliticians();
+    // テストユーザーの場合は DEV キーを使用
+    const politicians = await getPoliticians({ userId: ledgerUserId });
     const verified = politicians.find(
       (p) => p.ledger_user_id === ledgerUserId && p.is_verified
     );
@@ -492,6 +531,7 @@ export async function createPoliticianVerification(
     {
       method: "POST",
       body: JSON.stringify(data),
+      userId: data.ledger_user_id,
     }
   );
   return result.data;
@@ -504,7 +544,8 @@ export async function getPoliticianVerificationsByUser(
   ledgerUserId: string
 ): Promise<PoliticianVerification[]> {
   const result = await fetchApi<ApiResponse<PoliticianVerification[]>>(
-    `/api/v1/politician-verifications/user/${ledgerUserId}`
+    `/api/v1/politician-verifications/user/${ledgerUserId}`,
+    { userId: ledgerUserId }
   );
   return result.data;
 }
@@ -513,11 +554,12 @@ export async function getPoliticianVerificationsByUser(
  * メール認証コードを送信
  */
 export async function sendPoliticianVerificationCode(
-  verificationId: string
+  verificationId: string,
+  options: { userId?: string } = {}
 ): Promise<{ message: string; code?: string }> {
   const result = await fetchApi<{ message: string; code?: string }>(
     `/api/v1/politician-verifications/${verificationId}/send-verification`,
-    { method: "POST" }
+    { method: "POST", userId: options.userId }
   );
   return result;
 }
@@ -527,13 +569,15 @@ export async function sendPoliticianVerificationCode(
  */
 export async function verifyPoliticianEmail(
   verificationId: string,
-  code: string
+  code: string,
+  options: { userId?: string } = {}
 ): Promise<{ message: string }> {
   const result = await fetchApi<{ message: string }>(
     `/api/v1/politician-verifications/${verificationId}/verify-email`,
     {
       method: "POST",
       body: JSON.stringify({ code }),
+      userId: options.userId,
     }
   );
   return result;
@@ -554,6 +598,7 @@ export async function createOrganizationManagerVerification(
     {
       method: "POST",
       body: JSON.stringify(data),
+      userId: data.ledger_user_id,
     }
   );
   return result.data;
@@ -566,7 +611,8 @@ export async function getOrganizationManagerVerificationsByUser(
   ledgerUserId: string
 ): Promise<OrganizationManagerVerification[]> {
   const result = await fetchApi<ApiResponse<OrganizationManagerVerification[]>>(
-    `/api/v1/organization-manager-verifications/user/${ledgerUserId}`
+    `/api/v1/organization-manager-verifications/user/${ledgerUserId}`,
+    { userId: ledgerUserId }
   );
   return result.data;
 }
@@ -575,11 +621,12 @@ export async function getOrganizationManagerVerificationsByUser(
  * メール認証コードを送信
  */
 export async function sendOrganizationManagerVerificationCode(
-  verificationId: string
+  verificationId: string,
+  options: { userId?: string } = {}
 ): Promise<{ message: string; code?: string }> {
   const result = await fetchApi<{ message: string; code?: string }>(
     `/api/v1/organization-manager-verifications/${verificationId}/send-verification`,
-    { method: "POST" }
+    { method: "POST", userId: options.userId }
   );
   return result;
 }
@@ -589,13 +636,15 @@ export async function sendOrganizationManagerVerificationCode(
  */
 export async function verifyOrganizationManagerEmail(
   verificationId: string,
-  code: string
+  code: string,
+  options: { userId?: string } = {}
 ): Promise<{ message: string }> {
   const result = await fetchApi<{ message: string }>(
     `/api/v1/organization-manager-verifications/${verificationId}/verify-email`,
     {
       method: "POST",
       body: JSON.stringify({ code }),
+      userId: options.userId,
     }
   );
   return result;
@@ -792,13 +841,15 @@ export interface SyncLedgerResult {
  * 仕訳データを Hub に同期
  */
 export async function syncJournals(
-  journals: SyncJournalInput[]
+  journals: SyncJournalInput[],
+  options: { userId?: string } = {}
 ): Promise<SyncResult> {
   const result = await fetchApi<ApiResponse<SyncResult>>(
     "/api/v1/sync/journals",
     {
       method: "POST",
       body: JSON.stringify({ journals }),
+      userId: options.userId,
     }
   );
   return result.data;
@@ -808,11 +859,13 @@ export async function syncJournals(
  * 台帳データを Hub に同期
  */
 export async function syncLedger(
-  ledger: SyncLedgerInput
+  ledger: SyncLedgerInput,
+  options: { userId?: string } = {}
 ): Promise<SyncLedgerResult> {
   const result = await fetchApi<SyncLedgerResult>("/api/v1/sync/ledger", {
     method: "POST",
     body: JSON.stringify({ ledger }),
+    userId: options.userId,
   });
   return result;
 }
@@ -820,21 +873,29 @@ export async function syncLedger(
 /**
  * 同期ステータスを確認
  */
-export async function getSyncStatus(): Promise<SyncStatus> {
-  const result = await fetchApi<SyncStatus>("/api/v1/sync/status");
+export async function getSyncStatus(
+  options: { userId?: string } = {}
+): Promise<SyncStatus> {
+  const result = await fetchApi<SyncStatus>("/api/v1/sync/status", {
+    userId: options.userId,
+  });
   return result;
 }
 
 /**
  * 変更ログを記録
  */
-export async function recordChangeLog(data: {
-  ledger_source_id: string;
-  change_summary: string;
-  change_details?: Record<string, unknown>;
-}): Promise<void> {
+export async function recordChangeLog(
+  data: {
+    ledger_source_id: string;
+    change_summary: string;
+    change_details?: Record<string, unknown>;
+  },
+  options: { userId?: string } = {}
+): Promise<void> {
   await fetchApi("/api/v1/sync/change-log", {
     method: "POST",
     body: JSON.stringify(data),
+    userId: options.userId,
   });
 }

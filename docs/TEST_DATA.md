@@ -107,17 +107,23 @@ HUB_API_KEY_DEV=your-development-key
 
 ### 重要なポイント
 
-1. **テストユーザーでも本番 Hub に接続**
+1. **テストユーザーの場合は `HUB_API_KEY_DEV` を使用**
 
-   - DEV/PROD 環境の切り替えは `APP_ENV` で行う
-   - テストデータは `is_test` フラグで区別される
+   - テストユーザー（`TEST_USER_ID`）の場合、常に DEV キーを使用
+   - DEV キーで呼ぶと `is_test = true` のデータのみ返る
+   - PROD キーで呼ぶと `is_test = false` のデータのみ返る
 
-2. **Hub API 環境の選択ロジック**
+2. **Hub API キーの選択ロジック**
    ```typescript
-   const HUB_API_URL = IS_PRODUCTION
-     ? Deno.env.get("HUB_API_URL_PROD")
-     : Deno.env.get("HUB_API_URL_DEV");
+   // テストユーザーの場合は DEV キーを使用
+   const useDevKey = isTestUser(userId);
+   const apiKey = useDevKey ? HUB_API_KEY_DEV : HUB_API_KEY;
    ```
+
+3. **Hub 側のフィルタリング**
+   - Hub は API キーを見て `isTestMode` を判定
+   - `API_KEY_DEV` → `isTestMode = true` → `is_test = true` のデータを返す
+   - `API_KEY_PROD` → `isTestMode = false` → `is_test = false` のデータを返す
 
 ---
 
