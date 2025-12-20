@@ -48,7 +48,8 @@ export const handler: Handlers<PageData> = {
 export default function PoliticianVerificationPage({
   data,
 }: PageProps<PageData>) {
-  const { userId, verifiedPolitician, politicianVerifications, changeDomain } = data;
+  const { userId, verifiedPolitician, politicianVerifications, changeDomain } =
+    data;
 
   return (
     <>

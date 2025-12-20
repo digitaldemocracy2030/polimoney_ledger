@@ -17,6 +17,7 @@ interface PageData {
   organizationManagerVerifications: OrganizationManagerVerification[];
   hubOrganizations: Organization[];
   changeDomain: boolean;
+  targetOrganizationId: string | null;
 }
 
 export const handler: Handlers<PageData> = {
@@ -32,6 +33,7 @@ export const handler: Handlers<PageData> = {
     // URL パラメータを取得
     const url = new URL(req.url);
     const changeDomain = url.searchParams.get("change_domain") === "true";
+    const targetOrganizationId = url.searchParams.get("organization_id");
 
     // Hub から認証情報を取得
     const [
@@ -50,6 +52,7 @@ export const handler: Handlers<PageData> = {
       organizationManagerVerifications,
       hubOrganizations,
       changeDomain,
+      targetOrganizationId,
     });
   },
 };
@@ -63,6 +66,7 @@ export default function OrganizationVerificationPage({
     organizationManagerVerifications,
     hubOrganizations,
     changeDomain,
+    targetOrganizationId,
   } = data;
 
   return (
@@ -102,6 +106,7 @@ export default function OrganizationVerificationPage({
             organizationManagerVerifications={organizationManagerVerifications}
             hubOrganizations={hubOrganizations}
             changeDomain={changeDomain}
+            targetOrganizationId={targetOrganizationId}
           />
         </div>
       </Layout>

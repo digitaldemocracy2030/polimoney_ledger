@@ -361,7 +361,7 @@ export default function OrganizationSettingsForm({
                 <p class="font-mono text-lg">{verifiedDomain}</p>
               </div>
               <a
-                href="/verify/organization?change_domain=true"
+                href={`/verify/organization?change_domain=true&organization_id=${organizationId}`}
                 class="btn btn-outline btn-sm"
               >
                 ドメインを変更

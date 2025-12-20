@@ -13,6 +13,7 @@ interface PoliticianVerification {
   official_email: string;
   status: string;
   created_at: string;
+  request_type?: string;
 }
 
 interface Props {
@@ -37,12 +38,15 @@ export default function PoliticianVerificationForm({
   politicianVerifications,
   changeDomain = false,
 }: Props) {
-  // 政治家認証フォーム（ドメイン変更モードの場合は最初から表示）
-  const [showForm, setShowForm] = useState(changeDomain);
+  // フォーム状態
+  const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [url, setUrl] = useState("");
   const [party, setParty] = useState("");
+
+  // ドメイン変更フォーム状態
+  const [newEmail, setNewEmail] = useState("");
 
   // メール認証
   const [verificationCode, setVerificationCode] = useState("");
@@ -56,7 +60,7 @@ export default function PoliticianVerificationForm({
     text: string;
   } | null>(null);
 
-  // 申請送信
+  // 新規申請送信
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -71,6 +75,7 @@ export default function PoliticianVerificationForm({
           official_email: email,
           official_url: url || undefined,
           party: party || undefined,
+          request_type: "new",
         }),
       });
 
@@ -81,6 +86,44 @@ export default function PoliticianVerificationForm({
 
       setMessage({ type: "success", text: "認証申請を送信しました" });
       setShowForm(false);
+      setTimeout(() => location.reload(), 1500);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "申請に失敗しました",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ドメイン変更申請送信
+  const handleDomainChangeSubmit = async (e: Event) => {
+    e.preventDefault();
+    if (!verifiedPolitician) return;
+
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/politicians/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: verifiedPolitician.name,
+          official_email: newEmail,
+          politician_id: verifiedPolitician.id,
+          request_type: "domain_change",
+          previous_domain: verifiedPolitician.verified_domain,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "申請に失敗しました");
+      }
+
+      setMessage({ type: "success", text: "ドメイン変更申請を送信しました" });
       setTimeout(() => location.reload(), 1500);
     } catch (error) {
       setMessage({
@@ -156,6 +199,190 @@ export default function PoliticianVerificationForm({
     }
   };
 
+  // ドメイン変更モードかつ認証済みの場合
+  if (changeDomain && verifiedPolitician) {
+    return (
+      <div class="space-y-6">
+        {/* メッセージ */}
+        {message && (
+          <div
+            role="alert"
+            class={`alert ${
+              message.type === "success" ? "alert-success" : "alert-error"
+            }`}
+          >
+            <span>{message.text}</span>
+          </div>
+        )}
+
+        {/* 現在の認証情報 */}
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-base">現在の認証情報</h3>
+            <div class="bg-base-200 p-4 rounded-lg">
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="text-base-content/70">氏名</div>
+                <div class="font-medium">{verifiedPolitician.name}</div>
+                <div class="text-base-content/70">認証ドメイン</div>
+                <div class="font-mono">{verifiedPolitician.verified_domain}</div>
+                <div class="text-base-content/70">認証日</div>
+                <div>
+                  {verifiedPolitician.verified_at
+                    ? new Date(verifiedPolitician.verified_at).toLocaleDateString(
+                        "ja-JP"
+                      )
+                    : "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 認証コード入力 */}
+        {activeVerificationId && (
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h3 class="card-title text-base">認証コードを入力</h3>
+              <p class="text-sm text-base-content/70 mb-4">
+                メールに送信された6桁のコードを入力してください。
+              </p>
+              <form onSubmit={handleVerifyCode}>
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) =>
+                      setVerificationCode((e.target as HTMLInputElement).value)
+                    }
+                    class="input input-bordered flex-1"
+                    placeholder="6桁のコード"
+                    maxLength={6}
+                  />
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    disabled={isSubmitting || verificationCode.length !== 6}
+                  >
+                    認証
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ドメイン変更フォーム */}
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-base">ドメイン変更申請</h3>
+            <div class="alert alert-warning mb-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span>
+                新しいドメインでメール認証を行います。承認後、認証ドメインが変更されます。
+              </span>
+            </div>
+            <form onSubmit={handleDomainChangeSubmit} class="space-y-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">
+                    新しい公式メールアドレス <span class="text-error">*</span>
+                  </span>
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) =>
+                    setNewEmail((e.target as HTMLInputElement).value)
+                  }
+                  class="input input-bordered"
+                  placeholder="例: info@new-domain.jp"
+                  required
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    変更先ドメインのメールアドレスを入力してください
+                  </span>
+                </label>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  disabled={isSubmitting || !newEmail}
+                >
+                  {isSubmitting ? "送信中..." : "変更を申請"}
+                </button>
+                <a href="/profile/politician" class="btn">
+                  キャンセル
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* 申請履歴（ドメイン変更のみ表示） */}
+        {politicianVerifications.filter((v) => v.request_type === "domain_change")
+          .length > 0 && (
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h3 class="card-title text-base">ドメイン変更申請履歴</h3>
+              <div class="space-y-3">
+                {politicianVerifications
+                  .filter((v) => v.request_type === "domain_change")
+                  .map((v) => (
+                    <div
+                      key={v.id}
+                      class="flex items-center justify-between p-4 bg-base-200 rounded-lg"
+                    >
+                      <div>
+                        <span class="text-sm text-base-content/70">
+                          {v.official_email}
+                        </span>
+                        <p class="text-xs text-base-content/50">
+                          {new Date(v.created_at).toLocaleDateString("ja-JP")}
+                        </p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span
+                          class={`badge ${
+                            statusLabels[v.status]?.class || "badge-ghost"
+                          }`}
+                        >
+                          {statusLabels[v.status]?.label || v.status}
+                        </span>
+                        {v.status === "email_sent" && (
+                          <button
+                            class="btn btn-sm btn-primary"
+                            onClick={() => handleSendCode(v.id)}
+                            disabled={isSubmitting}
+                          >
+                            コードを再送信
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 通常モード
   return (
     <div class="space-y-6">
       {/* メッセージ */}
@@ -210,8 +437,8 @@ export default function PoliticianVerificationForm({
         </div>
       )}
 
-      {/* ドメイン変更モードまたは未認証の場合、申請フォームを表示 */}
-      {(!verifiedPolitician || changeDomain) && (
+      {/* 未認証の場合、申請フォームを表示 */}
+      {!verifiedPolitician && (
         <>
           {/* 申請履歴 */}
           {politicianVerifications.length > 0 && (
