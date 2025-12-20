@@ -141,7 +141,9 @@ export default function OrganizationSettingsForm({
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-control">
               <label class="label">
-                <span class="label-text">団体名 <span class="text-error">*</span></span>
+                <span class="label-text">
+                  団体名 <span class="text-error">*</span>
+                </span>
               </label>
               <input
                 type="text"
@@ -155,7 +157,9 @@ export default function OrganizationSettingsForm({
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text">団体種別 <span class="text-error">*</span></span>
+                <span class="label-text">
+                  団体種別 <span class="text-error">*</span>
+                </span>
               </label>
               <select
                 name="type"
@@ -357,7 +361,7 @@ export default function OrganizationSettingsForm({
                 <p class="font-mono text-lg">{verifiedDomain}</p>
               </div>
               <a
-                href="/verify/organization-manager?change_domain=true"
+                href="/verify/organization?change_domain=true"
                 class="btn btn-outline btn-sm"
               >
                 ドメインを変更
