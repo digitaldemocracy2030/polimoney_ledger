@@ -39,9 +39,7 @@ electionsRouter.post("/", async (c) => {
     }
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data: election, error: electionError } = await supabase
       .from("elections")

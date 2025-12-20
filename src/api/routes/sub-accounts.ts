@@ -22,9 +22,7 @@ subAccountsRouter.get("/", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("sub_accounts")
@@ -55,9 +53,7 @@ subAccountsRouter.post("/", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("sub_accounts")
@@ -93,9 +89,7 @@ subAccountsRouter.put("/:id", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("sub_accounts")
@@ -128,9 +122,7 @@ subAccountsRouter.delete("/:id", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { error } = await supabase
       .from("sub_accounts")

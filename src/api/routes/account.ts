@@ -28,9 +28,7 @@ accountRouter.put("/email", async (c) => {
     }
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     // Supabase Auth のメール変更
     const { error } = await supabase.auth.updateUser({

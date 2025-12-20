@@ -53,11 +53,13 @@ async function getApprovedJournals(
 ): Promise<JournalWithEntries[]> {
   let query = supabase
     .from("journals")
-    .select(`
+    .select(
+      `
       *,
       journal_entries (*),
       contacts (*)
-    `)
+    `
+    )
     .eq("status", "approved");
 
   if (ledger.type === "election") {

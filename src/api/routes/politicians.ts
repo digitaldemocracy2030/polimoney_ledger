@@ -24,9 +24,7 @@ politiciansRouter.get("/:id", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("politicians")

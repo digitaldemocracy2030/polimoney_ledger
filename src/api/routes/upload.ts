@@ -29,9 +29,7 @@ uploadRouter.post("/", async (c) => {
     }
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const timestamp = Date.now();
     const fileName = `${userId}/${timestamp}_${file.name}`;
@@ -51,12 +49,15 @@ uploadRouter.post("/", async (c) => {
       .from("uploads")
       .getPublicUrl(fileName);
 
-    return c.json({
-      data: {
-        path: data.path,
-        url: publicUrl.publicUrl,
+    return c.json(
+      {
+        data: {
+          path: data.path,
+          url: publicUrl.publicUrl,
+        },
       },
-    }, 201);
+      201
+    );
   } catch (error) {
     console.error("Error uploading file:", error);
     return c.json({ error: "サーバーエラーが発生しました" }, 500);
@@ -84,9 +85,7 @@ uploadRouter.post("/image", async (c) => {
     }
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const timestamp = Date.now();
     const ext = file.name.split(".").pop() || "jpg";
@@ -107,12 +106,15 @@ uploadRouter.post("/image", async (c) => {
       .from("uploads")
       .getPublicUrl(fileName);
 
-    return c.json({
-      data: {
-        path: data.path,
-        url: publicUrl.publicUrl,
+    return c.json(
+      {
+        data: {
+          path: data.path,
+          url: publicUrl.publicUrl,
+        },
       },
-    }, 201);
+      201
+    );
   } catch (error) {
     console.error("Error uploading image:", error);
     return c.json({ error: "サーバーエラーが発生しました" }, 500);

@@ -65,10 +65,7 @@ journalsRouter.post("/", async (c) => {
     }
 
     // 借方・貸方の合計が一致するかチェック
-    const totalDebit = body.entries.reduce(
-      (sum, e) => sum + e.debit_amount,
-      0
-    );
+    const totalDebit = body.entries.reduce((sum, e) => sum + e.debit_amount, 0);
     const totalCredit = body.entries.reduce(
       (sum, e) => sum + e.credit_amount,
       0
@@ -78,10 +75,7 @@ journalsRouter.post("/", async (c) => {
     }
 
     if (!body.organization_id && !body.election_id) {
-      return c.json(
-        { error: "政治団体または選挙を指定してください" },
-        400
-      );
+      return c.json({ error: "政治団体または選挙を指定してください" }, 400);
     }
 
     // 領収証徴収困難の場合、理由が必須
@@ -89,10 +83,7 @@ journalsRouter.post("/", async (c) => {
       body.is_receipt_hard_to_collect &&
       !body.receipt_hard_to_collect_reason
     ) {
-      return c.json(
-        { error: "領収証を徴し難い理由を入力してください" },
-        400
-      );
+      return c.json({ error: "領収証を徴し難い理由を入力してください" }, 400);
     }
 
     // 資産取得フラグがある場合、資産種別が必須
@@ -101,9 +92,7 @@ journalsRouter.post("/", async (c) => {
     }
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     // 仕訳を作成
     const { data: journal, error: journalError } = await supabase
@@ -174,17 +163,17 @@ journalsRouter.get("/:id", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("journals")
-      .select(`
+      .select(
+        `
         *,
         journal_entries (*),
         contacts (*)
-      `)
+      `
+      )
       .eq("id", id)
       .single();
 
@@ -212,9 +201,7 @@ journalsRouter.put("/:id", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("journals")
@@ -246,9 +233,7 @@ journalsRouter.delete("/:id", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     // 仕訳明細を先に削除
     await supabase.from("journal_entries").delete().eq("journal_id", id);
@@ -279,9 +264,7 @@ journalsRouter.post("/:id/approve", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("journals")
@@ -315,9 +298,7 @@ journalsRouter.post("/:id/receipts", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("receipts")

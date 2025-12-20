@@ -22,9 +22,7 @@ ownershipTransfersRouter.get("/", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("ownership_transfers")
@@ -55,9 +53,7 @@ ownershipTransfersRouter.post("/", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("ownership_transfers")
@@ -94,9 +90,7 @@ ownershipTransfersRouter.get("/:id", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("ownership_transfers")
@@ -126,9 +120,7 @@ ownershipTransfersRouter.post("/:id/accept", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("ownership_transfers")
@@ -161,9 +153,7 @@ ownershipTransfersRouter.post("/:id/decline", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("ownership_transfers")

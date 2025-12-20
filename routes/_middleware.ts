@@ -15,7 +15,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
 
 // 認証不要なパス（完全一致）
-const PUBLIC_PATHS_EXACT = ["/welcome", "/privacy"];
+const PUBLIC_PATHS_EXACT = ["/welcome", "/privacy", "/terms"];
 
 // 認証不要なパス（前方一致）
 const PUBLIC_PATHS_PREFIX = ["/login", "/register", "/pending-review"];

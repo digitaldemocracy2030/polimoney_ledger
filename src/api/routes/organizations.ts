@@ -24,9 +24,7 @@ organizationsRouter.get("/:id", async (c) => {
 
   try {
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("organizations")
@@ -58,9 +56,7 @@ organizationsRouter.put("/:id", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("organizations")
@@ -92,9 +88,7 @@ organizationsRouter.post("/", async (c) => {
     const body = await c.req.json();
 
     const supabase =
-      userId === TEST_USER_ID
-        ? getServiceClient()
-        : getSupabaseClient(userId);
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
     const { data, error } = await supabase
       .from("organizations")
