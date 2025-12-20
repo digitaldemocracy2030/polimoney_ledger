@@ -4,18 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-  "";
-
-// Hub API 設定
-// 注意: DENO_ENV は Deno Deploy で予約済みのため APP_ENV を使用
-const IS_PRODUCTION = Deno.env.get("APP_ENV") === "production";
-const HUB_API_URL = IS_PRODUCTION
-  ? Deno.env.get("HUB_API_URL_PROD") || ""
-  : Deno.env.get("HUB_API_URL_DEV") || "";
-const HUB_API_KEY = IS_PRODUCTION
-  ? Deno.env.get("HUB_API_KEY_PROD") || ""
-  : Deno.env.get("HUB_API_KEY_DEV") || "";
 
 interface RegisterData {
   error?: string;
@@ -34,13 +22,11 @@ export const handler: Handlers<RegisterData> = {
     const password = form.get("password")?.toString() || "";
     const confirmPassword = form.get("confirmPassword")?.toString() || "";
     const fullName = form.get("fullName")?.toString() || "";
-    const role = form.get("role")?.toString() || "";
-    const verificationDoc = form.get("verificationDoc") as File | null;
     const tosAccepted = form.get("tosAccepted") === "on";
     const privacyPolicyAccepted = form.get("privacyPolicyAccepted") === "on";
 
     // バリデーション
-    if (!email || !password || !fullName || !role) {
+    if (!email || !password || !fullName) {
       return ctx.render({ error: "すべての必須項目を入力してください" });
     }
 
@@ -60,43 +46,19 @@ export const handler: Handlers<RegisterData> = {
       return ctx.render({ error: "パスワードは8文字以上で入力してください" });
     }
 
-    if (!verificationDoc || verificationDoc.size === 0) {
-      return ctx.render({ error: "本人確認書類を添付してください" });
-    }
-
-    // ファイルサイズチェック (5MB)
-    if (verificationDoc.size > 5 * 1024 * 1024) {
-      return ctx.render({ error: "ファイルサイズは5MB以下にしてください" });
-    }
-
-    // ファイル形式チェック
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "application/pdf",
-    ];
-    if (!allowedTypes.includes(verificationDoc.type)) {
-      return ctx.render({
-        error: "JPG, PNG, GIF, PDF形式のファイルを添付してください",
-      });
-    }
-
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       return ctx.render({ error: "Supabase が設定されていません" });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-    // ユーザー作成（審査待ち状態）
+    // ユーザー作成
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
-          role: role,
-          registration_status: "pending_review", // 審査待ち
         },
       },
     });
@@ -105,115 +67,36 @@ export const handler: Handlers<RegisterData> = {
       return ctx.render({ error: authError.message });
     }
 
-    const userId = authData.user?.id;
-    if (!userId) {
+    if (!authData.user?.id) {
       return ctx.render({ error: "ユーザー作成に失敗しました" });
-    }
-
-    // Service Role クライアントでファイルをアップロード
-    // （ユーザーはまだメール確認前なので、Service Role が必要）
-    let verificationDocUrl = "";
-    if (SUPABASE_SERVICE_ROLE_KEY) {
-      const serviceClient = createClient(
-        SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY,
-        {
-          auth: { autoRefreshToken: false, persistSession: false },
-        },
-      );
-
-      const fileExt = verificationDoc.name.split(".").pop();
-      const filePath = `${userId}/${Date.now()}.${fileExt}`;
-      const fileBuffer = await verificationDoc.arrayBuffer();
-
-      const { data: uploadData, error: uploadError } = await serviceClient
-        .storage
-        .from("verification-documents")
-        .upload(filePath, fileBuffer, {
-          contentType: verificationDoc.type,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error("[Register] Upload error:", uploadError);
-        // アップロード失敗してもユーザーは作成済みなので続行
-      } else {
-        // 公開 URL を取得（Hub からアクセスできるように）
-        const { data: urlData } = serviceClient.storage
-          .from("verification-documents")
-          .getPublicUrl(filePath);
-        verificationDocUrl = urlData.publicUrl;
-      }
-    }
-
-    // Hub に登録申請を送信
-    if (HUB_API_URL && HUB_API_KEY) {
-      try {
-        const hubResponse = await fetch(
-          `${HUB_API_URL}/api/v1/registration-requests`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-API-Key": HUB_API_KEY,
-            },
-            body: JSON.stringify({
-              email,
-              full_name: fullName,
-              role,
-              ledger_user_id: userId,
-              ledger_supabase_url: SUPABASE_URL,
-              verification_doc_url: verificationDocUrl || `pending:${userId}`,
-              verification_doc_type: getDocType(role),
-              verification_doc_name: verificationDoc.name,
-            }),
-          },
-        );
-
-        if (!hubResponse.ok) {
-          const errorData = await hubResponse.json().catch(() => ({}));
-          console.error("[Register] Hub API error:", errorData);
-          // Hub への送信失敗してもユーザーは作成済みなので続行
-        }
-      } catch (hubError) {
-        console.error("[Register] Hub API request failed:", hubError);
-        // Hub への送信失敗してもユーザーは作成済みなので続行
-      }
     }
 
     return ctx.render({ success: true, email });
   },
 };
 
-// 役割から書類タイプを推定
-function getDocType(role: string): string {
-  switch (role) {
-    case "politician":
-      return "certificate";
-    case "accountant":
-      return "appointment_form";
-    case "both":
-      return "registration_form";
-    default:
-      return "other";
-  }
-}
-
 export default function RegisterPage({ data }: PageProps<RegisterData>) {
   if (data?.success) {
     return (
       <>
         <Head>
-          <title>申請完了 - Polimoney Ledger</title>
+          <title>登録完了 - Polimoney Ledger</title>
           <link href="/styles.css" rel="stylesheet" />
         </Head>
         <div class="min-h-screen bg-base-200 flex items-center justify-center p-4">
           <div class="card w-full max-w-md bg-base-100 shadow-xl">
             <div class="card-body text-center">
-              <div class="text-5xl mb-4">📋</div>
-              <h1 class="text-2xl font-bold">登録申請を受け付けました</h1>
+              <div class="text-5xl mb-4">✉️</div>
+              <h1 class="text-2xl font-bold">確認メールを送信しました</h1>
               <div class="mt-4 space-y-3 text-left">
-                <div class="alert alert-info">
+                <p class="text-base-content/80">
+                  <strong>{data.email}</strong> 宛に確認メールを送信しました。
+                </p>
+                <p class="text-base-content/60 text-sm">
+                  メール内のリンクをクリックして、メールアドレスの確認を完了してください。
+                  確認が完了すると、ログインできるようになります。
+                </p>
+                <div class="alert alert-info mt-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -227,23 +110,17 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <div>
-                    <p class="font-bold">審査について</p>
-                    <p class="text-sm">
-                      提出いただいた書類を確認後、メールにてご連絡いたします。
-                      審査には数日かかる場合があります。
+                  <div class="text-xs">
+                    <p class="font-bold">政治家認証について</p>
+                    <p>
+                      政治家本人として選挙台帳を作成するには、ログイン後に政治家認証を申請してください。
                     </p>
                   </div>
                 </div>
-                <p class="text-base-content/60 text-sm">
-                  <strong>{data.email}</strong>{" "}
-                  宛に確認メールを送信しました。
-                  メール内のリンクをクリックして、メールアドレスの確認を完了してください。
-                </p>
               </div>
               <div class="mt-6">
-                <a href="/" class="btn btn-ghost">
-                  トップページへ戻る
+                <a href="/login" class="btn btn-primary">
+                  ログインページへ
                 </a>
               </div>
             </div>
@@ -256,39 +133,16 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
   return (
     <>
       <Head>
-        <title>新規登録申請 - Polimoney Ledger</title>
+        <title>新規登録 - Polimoney Ledger</title>
         <link href="/styles.css" rel="stylesheet" />
       </Head>
       <div class="min-h-screen bg-base-200 flex items-center justify-center p-4">
-        <div class="card w-full max-w-lg bg-base-100 shadow-xl">
+        <div class="card w-full max-w-md bg-base-100 shadow-xl">
           <div class="card-body">
             <div class="text-center mb-4">
               <span class="text-5xl">📒</span>
               <h1 class="text-2xl font-bold mt-2">Polimoney Ledger</h1>
-              <p class="text-base-content/60 mt-1">新規登録申請</p>
-            </div>
-
-            {/* 審査についての説明 */}
-            <div class="alert alert-info mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                class="stroke-current shrink-0 h-6 w-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <p class="font-bold text-sm">登録について</p>
-                <p class="text-xs">
-                  どなたでも登録できます。政治家本人または会計責任者として収支報告書を作成する場合は、本人確認書類の提出をお願いしています。
-                </p>
-              </div>
+              <p class="text-base-content/60 mt-1">新規登録</p>
             </div>
 
             {data?.error && (
@@ -300,9 +154,9 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                   viewBox="0 0 24 24"
                 >
                   <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
                     d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
@@ -310,10 +164,7 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
               </div>
             )}
 
-            <form method="POST" encType="multipart/form-data" class="space-y-4">
-              {/* 基本情報 */}
-              <div class="divider text-sm text-base-content/60">基本情報</div>
-
+            <form method="POST" class="space-y-4">
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">
@@ -376,64 +227,6 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                 />
               </div>
 
-              {/* 役割 */}
-              <div class="divider text-sm text-base-content/60">役割</div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">
-                    あなたの役割 <span class="text-error">*</span>
-                  </span>
-                </label>
-                <select
-                  name="role"
-                  class="select select-bordered w-full"
-                  required
-                >
-                  <option value="" disabled selected>
-                    選択してください
-                  </option>
-                  <option value="politician">政治家本人</option>
-                  <option value="accountant">会計責任者</option>
-                  <option value="both">政治家本人 兼 会計責任者</option>
-                </select>
-              </div>
-
-              {/* 本人確認書類 */}
-              <div class="divider text-sm text-base-content/60">
-                本人確認書類
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">
-                    確認書類 <span class="text-error">*</span>
-                  </span>
-                </label>
-                <input
-                  type="file"
-                  name="verificationDoc"
-                  accept=".jpg,.jpeg,.png,.gif,.pdf"
-                  class="file-input file-input-bordered w-full"
-                  required
-                />
-                <label class="label">
-                  <span class="label-text-alt text-base-content/60">
-                    以下のいずれかを添付してください：
-                  </span>
-                </label>
-                <ul class="text-xs text-base-content/60 ml-4 list-disc space-y-1">
-                  <li>議員証（政治家の場合）</li>
-                  <li>政治団体設立届出書の控え</li>
-                  <li>選任届出書の控え（会計責任者の場合）</li>
-                </ul>
-                <label class="label">
-                  <span class="label-text-alt text-base-content/40">
-                    JPG, PNG, GIF, PDF / 5MB以下
-                  </span>
-                </label>
-              </div>
-
               {/* 利用規約・プライバシーポリシー同意 */}
               <div class="divider text-sm text-base-content/60">同意事項</div>
 
@@ -470,11 +263,7 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                     required
                   />
                   <span class="label-text">
-                    <a
-                      href="/terms"
-                      target="_blank"
-                      class="link link-primary"
-                    >
+                    <a href="/terms" target="_blank" class="link link-primary">
                       利用規約
                     </a>
                     に同意する <span class="text-error">*</span>
@@ -491,11 +280,7 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                     required
                   />
                   <span class="label-text">
-                    <a
-                      href="/privacy"
-                      target="_blank"
-                      class="link link-primary"
-                    >
+                    <a href="/privacy" target="_blank" class="link link-primary">
                       プライバシーポリシー
                     </a>
                     に同意する <span class="text-error">*</span>
@@ -516,16 +301,12 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                      d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"
+                      d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
                     />
                   </svg>
-                  登録申請する
+                  登録する
                 </button>
               </div>
-
-              <p class="text-xs text-center text-base-content/50 mt-2">
-                申請後、審査を経てアカウントが有効化されます
-              </p>
             </form>
 
             <div class="divider">または</div>
