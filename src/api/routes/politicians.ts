@@ -4,6 +4,11 @@
 
 import { Hono } from "hono";
 import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import {
+  createPoliticianVerification,
+  sendPoliticianVerificationCode,
+  verifyPoliticianEmail,
+} from "../../../lib/hub-client.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -45,18 +50,98 @@ politiciansRouter.get("/:id", async (c) => {
 
 // POST /politicians/verify - 政治家認証開始
 politiciansRouter.post("/verify", async (c) => {
-  // TODO: 実装
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  try {
+    const body = await c.req.json<{
+      name: string;
+      official_email: string;
+      official_url?: string;
+      party?: string;
+      politician_id?: string;
+      request_type?: "new" | "domain_change";
+      previous_domain?: string;
+    }>();
+
+    const result = await createPoliticianVerification({
+      ledger_user_id: userId,
+      name: body.name,
+      official_email: body.official_email,
+      official_url: body.official_url,
+      party: body.party,
+      politician_id: body.politician_id,
+      request_type: body.request_type,
+      previous_domain: body.previous_domain,
+    });
+
+    return c.json({ data: result }, 201);
+  } catch (error) {
+    console.error("Error creating politician verification:", error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "申請に失敗しました",
+      },
+      500
+    );
+  }
 });
 
 // POST /politicians/verify/:id/send-code - 認証コード送信
 politiciansRouter.post("/verify/:id/send-code", async (c) => {
-  // TODO: 実装
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const verificationId = c.req.param("id");
+
+  try {
+    const result = await sendPoliticianVerificationCode(verificationId, {
+      userId,
+    });
+    return c.json(result);
+  } catch (error) {
+    console.error("Error sending verification code:", error);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "コード送信に失敗しました",
+      },
+      500
+    );
+  }
 });
 
 // POST /politicians/verify/:id/verify-code - 認証コード確認
 politiciansRouter.post("/verify/:id/verify-code", async (c) => {
-  // TODO: 実装
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const verificationId = c.req.param("id");
+
+  try {
+    const body = await c.req.json<{ code: string }>();
+
+    if (!body.code) {
+      return c.json({ error: "認証コードは必須です" }, 400);
+    }
+
+    const result = await verifyPoliticianEmail(verificationId, body.code, {
+      userId,
+    });
+    return c.json(result);
+  } catch (error) {
+    console.error("Error verifying code:", error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "認証に失敗しました",
+      },
+      500
+    );
+  }
 });

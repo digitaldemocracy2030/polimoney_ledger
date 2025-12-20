@@ -165,6 +165,10 @@ export interface CreatePoliticianVerificationInput {
   official_url?: string;
   party?: string;
   politician_id?: string;
+  /** 申請種別: new=新規, domain_change=ドメイン変更 */
+  request_type?: "new" | "domain_change";
+  /** ドメイン変更時の変更前ドメイン */
+  previous_domain?: string;
 }
 
 // ============================================
@@ -191,6 +195,10 @@ export interface CreateOrganizationManagerVerificationInput {
   organization_name: string;
   official_email: string;
   role_in_organization?: string;
+  /** 申請種別: new=新規, domain_change=ドメイン変更 */
+  request_type?: "new" | "domain_change";
+  /** ドメイン変更時の変更前ドメイン */
+  previous_domain?: string;
 }
 
 export interface ElectionRequest {

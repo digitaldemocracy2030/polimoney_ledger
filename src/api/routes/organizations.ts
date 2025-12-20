@@ -4,6 +4,11 @@
 
 import { Hono } from "hono";
 import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import {
+  createOrganizationManagerVerification,
+  sendOrganizationManagerVerificationCode,
+  verifyOrganizationManagerEmail,
+} from "../../../lib/hub-client.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -113,18 +118,99 @@ organizationsRouter.post("/", async (c) => {
 
 // POST /organizations/manager-verify - 管理者認証開始
 organizationsRouter.post("/manager-verify", async (c) => {
-  // TODO: 実装
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  try {
+    const body = await c.req.json<{
+      organization_id?: string;
+      organization_name: string;
+      official_email: string;
+      role_in_organization?: string;
+      request_type?: "new" | "domain_change";
+      previous_domain?: string;
+    }>();
+
+    const result = await createOrganizationManagerVerification({
+      ledger_user_id: userId,
+      organization_id: body.organization_id,
+      organization_name: body.organization_name,
+      official_email: body.official_email,
+      role_in_organization: body.role_in_organization,
+      request_type: body.request_type,
+      previous_domain: body.previous_domain,
+    });
+
+    return c.json({ data: result }, 201);
+  } catch (error) {
+    console.error("Error creating organization manager verification:", error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "申請に失敗しました",
+      },
+      500
+    );
+  }
 });
 
 // POST /organizations/manager-verify/:id/send-code - 認証コード送信
 organizationsRouter.post("/manager-verify/:id/send-code", async (c) => {
-  // TODO: 実装
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const verificationId = c.req.param("id");
+
+  try {
+    const result = await sendOrganizationManagerVerificationCode(
+      verificationId,
+      { userId }
+    );
+    return c.json(result);
+  } catch (error) {
+    console.error("Error sending verification code:", error);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "コード送信に失敗しました",
+      },
+      500
+    );
+  }
 });
 
 // POST /organizations/manager-verify/:id/verify-code - 認証コード確認
 organizationsRouter.post("/manager-verify/:id/verify-code", async (c) => {
-  // TODO: 実装
-  return c.json({ error: "Not implemented" }, 501);
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const verificationId = c.req.param("id");
+
+  try {
+    const body = await c.req.json<{ code: string }>();
+
+    if (!body.code) {
+      return c.json({ error: "認証コードは必須です" }, 400);
+    }
+
+    const result = await verifyOrganizationManagerEmail(
+      verificationId,
+      body.code,
+      { userId }
+    );
+    return c.json(result);
+  } catch (error) {
+    console.error("Error verifying code:", error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "認証に失敗しました",
+      },
+      500
+    );
+  }
 });

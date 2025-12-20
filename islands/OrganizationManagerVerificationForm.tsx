@@ -14,6 +14,7 @@ interface OrganizationManagerVerification {
   official_email: string;
   status: string;
   created_at: string;
+  request_type?: string;
 }
 
 interface Organization {
@@ -29,6 +30,8 @@ interface Props {
   hubOrganizations: Organization[];
   /** ドメイン変更モード */
   changeDomain?: boolean;
+  /** ドメイン変更対象の団体ID */
+  targetOrganizationId?: string | null;
 }
 
 const statusLabels: Record<string, { label: string; class: string }> = {
@@ -52,9 +55,16 @@ export default function OrganizationManagerVerificationForm({
   organizationManagerVerifications,
   hubOrganizations,
   changeDomain = false,
+  targetOrganizationId = null,
 }: Props) {
-  // フォーム表示（ドメイン変更モードの場合は最初から表示）
-  const [showForm, setShowForm] = useState(changeDomain);
+  // ドメイン変更対象の団体を特定
+  const targetOrganization = useMemo(() => {
+    if (!changeDomain || !targetOrganizationId) return null;
+    return managedOrganizations.find((org) => org.id === targetOrganizationId);
+  }, [changeDomain, targetOrganizationId, managedOrganizations]);
+
+  // フォーム表示
+  const [showForm, setShowForm] = useState(false);
 
   // 検索可能コンボボックス
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,6 +77,9 @@ export default function OrganizationManagerVerificationForm({
   const [orgType, setOrgType] = useState("other");
   const [orgEmail, setOrgEmail] = useState("");
   const [orgRole, setOrgRole] = useState("");
+
+  // ドメイン変更用
+  const [newEmail, setNewEmail] = useState("");
 
   // メール認証
   const [verificationCode, setVerificationCode] = useState("");
@@ -122,7 +135,7 @@ export default function OrganizationManagerVerificationForm({
     setIsDropdownOpen(false);
   };
 
-  // 申請送信
+  // 新規申請送信
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -138,6 +151,7 @@ export default function OrganizationManagerVerificationForm({
           organization_type: selectedOrg ? selectedOrg.type : orgType,
           official_email: orgEmail,
           role_in_organization: orgRole || undefined,
+          request_type: "new",
         }),
       });
 
@@ -148,6 +162,44 @@ export default function OrganizationManagerVerificationForm({
 
       setMessage({ type: "success", text: "認証申請を送信しました" });
       setShowForm(false);
+      setTimeout(() => location.reload(), 1500);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "申請に失敗しました",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ドメイン変更申請送信
+  const handleDomainChangeSubmit = async (e: Event) => {
+    e.preventDefault();
+    if (!targetOrganization) return;
+
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organizations/manager-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: targetOrganization.id,
+          organization_name: targetOrganization.name,
+          official_email: newEmail,
+          request_type: "domain_change",
+          previous_domain: targetOrganization.manager_verified_domain,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "申請に失敗しました");
+      }
+
+      setMessage({ type: "success", text: "ドメイン変更申請を送信しました" });
       setTimeout(() => location.reload(), 1500);
     } catch (error) {
       setMessage({
@@ -223,6 +275,232 @@ export default function OrganizationManagerVerificationForm({
     }
   };
 
+  // ドメイン変更モードかつ対象団体がある場合
+  if (changeDomain && targetOrganization) {
+    return (
+      <div class="space-y-6">
+        {/* メッセージ */}
+        {message && (
+          <div
+            role="alert"
+            class={`alert ${
+              message.type === "success" ? "alert-success" : "alert-error"
+            }`}
+          >
+            <span>{message.text}</span>
+          </div>
+        )}
+
+        {/* 現在の認証情報 */}
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-base">現在の認証情報</h3>
+            <div class="bg-base-200 p-4 rounded-lg">
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="text-base-content/70">団体名</div>
+                <div class="font-medium">{targetOrganization.name}</div>
+                <div class="text-base-content/70">団体種別</div>
+                <div>
+                  {organizationTypeLabels[targetOrganization.type] ||
+                    targetOrganization.type}
+                </div>
+                <div class="text-base-content/70">認証ドメイン</div>
+                <div class="font-mono">
+                  {targetOrganization.manager_verified_domain}
+                </div>
+                <div class="text-base-content/70">認証日</div>
+                <div>
+                  {targetOrganization.manager_verified_at
+                    ? new Date(
+                        targetOrganization.manager_verified_at
+                      ).toLocaleDateString("ja-JP")
+                    : "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 認証コード入力 */}
+        {activeVerificationId && (
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h3 class="card-title text-base">認証コードを入力</h3>
+              <p class="text-sm text-base-content/70 mb-4">
+                メールに送信された6桁のコードを入力してください。
+              </p>
+              <form onSubmit={handleVerifyCode}>
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) =>
+                      setVerificationCode((e.target as HTMLInputElement).value)
+                    }
+                    class="input input-bordered flex-1"
+                    placeholder="6桁のコード"
+                    maxLength={6}
+                  />
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    disabled={isSubmitting || verificationCode.length !== 6}
+                  >
+                    認証
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ドメイン変更フォーム */}
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-base">ドメイン変更申請</h3>
+            <div class="alert alert-warning mb-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span>
+                新しいドメインでメール認証を行います。承認後、認証ドメインが変更されます。
+              </span>
+            </div>
+            <form onSubmit={handleDomainChangeSubmit} class="space-y-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">
+                    新しい公式メールアドレス <span class="text-error">*</span>
+                  </span>
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) =>
+                    setNewEmail((e.target as HTMLInputElement).value)
+                  }
+                  class="input input-bordered"
+                  placeholder="例: info@new-domain.jp"
+                  required
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    変更先ドメインのメールアドレスを入力してください
+                  </span>
+                </label>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  disabled={isSubmitting || !newEmail}
+                >
+                  {isSubmitting ? "送信中..." : "変更を申請"}
+                </button>
+                <a
+                  href={`/profile/organization/${targetOrganization.id}`}
+                  class="btn"
+                >
+                  キャンセル
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* 申請履歴（ドメイン変更のみ表示） */}
+        {organizationManagerVerifications.filter(
+          (v) => v.request_type === "domain_change"
+        ).length > 0 && (
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h3 class="card-title text-base">ドメイン変更申請履歴</h3>
+              <div class="space-y-3">
+                {organizationManagerVerifications
+                  .filter((v) => v.request_type === "domain_change")
+                  .map((v) => (
+                    <div
+                      key={v.id}
+                      class="flex items-center justify-between p-4 bg-base-200 rounded-lg"
+                    >
+                      <div>
+                        <span class="font-medium">{v.organization_name}</span>
+                        <span class="text-sm text-base-content/70 ml-2">
+                          ({v.official_email})
+                        </span>
+                        <p class="text-xs text-base-content/50">
+                          {new Date(v.created_at).toLocaleDateString("ja-JP")}
+                        </p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span
+                          class={`badge ${
+                            statusLabels[v.status]?.class || "badge-ghost"
+                          }`}
+                        >
+                          {statusLabels[v.status]?.label || v.status}
+                        </span>
+                        {v.status === "email_sent" && (
+                          <button
+                            class="btn btn-sm btn-primary"
+                            onClick={() => handleSendCode(v.id)}
+                            disabled={isSubmitting}
+                          >
+                            コードを再送信
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ドメイン変更モードだが対象団体が見つからない場合
+  if (changeDomain && targetOrganizationId && !targetOrganization) {
+    return (
+      <div class="alert alert-error">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <div>
+          <h3 class="font-bold">団体が見つかりません</h3>
+          <p class="text-sm">
+            指定された政治団体が見つからないか、あなたが管理者として認証されていません。
+          </p>
+          <a href="/profile/organization" class="btn btn-sm mt-2">
+            政治団体情報に戻る
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // 通常モード
   return (
     <div class="space-y-6">
       {/* メッセージ */}
@@ -301,6 +579,11 @@ export default function OrganizationManagerVerificationForm({
                       <span class="text-sm text-base-content/70 ml-2">
                         ({v.official_email})
                       </span>
+                      {v.request_type === "domain_change" && (
+                        <span class="badge badge-sm badge-warning ml-2">
+                          ドメイン変更
+                        </span>
+                      )}
                       <p class="text-xs text-base-content/50">
                         {new Date(v.created_at).toLocaleDateString("ja-JP")}
                       </p>
