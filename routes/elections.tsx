@@ -10,9 +10,7 @@ interface UserElection {
   election_name: string;
   election_date: string;
   created_at: string;
-  politicians: {
-    name: string;
-  } | null;
+  hub_politician_id: string | null;
 }
 
 interface ElectionsPageData {
@@ -45,9 +43,7 @@ export const handler: Handlers<ElectionsPageData> = {
           election_name,
           election_date,
           created_at,
-          politicians (
-            name
-          )
+          hub_politician_id
         `,
         )
         .eq("owner_user_id", userId)
@@ -156,11 +152,6 @@ export default function ElectionsPage({ data }: PageProps<ElectionsPageData>) {
                           <span class="badge badge-outline">
                             {formatDate(election.election_date)}
                           </span>
-                          {election.politicians?.name && (
-                            <span class="badge badge-primary badge-outline">
-                              {election.politicians.name}
-                            </span>
-                          )}
                         </div>
                       </div>
                       <div class="flex gap-2">
