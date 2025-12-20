@@ -113,7 +113,11 @@ export default function RegisterPage({ data }: PageProps<RegisterData>) {
                   <div class="text-xs">
                     <p class="font-bold">送信元について</p>
                     <p>
-                      メールは <code class="bg-warning-content/20 px-1 rounded">noreply@mail.app.supabase.io</code> から届きます。
+                      メールは{" "}
+                      <code class="bg-warning-content/20 px-1 rounded">
+                        noreply@mail.app.supabase.io
+                      </code>{" "}
+                      から届きます。
                       届かない場合は迷惑メールフォルダをご確認ください。
                     </p>
                   </div>
