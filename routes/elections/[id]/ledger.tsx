@@ -6,6 +6,7 @@ import { type AccountCode, getAccountCodes } from "../../../lib/hub-client.ts";
 import JournalFormDrawer from "../../../islands/JournalFormDrawer.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 import ExportCSVButton from "../../../islands/ExportCSVButton.tsx";
+import { type Journal } from "../../../lib/types.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -14,26 +15,6 @@ interface Election {
   election_name: string;
   election_date: string;
   hub_politician_id: string | null;
-}
-
-interface Journal {
-  id: string;
-  journal_date: string;
-  description: string;
-  status: "draft" | "approved";
-  contact_id: string | null;
-  created_at: string;
-  journal_entries: {
-    id: string;
-    account_code: string;
-    debit_amount: number;
-    credit_amount: number;
-  }[];
-  contacts:
-    | {
-        name: string;
-      }[]
-    | null;
 }
 
 interface Contact {
