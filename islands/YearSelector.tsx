@@ -1,6 +1,5 @@
 import { useState } from "preact/hooks";
 import YearClosureDialog from "./YearClosureDialog.tsx";
-import ArchiveDialog from "./ArchiveDialog.tsx";
 import UnlockRequestDialog from "./UnlockRequestDialog.tsx";
 
 interface YearClosureStatus {
@@ -23,8 +22,8 @@ export default function YearSelector({
   closureStatuses,
 }: YearSelectorProps) {
   const [showClosureDialog, setShowClosureDialog] = useState(false);
-  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [reopening, setReopening] = useState(false);
 
   const currentStatus = closureStatuses.find(
     (s) => s.fiscal_year === currentYear,
@@ -42,10 +41,39 @@ export default function YearSelector({
 
   function handleSuccess() {
     setShowClosureDialog(false);
-    setShowArchiveDialog(false);
     setShowUnlockDialog(false);
     // ページをリロードしてステータスを更新
     globalThis.location.reload();
+  }
+
+  async function handleReopen() {
+    if (
+      !confirm(
+        `${currentYear}年度の締めを解除しますか？\n編集可能な状態に戻ります。`,
+      )
+    ) {
+      return;
+    }
+
+    setReopening(true);
+    try {
+      const res = await fetch("/api/closures/reopen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, year: currentYear }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "締め解除に失敗しました");
+      }
+
+      globalThis.location.reload();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "エラーが発生しました");
+    } finally {
+      setReopening(false);
+    }
   }
 
   // ステータスのラベルを取得
@@ -54,7 +82,7 @@ export default function YearSelector({
       case "closed":
         return " (締め済)";
       case "locked":
-        return " (アーカイブ済)";
+        return " (ロック中)";
       case "temporary_unlock":
         return " (一時解除中)";
       default:
@@ -68,7 +96,7 @@ export default function YearSelector({
       case "closed":
         return <span class="badge badge-info">締め済み</span>;
       case "locked":
-        return <span class="badge badge-neutral">アーカイブ済</span>;
+        return <span class="badge badge-neutral">ロック中</span>;
       case "temporary_unlock":
         return <span class="badge badge-warning">一時解除中</span>;
       default:
@@ -114,14 +142,19 @@ export default function YearSelector({
         </button>
       )}
 
-      {/* アーカイブボタン（closed の時のみ） */}
+      {/* 締め解除ボタン（closed の時のみ） */}
       {status === "closed" && (
         <button
           type="button"
-          class="btn btn-sm btn-outline btn-neutral"
-          onClick={() => setShowArchiveDialog(true)}
+          class="btn btn-sm btn-outline btn-info"
+          disabled={reopening}
+          onClick={handleReopen}
         >
-          アーカイブ
+          {reopening ? (
+            <span class="loading loading-spinner loading-sm" />
+          ) : (
+            "締め解除"
+          )}
         </button>
       )}
 
@@ -142,16 +175,6 @@ export default function YearSelector({
           organizationId={organizationId}
           year={currentYear}
           onClose={() => setShowClosureDialog(false)}
-          onSuccess={handleSuccess}
-        />
-      )}
-
-      {/* アーカイブダイアログ */}
-      {showArchiveDialog && (
-        <ArchiveDialog
-          organizationId={organizationId}
-          year={currentYear}
-          onClose={() => setShowArchiveDialog(false)}
           onSuccess={handleSuccess}
         />
       )}
