@@ -1284,3 +1284,156 @@ GET https://api.freee.co.jp/api/1/wallet_txns
 
 - 過去の仕訳パターン
 - ユーザーの選択履歴
+
+---
+
+## **7. 年度締め・ロック・アーカイブ機能**
+
+### **7.1. 概要**
+
+政治団体台帳は年度ごとに「締め処理」を行い、編集不可にする機能を提供します。
+さらに、一定期間後に「ロック（アーカイブ）」状態に遷移させ、データを長期保存します。
+
+### **7.2. ステータス遷移**
+
+```
+open（編集可能）
+    │
+    │ ユーザーが「年度締め」（手動）
+    │ または 年度終了から 3年経過（自動）
+    ▼
+closed（読み取り専用）
+    │
+    │ ユーザーが「アーカイブ」（手動）
+    │ または 締めから 1年経過（自動）
+    ▼
+locked（完全ロック・アーカイブ済み）
+    │ - 領収書画像: Ledger Storage → Hub Storage に移行
+    │ - Ledger Storage から削除
+    │
+    │ 修正が必要な場合（Hub Admin 承認後）
+    ▼
+temporary_unlock（一時解除、7日間）
+    │
+    │ 修正完了 or 期限切れ
+    ▼
+locked（再ロック）
+```
+
+### **7.3. 各ステータスの定義**
+
+| ステータス       | 編集    | 領収書画像       | 説明                                  |
+| ---------------- | ------- | ---------------- | ------------------------------------- |
+| open             | ✅ 可   | Ledger Storage   | 通常の編集可能状態                    |
+| closed           | ❌ 不可 | Ledger Storage   | 年度締め済み、読み取り専用            |
+| locked           | ❌ 不可 | Hub Storage のみ | アーカイブ済み、画像は Hub に移行済み |
+| temporary_unlock | ✅ 可   | Hub Storage のみ | 一時解除中（7日間）、修正後に再ロック |
+
+### **7.4. 締め前チェック機能**
+
+年度締めを実行する前に、以下の不備をチェックします：
+
+| チェック項目 | 説明                                  | 重要度 |
+| ------------ | ------------------------------------- | ------ |
+| 未承認仕訳   | status='draft' の仕訳が残っていないか | 必須   |
+| 領収証未添付 | media_assets がない仕訳               | 警告   |
+| 借方≠貸方    | 帳簿の貸借が一致しているか            | 必須   |
+
+- **必須**項目にエラーがある場合、年度締めは実行できません
+- **警告**のみの場合は、ユーザー確認後に締め可能
+- 不備リストは「コピー」ボタンでクリップボードにコピー可能
+
+### **7.5. UI 仕様**
+
+#### **7.5.1. 年度選択コンポーネント (YearSelector)**
+
+- 年度プルダウン（現在年から過去5年）
+- 各年度のステータスを表示（「締め済」「アーカイブ済」など）
+- 「年度締め」ボタン（open の年度のみ表示）
+- 「アーカイブ」ボタン（closed の年度のみ表示）
+
+#### **7.5.2. 年度締めダイアログ (YearClosureDialog)**
+
+- 締め前チェック結果を表示
+- エラー/警告の一覧をテーブル表示
+- 「不備をコピー」ボタン
+- 「年度締めを実行」ボタン（エラーがない場合のみ有効）
+
+#### **7.5.3. アーカイブダイアログ (ArchiveDialog)**
+
+- アーカイブ処理の確認
+- 画像移行の説明表示
+- 「アーカイブを実行」ボタン
+
+### **7.6. API 仕様**
+
+#### **7.6.1. 締め前チェック API**
+
+```
+GET /api/closures/check?org_id={organizationId}&year={year}
+```
+
+**レスポンス:**
+
+```json
+{
+  "canClose": true,
+  "issues": [
+    {
+      "type": "warning",
+      "category": "receipt",
+      "message": "領収証が未添付です: ポスター印刷",
+      "journalId": "xxx",
+      "journalDate": "2024-03-01"
+    }
+  ],
+  "summary": {
+    "totalJournals": 150,
+    "draftCount": 0,
+    "missingReceiptCount": 3,
+    "imbalanceCount": 0
+  }
+}
+```
+
+#### **7.6.2. 年度締め実行 API**
+
+```
+POST /api/closures/execute
+Content-Type: application/json
+
+{
+  "organizationId": "xxx",
+  "year": 2024
+}
+```
+
+#### **7.6.3. アーカイブ実行 API**
+
+```
+POST /api/closures/archive
+Content-Type: application/json
+
+{
+  "organizationId": "xxx",
+  "year": 2024
+}
+```
+
+### **7.7. データベース**
+
+**テーブル名:** ledger_year_closures
+
+| 列名                        | データ型    | 説明                                |
+| --------------------------- | ----------- | ----------------------------------- |
+| id                          | uuid        | 主キー                              |
+| organization_id             | uuid        | 政治団体 ID                         |
+| fiscal_year                 | integer     | 会計年度                            |
+| status                      | text        | open/closed/locked/temporary_unlock |
+| closed_at                   | timestamptz | 年度締め日時                        |
+| locked_at                   | timestamptz | ロック日時                          |
+| storage_migrated_at         | timestamptz | 画像移行完了日時                    |
+| temporary_unlock_at         | timestamptz | 一時解除開始日時                    |
+| temporary_unlock_expires_at | timestamptz | 一時解除期限                        |
+
+**制約:** UNIQUE(organization_id, fiscal_year)
