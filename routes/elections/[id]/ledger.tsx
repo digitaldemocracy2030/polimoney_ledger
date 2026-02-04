@@ -29,9 +29,11 @@ interface Journal {
     debit_amount: number;
     credit_amount: number;
   }[];
-  contacts: {
-    name: string;
-  } | null;
+  contacts:
+    | {
+        name: string;
+      }[]
+    | null;
 }
 
 interface Contact {
@@ -69,7 +71,9 @@ export const handler: Handlers<PageData> = {
 
     try {
       const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+        userId === TEST_USER_ID
+          ? getServiceClient()
+          : getSupabaseClient(userId);
 
       // 選挙情報を取得
       const { data: election, error: electionError } = await supabase
