@@ -6,6 +6,7 @@ import { type AccountCode, getAccountCodes } from "../../../lib/hub-client.ts";
 import JournalFormDrawer from "../../../islands/JournalFormDrawer.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 import ExportCSVButton from "../../../islands/ExportCSVButton.tsx";
+import YearSelector from "../../../islands/YearSelector.tsx";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -27,9 +28,11 @@ interface Journal {
     debit_amount: number;
     credit_amount: number;
   }[];
-  contacts: {
-    name: string;
-  } | null;
+  contacts:
+    | {
+        name: string;
+      }[]
+    | null;
 }
 
 interface Contact {
@@ -44,12 +47,21 @@ interface SubAccount {
   parent_account_code: string;
 }
 
+interface YearClosureStatus {
+  fiscal_year: number;
+  status: "open" | "closed" | "locked" | "temporary_unlock";
+  closed_at?: string;
+}
+
 interface PageData {
   organization: Organization | null;
   journals: Journal[];
   accountCodes: AccountCode[];
   contacts: Contact[];
   subAccounts: SubAccount[];
+  years: number[];
+  currentYear: number;
+  closureStatuses: YearClosureStatus[];
   error?: string;
 }
 
@@ -67,7 +79,9 @@ export const handler: Handlers<PageData> = {
 
     try {
       const supabase =
-        userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(req);
+        userId === TEST_USER_ID
+          ? getServiceClient()
+          : getSupabaseClient(userId);
 
       // 政治団体情報を取得
       const { data: organization, error: orgError } = await supabase
@@ -77,12 +91,16 @@ export const handler: Handlers<PageData> = {
         .single();
 
       if (orgError || !organization) {
+        const currentYear = new Date().getFullYear();
         return ctx.render({
           organization: null,
           journals: [],
           accountCodes: [],
           contacts: [],
           subAccounts: [],
+          years: [currentYear],
+          currentYear,
+          closureStatuses: [],
           error: "政治団体が見つかりません",
         });
       }
@@ -110,7 +128,7 @@ export const handler: Handlers<PageData> = {
               contacts (
                 name
               )
-            `
+            `,
             )
             .eq("organization_id", organizationId)
             .order("journal_date", { ascending: false }),
@@ -138,21 +156,44 @@ export const handler: Handlers<PageData> = {
         console.error("Failed to fetch journals:", journalsResult.error);
       }
 
+      // 年度締めステータスを取得
+      const { data: closureData } = await supabase
+        .from("ledger_year_closures")
+        .select("fiscal_year, status, closed_at")
+        .eq("organization_id", organizationId);
+
+      // 利用可能な年度リストを生成（現在年から過去5年）
+      const currentYear = new Date().getFullYear();
+      const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+      const closureStatuses = (closureData || []).map((c) => ({
+        fiscal_year: c.fiscal_year as number,
+        status: c.status as "open" | "closed" | "locked" | "temporary_unlock",
+        closed_at: c.closed_at as string | undefined,
+      }));
+
       return ctx.render({
         organization,
         journals: journalsResult.data || [],
         accountCodes,
         contacts: contactsResult.data || [],
         subAccounts: subAccountsResult.data || [],
+        years,
+        currentYear,
+        closureStatuses,
       });
     } catch (error) {
       console.error("Error:", error);
+      const currentYear = new Date().getFullYear();
       return ctx.render({
         organization: null,
         journals: [],
         accountCodes: [],
         contacts: [],
         subAccounts: [],
+        years: [currentYear],
+        currentYear,
+        closureStatuses: [],
         error: "エラーが発生しました",
       });
     }
@@ -160,8 +201,17 @@ export const handler: Handlers<PageData> = {
 };
 
 export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
-  const { organization, journals, accountCodes, contacts, subAccounts, error } =
-    data;
+  const {
+    organization,
+    journals,
+    accountCodes,
+    contacts,
+    subAccounts,
+    years,
+    currentYear,
+    closureStatuses,
+    error,
+  } = data;
 
   if (error || !organization) {
     return (
@@ -201,6 +251,18 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
             <li>{organization.name}</li>
           </ul>
         </div>
+
+        {/* 年度選択と締めボタン */}
+        <YearSelector
+          organizationId={organization.id}
+          currentYear={currentYear}
+          years={years}
+          closureStatuses={closureStatuses}
+          onYearChange={(year) => {
+            // ページをリロードして年度フィルタを適用（将来の拡張用）
+            console.log("Year changed:", year);
+          }}
+        />
 
         {/* タブナビゲーション */}
         <div role="tablist" class="tabs tabs-bordered mb-6">
@@ -256,15 +318,15 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
               <div class="flex items-center gap-2">
                 <ExportCSVButton organizationId={organization.id} />
                 <JournalFormDrawer
-              ledgerType="organization"
-              organizationId={organization.id}
-              electionId={null}
-              accountCodes={accountCodes}
-              contacts={contacts}
-              subAccounts={subAccounts}
-            />
-          </div>
-        </div>
+                  ledgerType="organization"
+                  organizationId={organization.id}
+                  electionId={null}
+                  accountCodes={accountCodes}
+                  contacts={contacts}
+                  subAccounts={subAccounts}
+                />
+              </div>
+            </div>
             <JournalList
               journals={journals}
               basePath={`/organizations/${organization.id}/ledger`}
