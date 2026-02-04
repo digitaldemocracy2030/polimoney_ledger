@@ -77,6 +77,12 @@ export const handler: Handlers<PageData> = {
       });
     }
 
+    // URLクエリパラメータから年度を取得
+    const url = new URL(req.url);
+    const yearParam = url.searchParams.get("year");
+    const defaultYear = new Date().getFullYear();
+    const selectedYear = yearParam ? parseInt(yearParam, 10) : defaultYear;
+
     try {
       const supabase =
         userId === TEST_USER_ID
@@ -131,6 +137,8 @@ export const handler: Handlers<PageData> = {
             `,
             )
             .eq("organization_id", organizationId)
+            .gte("journal_date", `${selectedYear}-01-01`)
+            .lte("journal_date", `${selectedYear}-12-31`)
             .order("journal_date", { ascending: false }),
           // 関係者一覧
           supabase
@@ -179,7 +187,7 @@ export const handler: Handlers<PageData> = {
         contacts: contactsResult.data || [],
         subAccounts: subAccountsResult.data || [],
         years,
-        currentYear,
+        currentYear: selectedYear,
         closureStatuses,
       });
     } catch (error) {
@@ -258,10 +266,6 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
           currentYear={currentYear}
           years={years}
           closureStatuses={closureStatuses}
-          onYearChange={(year) => {
-            // ページをリロードして年度フィルタを適用（将来の拡張用）
-            console.log("Year changed:", year);
-          }}
         />
 
         {/* タブナビゲーション */}

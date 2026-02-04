@@ -1,26 +1,5 @@
 import { useState } from "preact/hooks";
-
-interface JournalEntry {
-  id: string;
-  account_code: string;
-  debit_amount: number;
-  credit_amount: number;
-}
-
-interface Journal {
-  id: string;
-  journal_date: string;
-  description: string;
-  status: "draft" | "approved";
-  contact_id: string | null;
-  created_at: string;
-  journal_entries: JournalEntry[];
-  contacts:
-    | {
-        name: string;
-      }[]
-    | null;
-}
+import { type Journal, type JournalEntry } from "../lib/types.ts";
 
 interface AccountCode {
   code: string;
