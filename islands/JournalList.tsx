@@ -15,9 +15,11 @@ interface Journal {
   contact_id: string | null;
   created_at: string;
   journal_entries: JournalEntry[];
-  contacts: {
-    name: string;
-  } | null;
+  contacts:
+    | {
+        name: string;
+      }[]
+    | null;
 }
 
 interface AccountCode {
@@ -148,121 +150,107 @@ export default function JournalList({
       </div>
 
       {/* 仕訳一覧 */}
-      {filteredJournals.length === 0
-        ? (
-          <div class="text-center py-12">
-            <div class="text-6xl mb-4">📋</div>
-            <p class="text-base-content/70">仕訳がありません</p>
-          </div>
-        )
-        : (
-          <div class="overflow-x-auto">
-            <table class="table table-zebra">
-              <thead>
-                <tr>
-                  <th>収支</th>
-                  <th>日付</th>
-                  <th>借方</th>
-                  <th>貸方</th>
-                  <th>摘要</th>
-                  <th>取引先</th>
-                  <th class="text-right">金額</th>
-                  <th>ステータス</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredJournals.map((journal) => {
-                  const type = getIncomeExpenseType(journal.journal_entries);
-                  const amount = calculateTotal(journal.journal_entries);
+      {filteredJournals.length === 0 ? (
+        <div class="text-center py-12">
+          <div class="text-6xl mb-4">📋</div>
+          <p class="text-base-content/70">仕訳がありません</p>
+        </div>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>収支</th>
+                <th>日付</th>
+                <th>借方</th>
+                <th>貸方</th>
+                <th>摘要</th>
+                <th>取引先</th>
+                <th class="text-right">金額</th>
+                <th>ステータス</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredJournals.map((journal) => {
+                const type = getIncomeExpenseType(journal.journal_entries);
+                const amount = calculateTotal(journal.journal_entries);
 
-                  // 借方・貸方のエントリを分離
-                  const debitEntries = journal.journal_entries.filter(
-                    (e) => e.debit_amount > 0,
-                  );
-                  const creditEntries = journal.journal_entries.filter(
-                    (e) => e.credit_amount > 0,
-                  );
+                // 借方・貸方のエントリを分離
+                const debitEntries = journal.journal_entries.filter(
+                  (e) => e.debit_amount > 0,
+                );
+                const creditEntries = journal.journal_entries.filter(
+                  (e) => e.credit_amount > 0,
+                );
 
-                  return (
-                    <tr key={journal.id}>
-                      <td>
-                        {type === "income"
-                          ? (
-                            <span class="badge badge-primary badge-sm">
-                              収入
-                            </span>
-                          )
-                          : (
-                            <span class="badge badge-error badge-sm">支出</span>
-                          )}
-                      </td>
-                      <td class="whitespace-nowrap">
-                        {journal.journal_date
-                          ? (
-                            formatDate(journal.journal_date)
-                          )
-                          : <span class="text-base-content/50">-</span>}
-                      </td>
-                      <td>
-                        <div class="text-sm">
-                          {debitEntries.map((e, i) => (
-                            <div key={i} class="text-primary">
-                              {getAccountName(e.account_code)}
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td>
-                        <div class="text-sm">
-                          {creditEntries.map((e, i) => (
-                            <div key={i} class="text-secondary">
-                              {getAccountName(e.account_code)}
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td>
-                        <div class="max-w-xs truncate">
-                          {journal.description}
-                        </div>
-                      </td>
-                      <td>
-                        {journal.contacts?.name || (
-                          <span class="text-base-content/50">-</span>
-                        )}
-                      </td>
-                      <td class="text-right font-mono">
-                        ¥{formatAmount(amount)}
-                      </td>
-                      <td>
-                        {journal.status === "draft"
-                          ? (
-                            <span class="badge badge-warning badge-sm">
-                              下書き
-                            </span>
-                          )
-                          : (
-                            <span class="badge badge-success badge-sm">
-                              承認済
-                            </span>
-                          )}
-                      </td>
-                      <td>
-                        <a
-                          href={`/journals/${journal.id}`}
-                          class="btn btn-ghost btn-sm"
-                        >
-                          詳細
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                return (
+                  <tr key={journal.id}>
+                    <td>
+                      {type === "income" ? (
+                        <span class="badge badge-primary badge-sm">収入</span>
+                      ) : (
+                        <span class="badge badge-error badge-sm">支出</span>
+                      )}
+                    </td>
+                    <td class="whitespace-nowrap">
+                      {journal.journal_date ? (
+                        formatDate(journal.journal_date)
+                      ) : (
+                        <span class="text-base-content/50">-</span>
+                      )}
+                    </td>
+                    <td>
+                      <div class="text-sm">
+                        {debitEntries.map((e, i) => (
+                          <div key={i} class="text-primary">
+                            {getAccountName(e.account_code)}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div class="text-sm">
+                        {creditEntries.map((e, i) => (
+                          <div key={i} class="text-secondary">
+                            {getAccountName(e.account_code)}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div class="max-w-xs truncate">{journal.description}</div>
+                    </td>
+                    <td>
+                      {journal.contacts?.[0]?.name || (
+                        <span class="text-base-content/50">-</span>
+                      )}
+                    </td>
+                    <td class="text-right font-mono">
+                      ¥{formatAmount(amount)}
+                    </td>
+                    <td>
+                      {journal.status === "draft" ? (
+                        <span class="badge badge-warning badge-sm">下書き</span>
+                      ) : (
+                        <span class="badge badge-success badge-sm">承認済</span>
+                      )}
+                    </td>
+                    <td>
+                      <a
+                        href={`/journals/${journal.id}`}
+                        class="btn btn-ghost btn-sm"
+                      >
+                        詳細
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
