@@ -12,7 +12,6 @@ interface YearSelectorProps {
   currentYear: number;
   years: number[];
   closureStatuses: YearClosureStatus[];
-  onYearChange: (year: number) => void;
 }
 
 export default function YearSelector({
@@ -20,13 +19,11 @@ export default function YearSelector({
   currentYear,
   years,
   closureStatuses,
-  onYearChange,
 }: YearSelectorProps) {
   const [showDialog, setShowDialog] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   const currentStatus = closureStatuses.find(
-    (s) => s.fiscal_year === selectedYear,
+    (s) => s.fiscal_year === currentYear,
   );
   const isClosed =
     currentStatus?.status === "closed" || currentStatus?.status === "locked";
@@ -34,8 +31,10 @@ export default function YearSelector({
   function handleYearChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     const year = parseInt(target.value, 10);
-    setSelectedYear(year);
-    onYearChange(year);
+    // URL クエリパラメータで年度を指定して遷移
+    const url = new URL(globalThis.location.href);
+    url.searchParams.set("year", year.toString());
+    globalThis.location.href = url.href;
   }
 
   function handleClosureSuccess() {
@@ -51,7 +50,7 @@ export default function YearSelector({
         <label class="font-medium">年度:</label>
         <select
           class="select select-bordered select-sm"
-          value={selectedYear}
+          value={currentYear}
           onChange={handleYearChange}
         >
           {years.map((year) => {
@@ -88,7 +87,7 @@ export default function YearSelector({
       {showDialog && (
         <YearClosureDialog
           organizationId={organizationId}
-          year={selectedYear}
+          year={currentYear}
           onClose={() => setShowDialog(false)}
           onSuccess={handleClosureSuccess}
         />
