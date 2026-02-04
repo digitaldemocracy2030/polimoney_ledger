@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import YearClosureDialog from "./YearClosureDialog.tsx";
 import ArchiveDialog from "./ArchiveDialog.tsx";
+import UnlockRequestDialog from "./UnlockRequestDialog.tsx";
 
 interface YearClosureStatus {
   fiscal_year: number;
@@ -23,6 +24,7 @@ export default function YearSelector({
 }: YearSelectorProps) {
   const [showClosureDialog, setShowClosureDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
 
   const currentStatus = closureStatuses.find(
     (s) => s.fiscal_year === currentYear,
@@ -41,6 +43,7 @@ export default function YearSelector({
   function handleSuccess() {
     setShowClosureDialog(false);
     setShowArchiveDialog(false);
+    setShowUnlockDialog(false);
     // ページをリロードしてステータスを更新
     globalThis.location.reload();
   }
@@ -122,6 +125,17 @@ export default function YearSelector({
         </button>
       )}
 
+      {/* ロック解除申請ボタン（locked の時のみ） */}
+      {status === "locked" && (
+        <button
+          type="button"
+          class="btn btn-sm btn-outline"
+          onClick={() => setShowUnlockDialog(true)}
+        >
+          ロック解除申請
+        </button>
+      )}
+
       {/* 年度締めダイアログ */}
       {showClosureDialog && (
         <YearClosureDialog
@@ -138,6 +152,17 @@ export default function YearSelector({
           organizationId={organizationId}
           year={currentYear}
           onClose={() => setShowArchiveDialog(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
+
+      {/* ロック解除申請ダイアログ */}
+      {showUnlockDialog && (
+        <UnlockRequestDialog
+          organizationId={organizationId}
+          year={currentYear}
+          hasPendingRequest={false}
+          onClose={() => setShowUnlockDialog(false)}
           onSuccess={handleSuccess}
         />
       )}
