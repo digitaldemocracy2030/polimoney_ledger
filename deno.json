@@ -29,7 +29,8 @@
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
     "@deno/gfm": "jsr:@deno/gfm@0.10",
     "hono": "jsr:@hono/hono@^4.6.0",
-    "hono/": "jsr:@hono/hono@^4.6.0/"
+    "hono/": "jsr:@hono/hono@^4.6.0/",
+    "fflate": "npm:fflate@0.8.2"
   },
   "compilerOptions": {
     "jsx": "react-jsx",
