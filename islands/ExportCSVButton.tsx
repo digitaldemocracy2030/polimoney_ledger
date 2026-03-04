@@ -9,6 +9,7 @@ interface ExportCSVButtonProps {
  * CSV エクスポートボタン
  *
  * 支出一覧、収入一覧、科目別集計、資産等一覧の CSV をダウンロード
+ * 一括ダウンロード（ZIP）にも対応
  */
 export default function ExportCSVButton({
   organizationId,
@@ -18,7 +19,7 @@ export default function ExportCSVButton({
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
   const handleExport = async (
-    type: "expense" | "revenue" | "summary" | "assets"
+    type: "expense" | "revenue" | "summary" | "assets" | "all",
   ) => {
     setIsLoading(type);
 
@@ -33,14 +34,21 @@ export default function ExportCSVButton({
       const response = await fetch(`/api/export-csv?${params.toString()}`);
 
       if (!response.ok) {
-        const json = await response.json();
-        throw new Error(json.error || "エクスポートに失敗しました");
+        // ZIP やCSVの場合、JSON パースがエラーになる可能性があるのでテキストで取得
+        let errorMessage = "エクスポートに失敗しました";
+        try {
+          const json = await response.json();
+          errorMessage = json.error || errorMessage;
+        } catch {
+          // JSONパースに失敗した場合はデフォルトメッセージ
+        }
+        throw new Error(errorMessage);
       }
 
       // ダウンロード処理
       const blob = await response.blob();
       const contentDisposition = response.headers.get("Content-Disposition");
-      let filename = "export.csv";
+      let filename = type === "all" ? "収支報告補助データ.zip" : "export.csv";
 
       // filename*= 形式から取得
       if (contentDisposition) {
@@ -63,7 +71,7 @@ export default function ExportCSVButton({
     } catch (error) {
       console.error("Export error:", error);
       alert(
-        error instanceof Error ? error.message : "エクスポートに失敗しました"
+        error instanceof Error ? error.message : "エクスポートに失敗しました",
       );
     } finally {
       setIsLoading(null);
@@ -98,7 +106,22 @@ export default function ExportCSVButton({
       </button>
 
       {isOpen && (
-        <ul class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow mt-2">
+        <ul class="dropdown-content menu bg-base-100 rounded-box z-[1] w-64 p-2 shadow mt-2">
+          <li>
+            <button
+              onClick={() => handleExport("all")}
+              disabled={isLoading !== null}
+              class="flex items-center gap-2 font-bold"
+            >
+              {isLoading === "all" && (
+                <span class="loading loading-spinner loading-xs"></span>
+              )}
+              📦 一括ダウンロード（ZIP）
+            </button>
+          </li>
+          <li class="menu-title">
+            <span>個別ダウンロード</span>
+          </li>
           <li>
             <button
               onClick={() => handleExport("expense")}
