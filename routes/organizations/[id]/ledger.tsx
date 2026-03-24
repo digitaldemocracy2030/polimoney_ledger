@@ -7,6 +7,7 @@ import JournalFormDrawer from "../../../islands/JournalFormDrawer.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 import ExportCSVButton from "../../../islands/ExportCSVButton.tsx";
 import YearSelector from "../../../islands/YearSelector.tsx";
+import ReSyncButton from "../../../islands/ReSyncButton.tsx";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -376,6 +377,14 @@ export default function OrganizationLedgerPage({ data }: PageProps<PageData>) {
               accountCodes={accountCodes}
             />
           </div>
+        </div>
+
+        {/* Danger Zone: Hub 強制再同期 */}
+        <div class="mt-8">
+          <ReSyncButton
+            ledgerType="organization"
+            ledgerId={undefined}
+          />
         </div>
       </Layout>
     </>

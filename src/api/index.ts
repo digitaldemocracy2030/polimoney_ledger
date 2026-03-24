@@ -21,6 +21,7 @@ import { organizationRequestsRouter } from "./routes/organization-requests.ts";
 import { accountRouter } from "./routes/account.ts";
 import { hubOrganizationsRouter } from "./routes/hub-organizations.ts";
 import { exportCsvRouter } from "./routes/export-csv.ts";
+import { exportReportRouter } from "./routes/export-report.ts";
 
 // Hono アプリを作成
 export const api = new Hono<{
@@ -56,6 +57,7 @@ api.route("/organization-requests", organizationRequestsRouter);
 api.route("/account", accountRouter);
 api.route("/hub-organizations", hubOrganizationsRouter);
 api.route("/export-csv", exportCsvRouter);
+api.route("/export-report", exportReportRouter);
 
 // 404 ハンドラー
 api.notFound((c) => {

@@ -49,6 +49,14 @@ interface SubAccount {
   name: string;
 }
 
+interface ReceiptRow {
+  id: string;
+  journal_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+}
+
 // ============================================
 // CSV ヘルパー
 // ============================================
@@ -143,6 +151,61 @@ async function fetchSubAccounts(userId: string): Promise<Map<string, string>> {
     }
   }
   return map;
+}
+
+/**
+ * 仕訳一覧に対応する領収書一覧を取得
+ */
+async function fetchReceiptsForJournals(
+  userId: string,
+  journalIds: string[],
+): Promise<ReceiptRow[]> {
+  if (journalIds.length === 0) return [];
+
+  const supabase =
+    userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
+
+  const { data, error } = await supabase
+    .from("receipts")
+    .select("id, journal_id, storage_path, file_name, mime_type")
+    .in("journal_id", journalIds);
+
+  if (error) {
+    console.error("Failed to fetch receipts:", error);
+    return [];
+  }
+  return (data ?? []) as ReceiptRow[];
+}
+
+/**
+ * Supabase Storage から署名付き URL でファイルバイナリを取得
+ */
+async function fetchReceiptBinary(
+  userId: string,
+  storagePath: string,
+): Promise<Uint8Array | null> {
+  try {
+    const supabase =
+      userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
+
+    const { data, error } = await supabase.storage
+      .from("uploads")
+      .createSignedUrl(storagePath, 60);
+
+    if (error || !data?.signedUrl) {
+      console.error("Failed to create signed URL:", error);
+      return null;
+    }
+
+    const response = await fetch(data.signedUrl);
+    if (!response.ok) return null;
+
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
+  } catch (err) {
+    console.error("Failed to fetch receipt binary:", err);
+    return null;
+  }
 }
 
 // ============================================
@@ -354,6 +417,7 @@ exportCsvRouter.get("/", async (c) => {
   const organizationId = c.req.query("organization_id") ?? null;
   const electionId = c.req.query("election_id") ?? null;
   const year = c.req.query("year") ?? null;
+  const includeImages = c.req.query("include_images") === "true";
 
   // バリデーション
   const validTypes = ["expense", "revenue", "summary", "assets", "all"];
@@ -405,9 +469,36 @@ exportCsvRouter.get("/", async (c) => {
       for (const [filename, content] of Object.entries(csvFiles)) {
         zipData[filename] = encoder.encode(content);
       }
-      const zipped = zipSync(zipData);
 
-      const zipFilename = `収支報告補助データ${yearSuffix}_${dateStr}.zip`;
+      // 領収書画像を含める（include_images=true のとき）
+      if (includeImages) {
+        const journalIds = journals.map((j) => j.id);
+        const receipts = await fetchReceiptsForJournals(userId, journalIds);
+
+        // 仕訳IDと日付のマップを作成
+        const journalDateMap = new Map<string, string>();
+        for (const j of journals) {
+          journalDateMap.set(j.id, j.journal_date);
+        }
+
+        let imageIndex = 1;
+        for (const receipt of receipts) {
+          const binary = await fetchReceiptBinary(userId, receipt.storage_path);
+          if (!binary) continue;
+
+          const date = journalDateMap.get(receipt.journal_id) ?? "unknown";
+          const ext = receipt.file_name.split(".").pop() || "jpg";
+          const safeFileName = receipt.file_name
+            .replace(/[/\\?%*:|"<>]/g, "_")
+            .substring(0, 60);
+          const zipKey = `receipts/${date}_${String(imageIndex).padStart(3, "0")}_${safeFileName}.${ext}`;
+          zipData[zipKey] = binary;
+          imageIndex++;
+        }
+      }
+
+      const zipped = zipSync(zipData);
+      const zipFilename = `収支報告補助データ${yearSuffix}${includeImages ? "（領収書含む）" : ""}_${dateStr}.zip`;
 
       const zipBuffer = zipped.slice().buffer as ArrayBuffer;
       return new Response(zipBuffer, {
