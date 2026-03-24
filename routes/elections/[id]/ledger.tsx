@@ -7,6 +7,7 @@ import JournalFormDrawer from "../../../islands/JournalFormDrawer.tsx";
 import JournalList from "../../../islands/JournalList.tsx";
 import ExportCSVButton from "../../../islands/ExportCSVButton.tsx";
 import { type Journal } from "../../../lib/types.ts";
+import ReSyncButton from "../../../islands/ReSyncButton.tsx";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -39,7 +40,7 @@ interface PageData {
 }
 
 export const handler: Handlers<PageData> = {
-  async GET(req, ctx) {
+  async GET(_req, ctx) {
     const electionId = ctx.params.id;
     const userId = ctx.state.userId as string;
 
@@ -274,6 +275,11 @@ export default function ElectionLedgerPage({ data }: PageProps<PageData>) {
               accountCodes={accountCodes}
             />
           </div>
+        </div>
+
+        {/* Danger Zone: Hub 強制再同期 */}
+        <div class="mt-8">
+          <ReSyncButton ledgerType="election" />
         </div>
       </Layout>
     </>

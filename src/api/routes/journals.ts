@@ -4,6 +4,17 @@
 
 import { Hono } from "hono";
 import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import {
+  isTestUser,
+  syncJournals,
+  syncLedger,
+  type SyncJournalInput,
+  type SyncLedgerInput,
+} from "../../../lib/hub-client.ts";
+import {
+  shouldSync,
+  transformJournalForSync,
+} from "../../../lib/sync-transform.ts";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -266,9 +277,27 @@ journalsRouter.post("/:id/approve", async (c) => {
     const supabase =
       userId === TEST_USER_ID ? getServiceClient() : getSupabaseClient(userId);
 
+    // 仕訳とその関連データを取得（Hub同期に必要）
+    const { data: journalFull, error: fetchError } = await supabase
+      .from("journals")
+      .select(
+        `
+        *,
+        journal_entries (*),
+        contacts (*)
+      `,
+      )
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !journalFull) {
+      return c.json({ error: "仕訳が見つかりません" }, 404);
+    }
+
+    // ステータスを approved に更新
     const { data, error } = await supabase
       .from("journals")
-      .update({ status: "approved" })
+      .update({ status: "approved", approved_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
@@ -276,6 +305,69 @@ journalsRouter.post("/:id/approve", async (c) => {
     if (error) {
       console.error("Failed to approve journal:", error);
       return c.json({ error: "仕訳の承認に失敗しました" }, 500);
+    }
+
+    // Hub への自動同期（best-effort: 失敗しても承認は成功）
+    try {
+      const isTest = isTestUser(userId);
+      const approvedJournal = { ...journalFull, status: "approved" as const };
+
+      if (shouldSync(approvedJournal)) {
+        // 台帳情報を取得
+        const ledgerQuery = approvedJournal.organization_id
+          ? supabase
+              .from("ledgers")
+              .select("*")
+              .eq("organization_id", approvedJournal.organization_id)
+              .limit(1)
+          : supabase
+              .from("ledgers")
+              .select("*")
+              .eq("election_id", approvedJournal.election_id)
+              .limit(1);
+
+        const { data: ledgers } = await ledgerQuery;
+        const ledger = ledgers?.[0];
+
+        if (ledger) {
+          // 台帳の集計を更新
+          const ledgerInput: SyncLedgerInput = {
+            ledger_source_id: ledger.id,
+            politician_id: ledger.politician_id,
+            organization_id: ledger.organization_id || undefined,
+            election_id: ledger.election_id || undefined,
+            fiscal_year: ledger.fiscal_year || new Date().getFullYear(),
+            is_test: isTest,
+            total_income: 0, // 集計は syncLedger 内で再計算される想定
+            total_expense: 0,
+            journal_count: 1,
+          };
+          await syncLedger(ledgerInput, { userId });
+
+          // 単一仕訳を同期
+          const transformed = await transformJournalForSync({
+            journal: approvedJournal,
+            entries: approvedJournal.journal_entries,
+            contact: approvedJournal.contacts,
+            ledgerSourceId: ledger.id,
+          });
+
+          const syncInput: SyncJournalInput = {
+            ...transformed,
+            is_test: isTest,
+          };
+          await syncJournals([syncInput], { userId });
+
+          console.log(`[Approve] Journal ${id} synced to Hub`);
+        } else {
+          console.warn(
+            `[Approve] No ledger found for journal ${id}, skipping Hub sync`,
+          );
+        }
+      }
+    } catch (syncError) {
+      // 同期失敗はログのみ（承認は成功）
+      console.error("[Approve] Hub sync failed (non-fatal):", syncError);
     }
 
     return c.json({ data });
