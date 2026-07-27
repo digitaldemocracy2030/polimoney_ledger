@@ -204,15 +204,17 @@ cd packages/web && deno task start
 
 ### 4.2. Row Level Security (RLS)
 
+> **v6 更新**: RLS は `ledger_members` テーブルの `ledger_id` を介してアクセス制御を行います。
+> `owner_user_id` ベースの旧ポリシーから、メンバーシップベースに移行済みです（GAG-544）。
+
 ```sql
--- 例: journals テーブルの RLS
-CREATE POLICY "Users can only access their own journals"
+-- 例: journals テーブルの RLS（v6 正規化後）
+CREATE POLICY "Members can access their ledger journals"
 ON journals FOR ALL
 USING (
-  auth.uid() IN (
-    SELECT user_id FROM ledger_members
-    WHERE organization_id = journals.organization_id
-       OR election_id = journals.election_id
+  ledger_id IN (
+    SELECT ledger_id FROM ledger_members
+    WHERE user_id = auth.uid()
   )
 );
 ```
