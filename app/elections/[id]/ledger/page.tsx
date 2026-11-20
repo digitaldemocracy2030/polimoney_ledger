@@ -130,15 +130,13 @@ export default function ElectionLedgerPage() {
           <Tabs.Tab value="journals">仕訳一覧</Tabs.Tab>
           <Tabs.Tab
             value="assets"
-            component={Link}
-            href={`/elections/${election.id}/assets`}
+            renderRoot={(props) => <Link {...props} href={`/elections/${election.id}/assets`} />}
           >
             資産一覧
           </Tabs.Tab>
           <Tabs.Tab
             value="members"
-            component={Link}
-            href={`/elections/${election.id}/members`}
+            renderRoot={(props) => <Link {...props} href={`/elections/${election.id}/members`} />}
           >
             メンバー
           </Tabs.Tab>

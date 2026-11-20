@@ -22,8 +22,8 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) => {
+        setAll: (cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) => {
+          cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options?: Record<string, unknown> }) => {
             response.cookies.set(name, value, options);
           });
         },
@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // 審査待ちチェック
+  // 蟇ｩ譟ｻ蠕�縺｡繝√ぉ繝�繧ｯ
   const registrationStatus = user.user_metadata?.registration_status;
   if (registrationStatus === 'pending_review' && !pathname.startsWith('/pending-review')) {
     return NextResponse.redirect(new URL('/pending-review', request.url));

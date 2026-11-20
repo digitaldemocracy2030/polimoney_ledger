@@ -46,7 +46,7 @@ export default function PendingReviewPage() {
       <Card shadow="xl" padding="xl" radius="md" w="100%" maw={480} ta="center">
         {isRejected ? (
           <>
-            <Text size={50} mb="md">❌</Text>
+            <Text size="3rem" mb="md">❌</Text>
             <Title order={2} c="red" mb="md">登録申請が却下されました</Title>
             <Alert color="red" icon={<IconX />} ta="left" mb="md">
               <Text fw={700}>却下理由</Text>
@@ -62,7 +62,7 @@ export default function PendingReviewPage() {
           </>
         ) : (
           <>
-            <Text size={50} mb="md">⏳</Text>
+            <Text size="3rem" mb="md">⏳</Text>
             <Title order={2} mb="md">審査中です</Title>
             <Alert color="blue" icon={<IconInfoCircle />} ta="left" mb="md">
               <Text fw={700}>現在、登録申請を審査しています</Text>

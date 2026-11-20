@@ -71,7 +71,7 @@ export default function RegisterPage() {
   if (success) {
     return (
       <Card shadow="xl" padding="xl" radius="md" w="100%" maw={420} ta="center">
-        <Text size={50} mb="md">✉️</Text>
+        <Text size="3rem" mb="md">✉️</Text>
         <Title order={2} mb="md">確認メールを送信しました</Title>
         <Stack ta="left" gap="sm">
           <Text>
@@ -103,7 +103,7 @@ export default function RegisterPage() {
   return (
     <Card shadow="xl" padding="xl" radius="md" w="100%" maw={420}>
       <Stack align="center" mb="md">
-        <Text size={50}>📒</Text>
+        <Text size="3rem">📒</Text>
         <Title order={2}>Polimoney Ledger</Title>
         <Text c="dimmed">新規登録</Text>
       </Stack>

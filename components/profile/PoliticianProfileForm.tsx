@@ -72,7 +72,7 @@ export function PoliticianProfileForm({ politician }: Props) {
         <Stack>
           <Card withBorder>
             <Title order={4}>プロフィール写真</Title>
-            <ImageCropper currentImageUrl={photoUrl} onCropped={(url) => setPhotoUrl(url)} uploadEndpoint="/api/profile/politician/photo" />
+            <ImageCropper currentImageUrl={photoUrl} shape="circle" uploadType="politician_photo" entityId={politician.id} onUploadComplete={(url: string) => setPhotoUrl(url)} />
           </Card>
 
           <Card withBorder>

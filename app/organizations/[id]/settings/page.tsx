@@ -98,27 +98,9 @@ export default function OrganizationSettingsPage() {
 
       <Tabs defaultValue="settings">
         <Tabs.List>
-          <Tabs.Tab
-            value="ledger"
-            component={Link}
-            href={`/organizations/${organization.id}/ledger`}
-          >
-            仕訳一覧
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="assets"
-            component={Link}
-            href={`/organizations/${organization.id}/assets`}
-          >
-            資産一覧
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="members"
-            component={Link}
-            href={`/organizations/${organization.id}/members`}
-          >
-            メンバー
-          </Tabs.Tab>
+          <Tabs.Tab value="ledger" renderRoot={(props) => <Link href={`/organizations/${organization.id}/ledger`} {...props} />}>仕訳一覧</Tabs.Tab>
+          <Tabs.Tab value="assets" renderRoot={(props) => <Link href={`/organizations/${organization.id}/assets`} {...props} />}>資産一覧</Tabs.Tab>
+          <Tabs.Tab value="members" renderRoot={(props) => <Link href={`/organizations/${organization.id}/members`} {...props} />}>メンバー</Tabs.Tab>
           <Tabs.Tab value="settings">設定</Tabs.Tab>
         </Tabs.List>
       </Tabs>

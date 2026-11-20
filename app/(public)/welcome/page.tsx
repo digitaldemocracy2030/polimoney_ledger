@@ -64,14 +64,14 @@ export default function WelcomePage() {
           <Title order={2} ta="center" mb="xl">特徴</Title>
           <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
             <Card padding="lg" ta="center">
-              <Text size={40} mb="md">📊</Text>
+              <Text size="2.5rem" mb="md">📊</Text>
               <Title order={3} size="h4" mb="xs">簡単な収支管理</Title>
               <Text c="dimmed">
                 直感的な UI で収入・支出を記録。手軽に記録を始められます。
               </Text>
             </Card>
             <Card padding="lg" ta="center">
-              <Text size={40} mb="md">📄</Text>
+              <Text size="2.5rem" mb="md">📄</Text>
               <Group justify="center" mb="xs">
                 <Title order={3} size="h4">報告書出力</Title>
                 <Badge variant="outline" size="sm">予定</Badge>
@@ -81,7 +81,7 @@ export default function WelcomePage() {
               </Text>
             </Card>
             <Card padding="lg" ta="center">
-              <Text size={40} mb="md">🔒</Text>
+              <Text size="2.5rem" mb="md">🔒</Text>
               <Title order={3} size="h4" mb="xs">セキュアなデータ管理</Title>
               <Text c="dimmed">
                 データは暗号化して保存。あなたのデータはあなただけのものです。

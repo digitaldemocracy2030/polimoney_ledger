@@ -30,7 +30,7 @@ export default function OrganizationMembersPage() {
         setCanManageMembers(data.canManageMembers || false);
         setLedgerId(data.ledgerId);
       } catch {
-        setError('ƒf[ƒ^‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½');
+        setError('ãƒ‡ãƒ¼ã‚¿ã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸ');
       } finally {
         setLoading(false);
       }
@@ -42,22 +42,22 @@ export default function OrganizationMembersPage() {
   return (
     <Container py="xl">
       <Breadcrumbs mb="md">
-        <Anchor component={Link} href="/organizations">­¡’c‘Ìˆê——</Anchor>
+        <Anchor component={Link} href="/organizations">æ”¿æ²»å›£ä½“ä¸€è¦§</Anchor>
         <Text>{orgName}</Text>
       </Breadcrumbs>
 
       <Tabs defaultValue="members" mb="xl">
         <Tabs.List>
-          <Tabs.Tab value="ledger" component={Link} href={`/organizations/${id}/ledger`}>d–óˆê——</Tabs.Tab>
-          <Tabs.Tab value="assets" component={Link} href={`/organizations/${id}/assets`}>‘Yˆê——</Tabs.Tab>
-          <Tabs.Tab value="members">ƒƒ“ƒo[</Tabs.Tab>
-          <Tabs.Tab value="settings" component={Link} href={`/organizations/${id}/settings`}>İ’è</Tabs.Tab>
+          <Tabs.Tab value="ledger" renderRoot={(props) => <Link href={`/organizations/${id}/ledger`} {...props} />}>ä»•è¨³ä¸€è¦§</Tabs.Tab>
+          <Tabs.Tab value="assets" renderRoot={(props) => <Link href={`/organizations/${id}/assets`} {...props} />}>è³‡ç”£ä¸€è¦§</Tabs.Tab>
+          <Tabs.Tab value="members">ãƒ¡ãƒ³ãƒãƒ¼</Tabs.Tab>
+          <Tabs.Tab value="settings" renderRoot={(props) => <Link href={`/organizations/${id}/settings`} {...props} />}>è¨­å®š</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
       {error && <Alert color="red" icon={<IconAlertCircle />} mb="md">{error}</Alert>}
 
-      <Title order={3} mb="md">ƒƒ“ƒo[ŠÇ—</Title>
+      <Title order={3} mb="md">ãƒ¡ãƒ³ãƒãƒ¼ç®¡ç†</Title>
       <MemberManager
         ledgerId={ledgerId}
         initialMembers={members}

@@ -7,12 +7,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
-  land: '“y’n',
-  building: 'Œš•¨',
-  vehicle: 'Ô—¼E‘D”•',
-  securities: '—L‰¿ØŒ”',
-  facility_rights: '{İ—˜—pŒ ',
-  deposit: '•~‹àE•ÛØ‹à',
+  land: 'åœŸåœ°',
+  building: 'å»ºç‰©',
+  vehicle: 'è»Šä¸¡ãƒ»èˆ¹èˆ¶',
+  securities: 'æœ‰ä¾¡è¨¼åˆ¸',
+  facility_rights: 'æ–½è¨­åˆ©ç”¨æ¨©',
+  deposit: 'æ•·é‡‘ãƒ»ä¿è¨¼é‡‘',
 };
 
 function formatAmount(amount: number): string {
@@ -50,7 +50,7 @@ export default function ElectionAssetsPage() {
         setElectionName(data.election?.election_name || '');
         setAssets(data.assets || []);
       } catch {
-        setError('ƒf[ƒ^‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½');
+        setError('ãƒ‡ãƒ¼ã‚¿ã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸ');
       } finally {
         setLoading(false);
       }
@@ -64,15 +64,15 @@ export default function ElectionAssetsPage() {
   return (
     <Container py="xl">
       <Breadcrumbs mb="md">
-        <Anchor component={Link} href="/elections">‘I‹“ˆê——</Anchor>
+        <Anchor component={Link} href="/elections">é¸æŒ™ä¸€è¦§</Anchor>
         <Text>{electionName}</Text>
       </Breadcrumbs>
 
       <Tabs defaultValue="assets" mb="xl">
         <Tabs.List>
-          <Tabs.Tab value="ledger" component={Link} href={`/elections/${id}/ledger`}>d–óˆê——</Tabs.Tab>
-          <Tabs.Tab value="assets">‘Yˆê——</Tabs.Tab>
-          <Tabs.Tab value="members" component={Link} href={`/elections/${id}/members`}>ƒƒ“ƒo[</Tabs.Tab>
+          <Tabs.Tab value="ledger" renderRoot={(props) => <Link href={`/elections/${id}/ledger`} {...props} />}>ä»•è¨³ä¸€è¦§</Tabs.Tab>
+          <Tabs.Tab value="assets">è³‡ç”£ä¸€è¦§</Tabs.Tab>
+          <Tabs.Tab value="members" renderRoot={(props) => <Link href={`/elections/${id}/members`} {...props} />}>ãƒ¡ãƒ³ãƒãƒ¼</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
@@ -80,21 +80,21 @@ export default function ElectionAssetsPage() {
 
       <Stack>
         <Group justify="space-between">
-          <Title order={3}>‘Yˆê——</Title>
-          <Badge size="lg" variant="light">‡Œv: \{formatAmount(totalAmount)}</Badge>
+          <Title order={3}>è³‡ç”£ä¸€è¦§</Title>
+          <Badge size="lg" variant="light">åˆè¨ˆ {formatAmount(totalAmount)}</Badge>
         </Group>
 
         {assets.length === 0 ? (
-          <Alert color="blue">‘Yæ“¾‚Ìd–ó‚ª‚ ‚è‚Ü‚¹‚ñ</Alert>
+          <Alert color="blue">è³‡ç”£å–å¾—ã®ä»•è¨³ãŒã‚ã‚Šã¾ã›ã‚“</Alert>
         ) : (
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>“ú•t</Table.Th>
-                <Table.Th>í—Ş</Table.Th>
-                <Table.Th>“E—v</Table.Th>
-                <Table.Th>‘Šèæ</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>‹àŠz</Table.Th>
+                <Table.Th>æ—¥ä»˜</Table.Th>
+                <Table.Th>ç¨®åˆ¥</Table.Th>
+                <Table.Th>èª¬æ˜</Table.Th>
+                <Table.Th>ç›¸æ‰‹å…ˆ</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }}>é‡‘é¡</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -104,7 +104,7 @@ export default function ElectionAssetsPage() {
                   <Table.Td><Badge variant="light">{ASSET_TYPE_LABELS[asset.asset_type] || asset.asset_type}</Badge></Table.Td>
                   <Table.Td>{asset.description}</Table.Td>
                   <Table.Td>{asset.contact_name || '-'}</Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>\{formatAmount(asset.amount)}</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{formatAmount(asset.amount)}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>

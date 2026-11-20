@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Container, Loader, Center } from '@mantine/core';
 import { OrganizationManagerVerificationForm } from '@/components/verification/OrganizationManagerVerificationForm';
 import { useSearchParams } from 'next/navigation';
 
-export default function VerifyOrganizationPage() {
+function VerifyOrganizationContent() {
   const searchParams = useSearchParams();
   const changeDomain = searchParams.get('change_domain') === 'true';
   const targetOrganizationId = searchParams.get('organization_id');
@@ -36,5 +36,13 @@ export default function VerifyOrganizationPage() {
         targetOrganizationId={targetOrganizationId}
       />
     </Container>
+  );
+}
+
+export default function VerifyOrganizationPage() {
+  return (
+    <Suspense fallback={<Center h={400}><Loader /></Center>}>
+      <VerifyOrganizationContent />
+    </Suspense>
   );
 }

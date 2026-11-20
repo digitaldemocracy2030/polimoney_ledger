@@ -1,13 +1,13 @@
 /**
- * Hub政治団体情報取得 API
- * Hub APIを経由して政治団体情報を取得するプロキシエンドポイント
+ * Hub謾ｿ豐ｻ蝗｣菴捺ュ蝣ｱ蜿門ｾ・API
+ * Hub API繧堤ｵ檎罰縺励※謾ｿ豐ｻ蝗｣菴捺ュ蝣ｱ繧貞叙蠕励☆繧九・繝ｭ繧ｭ繧ｷ繧ｨ繝ｳ繝峨・繧､繝ｳ繝・
  */
 
 import { Hono } from "hono";
 
-const HUB_API_URL = Deno.env.get("HUB_API_URL_PROD") || 
-                    Deno.env.get("HUB_API_URL_DEV") || 
-                    Deno.env.get("HUB_API_URL") || 
+const HUB_API_URL = process.env.HUB_API_URL_PROD || 
+                    process.env.HUB_API_URL_DEV || 
+                    process.env.HUB_API_URL || 
                     "http://localhost:8787";
 
 export const hubOrganizationsRouter = new Hono<{
@@ -34,7 +34,7 @@ interface HubOrganization {
   updated_at: string;
 }
 
-// GET /hub-organizations/:id - Hub DBから政治団体情報を取得
+// GET /hub-organizations/:id - Hub DB縺九ｉ謾ｿ豐ｻ蝗｣菴捺ュ蝣ｱ繧貞叙蠕・
 hubOrganizationsRouter.get("/:id", async (c) => {
   const userId = c.get("userId");
   if (!userId) {
@@ -43,7 +43,7 @@ hubOrganizationsRouter.get("/:id", async (c) => {
 
   const id = c.req.param("id");
 
-  // UUID形式チェック
+  // UUID蠖｢蠑上メ繧ｧ繝・け
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
     return c.json({ error: "無効な政治団体IDです" }, 400);
@@ -62,7 +62,7 @@ hubOrganizationsRouter.get("/:id", async (c) => {
     const result = await response.json();
     const org: HubOrganization = result.data;
 
-    // 必要な情報のみ返す
+    // 蠢・ｦ√↑諠・ｱ縺ｮ縺ｿ霑斐☆
     return c.json({
       data: {
         id: org.id,
@@ -79,7 +79,7 @@ hubOrganizationsRouter.get("/:id", async (c) => {
   }
 });
 
-// GET /hub-organizations/search - Hub DBで政治団体を検索（将来の拡張用）
+// GET /hub-organizations/search - Hub DB縺ｧ謾ｿ豐ｻ蝗｣菴薙ｒ讀懃ｴ｢・亥ｰ・擂縺ｮ諡｡蠑ｵ逕ｨ・・
 hubOrganizationsRouter.get("/search", async (c) => {
   const userId = c.get("userId");
   if (!userId) {
@@ -92,7 +92,7 @@ hubOrganizationsRouter.get("/search", async (c) => {
   }
 
   try {
-    // TODO: Hub APIに検索エンドポイントを追加後に実装
+    // TODO: Hub API縺ｫ讀懃ｴ｢繧ｨ繝ｳ繝峨・繧､繝ｳ繝医ｒ霑ｽ蜉蠕後↓螳溯｣・
     return c.json({ 
       data: [],
       message: "検索機能は現在準備中です"

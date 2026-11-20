@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   Alert,
@@ -78,7 +78,7 @@ interface PageData {
   ledgerId: string;
 }
 
-export default function OrganizationLedgerPage() {
+function OrganizationLedgerContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const organizationId = params?.id as string;
@@ -144,22 +144,19 @@ export default function OrganizationLedgerPage() {
           <Tabs.Tab value="ledger">仕訳一覧</Tabs.Tab>
           <Tabs.Tab
             value="assets"
-            component={Link}
-            href={`/organizations/${organization.id}/assets`}
+            renderRoot={(props) => <Link {...props} href={`/organizations/${organization.id}/assets`} />}
           >
             資産一覧
           </Tabs.Tab>
           <Tabs.Tab
             value="members"
-            component={Link}
-            href={`/organizations/${organization.id}/members`}
+            renderRoot={(props) => <Link {...props} href={`/organizations/${organization.id}/members`} />}
           >
             メンバー
           </Tabs.Tab>
           <Tabs.Tab
             value="settings"
-            component={Link}
-            href={`/organizations/${organization.id}/settings`}
+            renderRoot={(props) => <Link {...props} href={`/organizations/${organization.id}/settings`} />}
           >
             設定
           </Tabs.Tab>
@@ -209,5 +206,13 @@ export default function OrganizationLedgerPage() {
         )}
       </Card>
     </Stack>
+  );
+}
+
+export default function OrganizationLedgerPage() {
+  return (
+    <Suspense fallback={<Stack align="center" py="xl"><Loader /></Stack>}>
+      <OrganizationLedgerContent />
+    </Suspense>
   );
 }

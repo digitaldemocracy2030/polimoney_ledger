@@ -11,13 +11,33 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "routes", "islands", "_fresh", "legacy"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "routes",
+    "islands",
+    "_fresh",
+    "legacy",
+    "components/Layout.tsx",
+    "tailwind.config.ts",
+    "fresh.config.ts",
+    "fresh.gen.ts",
+    "dev.ts",
+    "main.ts",
+    "db",
+    "scratch"
+  ]
 }

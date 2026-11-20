@@ -43,7 +43,7 @@ interface UnlockRequestBody {
   reason: string;
 }
 
-export const closuresRouter = new Hono();
+export const closuresRouter = new Hono<{ Variables: { userId: string } }>();
 
 closuresRouter.get('/check', async (c) => {
   const userId = c.get('userId');
@@ -107,7 +107,7 @@ closuresRouter.get('/check', async (c) => {
         issues.push({
           type: 'error',
           category: 'draft',
-          message: `未承認の仕訳があります: ${journal.description}`,
+          message: `譛ｪ謇ｿ隱阪・莉戊ｨｳ縺後≠繧翫∪縺・ ${journal.description}`,
           journalId: journal.id,
           journalDate: journal.journal_date,
           description: journal.description,
@@ -121,7 +121,7 @@ closuresRouter.get('/check', async (c) => {
         issues.push({
           type: 'warning',
           category: 'receipt',
-          message: `領収証が未添付です: ${journal.description}`,
+          message: `鬆伜庶險ｼ縺梧悴豺ｻ莉倥〒縺・ ${journal.description}`,
           journalId: journal.id,
           journalDate: journal.journal_date,
           description: journal.description,
@@ -145,7 +145,7 @@ closuresRouter.get('/check', async (c) => {
         issues.push({
           type: 'error',
           category: 'imbalance',
-          message: `借方・貸方が不一致です: ${journal.description} (借方: ${totalDebit}, 貸方: ${totalCredit})`,
+          message: `蛟滓婿繝ｻ雋ｸ譁ｹ縺御ｸ堺ｸ閾ｴ縺ｧ縺・ ${journal.description} (蛟滓婿: ${totalDebit}, 雋ｸ譁ｹ: ${totalCredit})`,
           journalId: journal.id,
           journalDate: journal.journal_date,
           description: journal.description,
@@ -247,7 +247,7 @@ closuresRouter.post('/execute', async (c) => {
 
     return c.json({
       success: true,
-      message: `${year}年度を締めました`,
+      message: `${year}蟷ｴ蠎ｦ繧堤ｷ繧√∪縺励◆`,
       closure,
     });
   } catch (error) {
@@ -327,7 +327,7 @@ closuresRouter.post('/archive', async (c) => {
 
     return c.json({
       success: true,
-      message: `${year}年度をアーカイブしました`,
+      message: `${year}蟷ｴ蠎ｦ繧偵い繝ｼ繧ｫ繧､繝悶＠縺ｾ縺励◆`,
       closure,
     });
   } catch (error) {
@@ -401,7 +401,7 @@ closuresRouter.post('/reopen', async (c) => {
 
     return c.json({
       success: true,
-      message: `${year}年度の締めを解除しました`,
+      message: `${year}蟷ｴ蠎ｦ縺ｮ邱繧√ｒ隗｣髯､縺励∪縺励◆`,
     });
   } catch (error) {
     console.error('Error reopening year:', error);
@@ -430,7 +430,7 @@ closuresRouter.post('/unlock-request', async (c) => {
 
   if (!reason || reason.trim().length < 10) {
     return c.json(
-      { error: '理由は10文字以上で入力してください' },
+      { error: '逅・罰縺ｯ10譁・ｭ嶺ｻ･荳翫〒蜈･蜉帙＠縺ｦ縺上□縺輔＞' },
       400,
     );
   }
@@ -470,7 +470,7 @@ closuresRouter.post('/unlock-request', async (c) => {
 
     return c.json({
       success: true,
-      message: 'ロック解除リクエストを送信しました',
+      message: '繝ｭ繝・け隗｣髯､繝ｪ繧ｯ繧ｨ繧ｹ繝医ｒ騾∽ｿ｡縺励∪縺励◆',
       request: unlockRequest,
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, TextInput, PasswordInput, Button, Text, Group, Image, Divider, Anchor, Alert, Stack } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const [email, setEmail] = useState('');
@@ -91,5 +91,13 @@ export default function LoginPage() {
         <Anchor href="/register">新規登録</Anchor>
       </Stack>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Text>読み込み中...</Text>}>
+      <LoginForm />
+    </Suspense>
   );
 }

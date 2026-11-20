@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Alert,
@@ -46,7 +46,7 @@ function calculateTotal(entries: JournalEntry[]): number {
   return entries.reduce((sum, entry) => sum + entry.debit_amount, 0);
 }
 
-export default function JournalsPage() {
+function JournalsContent() {
   const searchParams = useSearchParams();
   const filterParam = searchParams?.get('filter') || 'all';
 
@@ -148,5 +148,13 @@ export default function JournalsPage() {
         </Table.ScrollContainer>
       )}
     </Stack>
+  );
+}
+
+export default function JournalsPage() {
+  return (
+    <Suspense fallback={<Stack align="center" py="xl"><Loader /></Stack>}>
+      <JournalsContent />
+    </Suspense>
   );
 }

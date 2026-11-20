@@ -367,7 +367,7 @@ exportReportRouter.get("/", async (c) => {
     const dateStr = todayStr();
     const yearSuffix = year ? `_${year}年度` : "";
 
-    if (ledgerType === "election" || electionId) {
+    if (ledgerType === "election") {
       // 選挙用: 選挙運動費用収支報告書
       const csv = generateElectionReportCsv(journals);
       const filename = `選挙運動費用収支報告書_補助${yearSuffix}_${dateStr}.csv`;

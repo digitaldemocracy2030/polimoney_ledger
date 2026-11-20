@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Container, Loader, Center } from '@mantine/core';
 import { PoliticianVerificationForm } from '@/components/verification/PoliticianVerificationForm';
 import { useSearchParams } from 'next/navigation';
 
-export default function VerifyPoliticianPage() {
+function VerifyPoliticianContent() {
   const searchParams = useSearchParams();
   const changeDomain = searchParams.get('change_domain') === 'true';
 
@@ -38,5 +38,13 @@ export default function VerifyPoliticianPage() {
         changeDomain={changeDomain}
       />
     </Container>
+  );
+}
+
+export default function VerifyPoliticianPage() {
+  return (
+    <Suspense fallback={<Center h={400}><Loader /></Center>}>
+      <VerifyPoliticianContent />
+    </Suspense>
   );
 }
