@@ -27,17 +27,6 @@
   ],
   "exclude": [
     "node_modules",
-    "routes",
-    "islands",
-    "_fresh",
-    "legacy",
-    "components/Layout.tsx",
-    "tailwind.config.ts",
-    "fresh.config.ts",
-    "fresh.gen.ts",
-    "dev.ts",
-    "main.ts",
-    "db",
-    "scratch"
+    "db"
   ]
 }
