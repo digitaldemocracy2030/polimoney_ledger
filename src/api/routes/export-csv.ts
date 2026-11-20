@@ -6,12 +6,12 @@
  */
 
 import { Hono } from "hono";
-import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from '@/lib/supabase';
 import {
   getAccountName,
   getAccountType,
   getReportCategory,
-} from "../../constants/account-codes.ts";
+} from '@/src/constants/account-codes';
 import { zipSync } from "fflate";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";

@@ -3,7 +3,7 @@
  */
 
 import { Hono } from "hono";
-import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from '@/lib/supabase';
 import {
   createPoliticianVerification,
   sendPoliticianVerificationCode,
@@ -11,7 +11,7 @@ import {
   verifyPoliticianDns,
   type CandidateRegistrationInfo,
   type PoliticalFundReportInfo,
-} from "../../../lib/hub-client.ts";
+} from '@/lib/hub-client';
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 

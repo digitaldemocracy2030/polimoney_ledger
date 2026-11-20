@@ -13,7 +13,7 @@ import {
   syncJournals,
   syncLedger,
   type SyncLedgerInput,
-} from "../../../lib/hub-client.ts";
+} from '@/lib/hub-client';
 import {
   type LedgerContact,
   type LedgerJournal,
@@ -21,7 +21,7 @@ import {
   isFullyPublicContact,
   shouldSync,
   transformJournalForSync,
-} from "../../../lib/sync-transform.ts";
+} from '@/lib/sync-transform';
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
