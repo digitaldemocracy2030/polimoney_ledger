@@ -6,12 +6,12 @@
  */
 
 import { Hono } from "hono";
-import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from '@/lib/supabase';
 import {
   ACCOUNT_CODES,
   getAccountName,
   getAccountType,
-} from "../../constants/account-codes.ts";
+} from '@/src/constants/account-codes';
 import { zipSync } from "fflate";
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
@@ -367,7 +367,7 @@ exportReportRouter.get("/", async (c) => {
     const dateStr = todayStr();
     const yearSuffix = year ? `_${year}年度` : "";
 
-    if (ledgerType === "election" || electionId) {
+    if (ledgerType === "election") {
       // 選挙用: 選挙運動費用収支報告書
       const csv = generateElectionReportCsv(journals);
       const filename = `選挙運動費用収支報告書_補助${yearSuffix}_${dateStr}.csv`;

@@ -74,20 +74,22 @@ Accounts)**」のみとし、これを Supabase に保存します。
 | name                | text                 | **補助科目名**             | 必須。例: 「電気代」「水道代」                                           |
 | created_at          | timestamptz          | レコード作成日時           | デフォルトで now()                                                       |
 
-#### **2.1.1. 静的勘定科目マスタ（アプリ内定義）【v3.11 大幅更新】**
+#### **2.1.1. 静的勘定科目マスタ（Hub 参照）【v3.11 大幅更新 → v6 移行】**
 
-`lib/core/constants/account_master.dart` 等で定義します。
+> **⚠️ v6 移行注記**: 勘定科目マスタは Hub（polimoney_hub）の `account_codes` テーブルに一元管理されています。
+> Ledger 側の旧 `account_master` テーブル（0行）は廃止予定です。
+> アプリ側では Hub API 経由で勘定科目を参照してください。
+
 政治資金規正法施行規則に基づき、収支報告書の項目分類に準拠した科目体系とします。
 
-**共通プロパティ:**
+**共通プロパティ（Hub `account_codes` テーブル）:**
 
-- `code`: 一意な識別子
+- `code`: 一意な識別子（PK）
 - `name`: 表示名
 - `type`: 勘定タイプ (asset, liability, equity, revenue, expense, subsidy)
-- `reportCategory`: 報告書上の分類
-- `availableLedgerTypes`: 使用可能な台帳タイプ
-- `isPublicSubsidyEligible`: **【v3.11 追加】**
-  公費負担対象かどうか（選挙運動費用の印刷費・広告費など）
+- `report_category`: 報告書上の分類
+- `ledger_type`: 使用可能な台帳タイプ (organization, election, both)
+- `is_public_subsidy_eligible`: 公費負担対象かどうか（選挙運動費用の印刷費・広告費など）
 
 ---
 

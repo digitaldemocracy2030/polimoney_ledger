@@ -5,7 +5,7 @@
  * Hub の public_journals 形式に変換する
  */
 
-import type { SyncJournalInput } from "./hub-client.ts";
+import type { SyncJournalInput } from './hub-client';
 
 // ============================================
 // 型定義（Ledger 側のデータ構造）

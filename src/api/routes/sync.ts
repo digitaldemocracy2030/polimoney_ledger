@@ -1,5 +1,5 @@
 /**
- * Hub 同期 API
+ * Hub 蜷梧悄 API
  */
 
 import { Hono } from "hono";
@@ -13,7 +13,7 @@ import {
   syncJournals,
   syncLedger,
   type SyncLedgerInput,
-} from "../../../lib/hub-client.ts";
+} from '@/lib/hub-client';
 import {
   type LedgerContact,
   type LedgerJournal,
@@ -21,10 +21,10 @@ import {
   isFullyPublicContact,
   shouldSync,
   transformJournalForSync,
-} from "../../../lib/sync-transform.ts";
+} from '@/lib/sync-transform';
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "";
 
 function getSupabase() {
   return createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -36,7 +36,7 @@ export const syncRouter = new Hono<{
   };
 }>();
 
-/** 正規化後の ledgers テーブル */
+/** 豁｣隕丞喧蠕後・ ledgers 繝・・繝悶Ν */
 interface LedgerRecord {
   id: string;
   ledger_type: "political_fund" | "election_fund";
@@ -104,22 +104,22 @@ function calculateLedgerTotals(journals: JournalWithEntries[]): {
 }
 
 /**
- * journals から公開可能な contacts を収集し、Hub に同期する
+ * journals 縺九ｉ蜈ｬ髢句庄閭ｽ縺ｪ contacts 繧貞庶髮・＠縲？ub 縺ｫ蜷梧悄縺吶ｋ
  *
- * contact_source_id（Ledger contacts.id — UUID）をユニークキーとして同期。
- * 同姓同名でも UUID で確実に区別される。
+ * contact_source_id・・edger contacts.id 窶・UUID・峨ｒ繝ｦ繝九・繧ｯ繧ｭ繝ｼ縺ｨ縺励※蜷梧悄縲・
+ * 蜷悟ｧ灘酔蜷阪〒繧・UUID 縺ｧ遒ｺ螳溘↓蛹ｺ蛻･縺輔ｌ繧九・
  *
- * @returns Ledger contact_id → Hub public_contacts.id のマッピング
+ * @returns Ledger contact_id 竊・Hub public_contacts.id 縺ｮ繝槭ャ繝斐Φ繧ｰ
  */
 async function syncContactsForJournals(
   journals: JournalWithEntries[],
   hubLedgerId: string,
   userId: string | undefined,
 ): Promise<Map<string, string>> {
-  // Ledger contact_id → Hub public_contacts.id
+  // Ledger contact_id 竊・Hub public_contacts.id
   const contactIdMap = new Map<string, string>();
 
-  // 全公開の contact を収集（重複排除）
+  // 蜈ｨ蜈ｬ髢九・ contact 繧貞庶髮・ｼ磯㍾隍・賜髯､・・
   const contactsToSync = new Map<string, SyncContactInput>();
 
   for (const journal of journals) {
@@ -127,7 +127,7 @@ async function syncContactsForJournals(
     if (!contact || !contact.id) continue;
     if (contactsToSync.has(contact.id)) continue;
 
-    // 全フィールド公開の場合のみ Hub に同期
+    // 蜈ｨ繝輔ぅ繝ｼ繝ｫ繝牙・髢九・蝣ｴ蜷医・縺ｿ Hub 縺ｫ蜷梧悄
     if (isFullyPublicContact(contact)) {
       contactsToSync.set(contact.id, {
         contact_source_id: contact.id,
@@ -141,7 +141,7 @@ async function syncContactsForJournals(
         is_occupation_private: false,
       });
     } else {
-      // 一部非公開の場合も非公開フラグ付きで同期
+      // 荳驛ｨ髱槫・髢九・蝣ｴ蜷医ｂ髱槫・髢九ヵ繝ｩ繧ｰ莉倥″縺ｧ蜷梧悄
       contactsToSync.set(contact.id, {
         contact_source_id: contact.id,
         ledger_id: hubLedgerId,
@@ -168,7 +168,7 @@ async function syncContactsForJournals(
       { userId },
     );
 
-    // マッピングを構築
+    // 繝槭ャ繝斐Φ繧ｰ繧呈ｧ狗ｯ・
     for (const result of syncResult.data) {
       contactIdMap.set(result.contact_source_id, result.hub_contact_id);
     }
@@ -183,7 +183,7 @@ async function syncContactsForJournals(
   return contactIdMap;
 }
 
-// POST /sync - Hub に同期
+// POST /sync - Hub 縺ｫ蜷梧悄
 syncRouter.post("/", async (c) => {
   const userId = c.get("userId");
   const url = new URL(c.req.url);
@@ -258,7 +258,7 @@ syncRouter.post("/", async (c) => {
 
         const totals = calculateLedgerTotals(journals);
 
-        // 1. 台帳を同期
+        // 1. 蜿ｰ蟶ｳ繧貞酔譛・
         const ledgerInput: SyncLedgerInput = {
           ledger_source_id: ledger.id,
           ledger_type: ledgerRecord.ledger_type,
@@ -275,11 +275,11 @@ syncRouter.post("/", async (c) => {
           userId: userId || undefined,
         });
 
-        // Hub の public_ledgers.id を取得
+        // Hub 縺ｮ public_ledgers.id 繧貞叙蠕・
         const hubLedgerId =
           ledgerResult.data?.id || ledger.hub_ledger_id || ledger.id;
 
-        // 2. contacts を先に同期（UUID でユニーク識別）
+        // 2. contacts 繧貞・縺ｫ蜷梧悄・・UID 縺ｧ繝ｦ繝九・繧ｯ隴伜挨・・
         const contactIdMap = await syncContactsForJournals(
           journals,
           hubLedgerId,
@@ -287,7 +287,7 @@ syncRouter.post("/", async (c) => {
         );
         result.contacts_synced += contactIdMap.size;
 
-        // 3. journals を同期（contact_id は Hub の public_contacts.id を使用）
+        // 3. journals 繧貞酔譛滂ｼ・ontact_id 縺ｯ Hub 縺ｮ public_contacts.id 繧剃ｽｿ逕ｨ・・
         const syncInputs: SyncJournalInput[] = [];
 
         for (const journal of journals) {
@@ -296,7 +296,7 @@ syncRouter.post("/", async (c) => {
             continue;
           }
 
-          // Ledger の contact_id → Hub の public_contacts.id にマッピング
+          // Ledger 縺ｮ contact_id 竊・Hub 縺ｮ public_contacts.id 縺ｫ繝槭ャ繝斐Φ繧ｰ
           const hubContactId = journal.contact_id
             ? contactIdMap.get(journal.contact_id) || null
             : null;

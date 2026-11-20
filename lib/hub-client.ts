@@ -8,7 +8,7 @@
 
 /** 本番/開発の判定 */
 // 注意: DENO_ENV は Deno Deploy で予約済みのため APP_ENV を使用
-const IS_PRODUCTION = Deno.env.get("APP_ENV") === "production";
+const IS_PRODUCTION = process.env.APP_ENV === "production";
 
 /**
  * Hub API URL / API Key
@@ -20,11 +20,11 @@ const IS_PRODUCTION = Deno.env.get("APP_ENV") === "production";
  * DEV キーで呼ぶと is_test=true、PROD キーで呼ぶと is_test=false のデータが返ります。
  */
 const HUB_API_URL_PROD =
-  Deno.env.get("HUB_API_URL_PROD") || "https://api.polimoney.dd2030.org";
+  process.env.HUB_API_URL_PROD || "https://api.polimoney.dd2030.org";
 const HUB_API_URL_DEV =
-  Deno.env.get("HUB_API_URL_DEV") || "http://localhost:3722";
-const HUB_API_KEY_PROD = Deno.env.get("HUB_API_KEY_PROD") || "";
-const HUB_API_KEY_DEV = Deno.env.get("HUB_API_KEY_DEV") || "";
+  process.env.HUB_API_URL_DEV || "http://localhost:3722";
+const HUB_API_KEY_PROD = process.env.HUB_API_KEY_PROD || "";
+const HUB_API_KEY_DEV = process.env.HUB_API_KEY_DEV || "";
 
 // デフォルト環境（非テストユーザー用）
 const HUB_API_URL = IS_PRODUCTION ? HUB_API_URL_PROD : HUB_API_URL_DEV;

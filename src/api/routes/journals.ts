@@ -3,7 +3,7 @@
  */
 
 import { Hono } from "hono";
-import { getServiceClient, getSupabaseClient } from "../../../lib/supabase.ts";
+import { getServiceClient, getSupabaseClient } from '@/lib/supabase';
 import {
   isTestUser,
   syncContacts,
@@ -12,12 +12,12 @@ import {
   syncLedger,
   type SyncJournalInput,
   type SyncLedgerInput,
-} from "../../../lib/hub-client.ts";
+} from '@/lib/hub-client';
 import {
   isFullyPublicContact,
   shouldSync,
   transformJournalForSync,
-} from "../../../lib/sync-transform.ts";
+} from '@/lib/sync-transform';
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 

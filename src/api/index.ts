@@ -4,24 +4,26 @@
  * Fresh からルーティングされた API リクエストを処理
  */
 
-import { Hono } from "hono";
-import { contactsRouter } from "./routes/contacts.ts";
-import { journalsRouter } from "./routes/journals.ts";
-import { electionsRouter } from "./routes/elections.ts";
-import { organizationsRouter } from "./routes/organizations.ts";
-import { politiciansRouter } from "./routes/politicians.ts";
-import { membersRouter } from "./routes/members.ts";
-import { subAccountsRouter } from "./routes/sub-accounts.ts";
-import { profileRouter } from "./routes/profile.ts";
-import { syncRouter } from "./routes/sync.ts";
-import { uploadRouter } from "./routes/upload.ts";
-import { ownershipTransfersRouter } from "./routes/ownership-transfers.ts";
-import { electionRequestsRouter } from "./routes/election-requests.ts";
-import { organizationRequestsRouter } from "./routes/organization-requests.ts";
-import { accountRouter } from "./routes/account.ts";
-import { hubOrganizationsRouter } from "./routes/hub-organizations.ts";
-import { exportCsvRouter } from "./routes/export-csv.ts";
-import { exportReportRouter } from "./routes/export-report.ts";
+import { Hono } from 'hono';
+import { contactsRouter } from './routes/contacts';
+import { journalsRouter } from './routes/journals';
+import { electionsRouter } from './routes/elections';
+import { organizationsRouter } from './routes/organizations';
+import { politiciansRouter } from './routes/politicians';
+import { membersRouter } from './routes/members';
+import { subAccountsRouter } from './routes/sub-accounts';
+import { profileRouter } from './routes/profile';
+import { syncRouter } from './routes/sync';
+import { uploadRouter } from './routes/upload';
+import { ownershipTransfersRouter } from './routes/ownership-transfers';
+import { electionRequestsRouter } from './routes/election-requests';
+import { organizationRequestsRouter } from './routes/organization-requests';
+import { accountRouter } from './routes/account';
+import { hubOrganizationsRouter } from './routes/hub-organizations';
+import { exportCsvRouter } from './routes/export-csv';
+import { exportReportRouter } from './routes/export-report';
+import { closuresRouter } from './routes/closures';
+import { authRouter } from './routes/auth';
 
 // Hono アプリを作成
 export const api = new Hono<{
@@ -58,6 +60,8 @@ api.route("/account", accountRouter);
 api.route("/hub-organizations", hubOrganizationsRouter);
 api.route("/export-csv", exportCsvRouter);
 api.route("/export-report", exportReportRouter);
+api.route("/closures", closuresRouter);
+api.route("/auth", authRouter);
 
 // 404 ハンドラー
 api.notFound((c) => {
