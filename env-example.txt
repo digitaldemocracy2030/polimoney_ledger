@@ -1,35 +1,11 @@
-# ===========================================
-# Polimoney Ledger 環境変数
-# ===========================================
+# Supabase
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
-# -------------------------------------------
-# 環境設定
-# -------------------------------------------
-# production: 本番環境（_PROD 変数を使用）
-# development: 開発環境（_DEV 変数を使用）
-# 注意: DENO_ENV は Deno Deploy で予約済みのため APP_ENV を使用
+# Hub API
 APP_ENV=development
-
-# -------------------------------------------
-# Polimoney Hub API 設定（開発環境用）
-# -------------------------------------------
-# ローカル: http://localhost:3722
-HUB_API_URL_DEV=http://localhost:3722
-HUB_API_KEY_DEV=your-dev-api-key-here
-
-# -------------------------------------------
-# Polimoney Hub API 設定（本番環境用）
-# -------------------------------------------
 HUB_API_URL_PROD=https://api.polimoney.dd2030.org
-HUB_API_KEY_PROD=your-prod-api-key-here
-
-# -------------------------------------------
-# Supabase 設定（Ledger DB）
-# -------------------------------------------
-# Supabase Dashboard > Settings > API から取得
-SUPABASE_URL=https://your-ledger-project.supabase.co
-SUPABASE_PUBLISHABLE_KEY=your-anon-key-here
-
-# Service Role Key（テストユーザーのダミーデータアクセス用）
-# ⚠️ 絶対にクライアントサイドに公開しないこと
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+HUB_API_URL_DEV=http://localhost:3722
+HUB_API_KEY_PROD=
+HUB_API_KEY_DEV=

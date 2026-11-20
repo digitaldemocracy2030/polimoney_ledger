@@ -121,3 +121,10 @@ secrets/
 # VS Code Workspace
 # -------------------------------------------
 *.code-workspace
+
+# Next.js
+.next/
+out/
+node_modules/
+.env.local
+.env*.local
