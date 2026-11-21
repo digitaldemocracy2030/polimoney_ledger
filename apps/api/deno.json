@@ -1,0 +1,17 @@
+{
+  "tasks": {
+    "dev": "deno run --watch --env-file=.env --allow-net --allow-env --allow-read main.ts",
+    "start": "deno run --allow-net --allow-env --allow-read main.ts",
+    "check": "deno check main.ts"
+  },
+  "imports": {
+    "hono": "npm:hono@^4.6.0",
+    "hono/": "npm:/hono@^4.6.0/",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2",
+    "fflate": "npm:fflate@^0.8.2",
+    "@polimoney-ledger/shared/": "../../packages/shared/src/"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

@@ -11,178 +11,161 @@
 > | **🅱️ Supabase B (Hub 専用)**    | 共通識別子、公開データ、管理者認証           |
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   Fresh (Deno)                               │
-│                   (フロントエンド)                           │
-└───────────────────────┬─────────────────────────────────────┘
-                        │ HTTPS
-        ┌───────────────┴───────────────┐
-        │                               │
-        ▼                               ▼
-┌───────────────────┐         ┌───────────────────────────────┐
-│  Supabase Edge    │         │      Supabase Realtime        │
-│  Functions (API)  │         │        (WebSocket)            │
-│  - Hono + Deno    │         │  - 仕訳変更のリアルタイム通知 │
-└─────────┬─────────┘         └───────────────┬───────────────┘
-          │                                   │
-          └───────────────┬───────────────────┘
-                          ▼
-          ┌───────────────────────────────────────────────────┐
-          │  🅰️ Supabase Project A (Ledger 専用)              │
-          │  ┌─────────────────────────────┐                  │
-          │  │ [PostgreSQL]                │                  │
-          │  │ - journals (仕訳)           │                  │
-          │  │ - journal_entries (明細)    │                  │
-          │  │ - contacts (関係者)         │                  │
-          │  │ - sub_accounts (補助科目)   │                  │
-          │  │ - ledgers (台帳)            │                  │
-          │  └─────────────────────────────┘                  │
-          │  ┌─────────────────────────────┐                  │
-          │  │ [Supabase Auth]             │                  │
-          │  │ - OTP 認証（政治家向け）    │                  │
-          │  └─────────────────────────────┘                  │
-          │  ┌─────────────────────────────┐                  │
-          │  │ [Supabase Storage]          │                  │
-          │  │ - 領収書画像                │                  │
-          │  └─────────────────────────────┘                  │
-          └───────────────────────────────────────────────────┘
-                          │
-                          │ API 連携 (X-API-Key)
-                          ▼
-          ┌───────────────────────────────────────────────────┐
-          │              Polimoney Hub (API)                  │
-          │  - 共通識別子取得 (GET /api/v1/elections 等)      │
-          │  - 公開データ同期 (POST /api/v1/sync)             │
-          │                                                   │
-          │  → 🅱️ Supabase Project B (Hub 専用) に接続       │
-          └───────────────────────────────────────────────────┘
-                          │
-                          ▼
-          ┌───────────────────────────────────────────────────┐
-          │              Polimoney (可視化)                   │
-          │  - Hub API から公開データを取得                   │
-          └───────────────────────────────────────────────────┘
+┌──────────────────────────────────┐   ┌──────────────────┐
+│ Web: apps/web                    │   │ ネイティブアプリ │ ← 将来
+│ Next.js (App Router) + Mantine   │   └────────┬─────────┘
+│  middleware.ts  画面の振り分け   │            │
+│  lib/api-client.ts  apiFetch()   │            │
+└───────┬──────────────────┬───────┘            │
+        │ ① 認証のみ       │ ② Authorization: Bearer <JWT>
+        │ (@supabase/ssr)  ▼                    ▼
+        │       ┌─────────────────────────────────────────┐
+        │       │ Ledger API: apps/api (Hono on Deno)     │
+        │       │  /v1/journals, /v1/contacts, ...        │
+        │       │  - requireAuth: JWT を検証 → userId     │
+        │       │  - ユーザーの JWT 付きクライアント(RLS) │
+        │       │  - service_role は authz 確認後の       │
+        │       │    特権処理のみ                         │
+        │       └───────┬─────────────────────┬───────────┘
+        ▼               ▼ supabase-js         ▼ X-API-Key
+┌───────────────────────────────┐   ┌───────────────────────────┐
+│ 🅰️ Supabase A (Ledger 専用)   │   │ Polimoney Hub (API)       │
+│  PostgreSQL                   │   │  - 共通識別子取得         │
+│   ledgers / ledger_members    │   │  - 公開データ同期         │
+│   journals / journal_entries  │   │  → 🅱️ Supabase B          │
+│   contacts / sub_accounts     │   └─────────────┬─────────────┘
+│   political_organizations     │                 │
+│   elections / media_assets    │                 ▼
+│  Auth（ユーザー認証）         │   ┌───────────────────────────┐
+│  Storage（領収書・証明書類）  │   │ Polimoney (可視化)        │
+└───────────────────────────────┘   └───────────────────────────┘
 ```
+
+> 旧構成（Fresh + Supabase Edge Functions + Realtime）から移行済み。現在 Realtime は使用していない。
+> API 分離の経緯と残作業は [implementation_plan.md](./implementation_plan.md) を参照。
 
 ---
 
 ## 2. 技術スタック
 
-### 2.1. フロントエンド
+### 2.1. フロントエンド（apps/web）
 
-| 項目           | 選択                  | 理由                                       |
-| -------------- | --------------------- | ------------------------------------------ |
-| フレームワーク | **Fresh (Deno)**      | Deno ネイティブ、Islands Architecture、SSR |
-| UI             | Preact + Tailwind CSS | 軽量、高速                                 |
-| ホスティング   | **Deno Deploy**       | Fresh と最適化、グローバルエッジ配信       |
+| 項目           | 選択                        | 備考                                                                                 |
+| -------------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| フレームワーク | **Next.js 16 (App Router)** | React 19。ページは主にクライアントコンポーネント。Next.js の API ルートは持たない    |
+| UI             | **Mantine 9**               | `@mantine/core`, `dates`, `form`, `notifications`、アイコンは `@tabler/icons-react` |
+| 認証           | `@supabase/ssr`             | 認証（ログイン・登録・ログアウト・トークン更新・パスワード再設定）のみ               |
+| ホスティング   | **Deno Deploy**             | `ledger-web` として単独でデプロイ（未実施）                                          |
 
-### 2.2. バックエンド API
+### 2.2. バックエンド API（apps/api）
 
-| 項目           | 選択                               | 理由                                 |
-| -------------- | ---------------------------------- | ------------------------------------ |
-| ランタイム     | **Deno (Supabase Edge Functions)** | TypeScript ネイティブ、Supabase 統合 |
-| フレームワーク | **Hono**                           | 軽量、Edge 最適化、TypeScript        |
-| デプロイ       | Supabase Edge Functions            | グローバルエッジ配信                 |
+| 項目           | 選択                     | 備考                                                  |
+| -------------- | ------------------------ | ----------------------------------------------------- |
+| ランタイム     | **Deno 2**               | `main.ts` で `Deno.serve(app.fetch)`                  |
+| フレームワーク | **Hono**                 | `app.ts` に `/v1` 配下のルーターをマウント            |
+| 依存           | `deno.json` の `imports` | `npm:hono`, `npm:@supabase/supabase-js`, `npm:fflate` |
+| ホスティング   | **Deno Deploy**          | `ledger-api` として単独でデプロイ（未実施）           |
 
-### 2.3. データベース
+> **Supabase Edge Functions は使用していない。** Ledger のサーバー処理はすべて `apps/api` の Hono で動く。
+> Hub（polimoney_hub）は別リポジトリ・別デプロイの Deno + Hono アプリで、Ledger API から HTTP（`X-API-Key`）で呼び出す。
 
-| 項目         | 選択                      | 理由                             |
-| ------------ | ------------------------- | -------------------------------- |
-| DB           | **PostgreSQL (Supabase)** | RLS、トランザクション、JSON 対応 |
-| 認証         | Supabase Auth             | OTP 方式、RLS との統合           |
-| ストレージ   | Supabase Storage          | 領収証画像の保存                 |
-| リアルタイム | Supabase Realtime         | WebSocket による変更通知         |
+### 2.3. 共有パッケージ（packages/shared）
 
-### 2.4. インフラ
+フレームワークに依存しない TypeScript。Web は `@polimoney-ledger/shared/<file>.ts`（npm workspaces）、
+API は同じ指定子を `deno.json` の `imports` で `../../packages/shared/src/` に対応付けて使う。
+パッケージ内のファイル同士は `.ts` 拡張子付きで import する。
 
-| 項目            | 選択                       | 理由                       |
-| --------------- | -------------------------- | -------------------------- |
-| フロントエンド  | **Deno Deploy**            | Fresh と最適化、無料枠充実 |
-| バックエンド/DB | **Supabase Cloud** (初期)  | 運用負荷最小化             |
-| 将来的移行先    | Azure + Supabase Self-Host | データ主権、コスト最適化   |
+| ファイル           | 内容                                          |
+| ------------------ | --------------------------------------------- |
+| `types.ts`         | ドメインの型定義                              |
+| `permissions.ts`   | ロールと権限（SPECIFICATION.md 2.11）         |
+| `account-codes.ts` | 勘定科目コード（正は Hub の `account_codes`） |
+| `hub-types.ts`     | Hub API の型                                  |
+| `receipts.ts`      | 領収書アップロードの共通定義                  |
+
+### 2.4. データベース
+
+| 項目       | 選択                      | 理由                             |
+| ---------- | ------------------------- | -------------------------------- |
+| DB         | **PostgreSQL (Supabase)** | RLS、トランザクション、JSON 対応 |
+| 認証       | Supabase Auth             | RLS との統合                     |
+| ストレージ | Supabase Storage          | 領収証画像・証明書類の保存       |
+
+### 2.5. インフラ
+
+| 項目                   | 選択                        | 理由                                     |
+| ---------------------- | --------------------------- | ---------------------------------------- |
+| Web / API              | **Deno Deploy**（2 アプリ） | Hub と同じ構成。無料枠で運用できる見込み |
+| DB / 認証 / ストレージ | **Supabase Cloud** (初期)   | 運用負荷最小化                           |
+| 将来的移行先           | Azure + Supabase Self-Host  | データ主権、コスト最適化                 |
 
 ---
 
 ## 3. 開発環境
 
-### 3.1. 推奨構成
+### 3.1. ディレクトリ構成
 
 ```
-polimoney-ledger/
-├── .devcontainer/              # Dev Container設定
-│   ├── devcontainer.json
-│   └── Dockerfile
-├── deno.json                   # Deno設定（fmt/lint含む）
+polimoney_ledger/
+├── package.json             # npm workspaces（apps/web, packages/shared）と各種スクリプト
+├── apps/
+│   ├── web/                 # Next.js（フロントエンドのみ）
+│   │   ├── app/             # App Router（(auth), (public), 各画面）
+│   │   ├── components/      # UI コンポーネント（ドメイン別）
+│   │   ├── lib/
+│   │   │   ├── api-client.ts    # apiFetch / apiJson（Ledger API 呼び出し）
+│   │   │   └── supabase/        # 認証用ブラウザクライアント・認証ヘルパー
+│   │   └── middleware.ts    # 画面の振り分け（未ログイン・審査待ち）
+│   └── api/                 # Ledger API（Hono on Deno）
+│       ├── deno.json        # imports / tasks（dev, start, check）
+│       ├── main.ts          # Deno.serve
+│       ├── app.ts           # CORS・認証・/v1 ルーターのマウント・エラーハンドラー
+│       ├── routes/          # ドメイン別ルーター
+│       └── lib/             # auth, authz, supabase, hub-client, sync-transform 等
 ├── packages/
-│   ├── web/                    # Fresh (フロントエンド)
-│   │   ├── routes/             # ページルーティング
-│   │   ├── islands/            # インタラクティブコンポーネント
-│   │   ├── components/         # 静的コンポーネント
-│   │   ├── fresh.gen.ts
-│   │   └── deno.json
-│   ├── api/                    # Supabase Edge Functions
-│   │   ├── functions/
-│   │   │   ├── _shared/        # 共通コード
-│   │   │   ├── journals/       # 仕訳API
-│   │   │   └── elections/      # 選挙マスタAPI
-│   │   └── import_map.json
-│   └── shared/                 # 共通型定義 (TypeScript)
-├── supabase/
-│   ├── migrations/             # DBマイグレーション
-│   ├── seed.sql                # 開発用ダミーデータ
-│   └── config.toml
+│   └── shared/src/          # 共有 TS（型・権限・勘定科目）
+├── db/                      # マイグレーション SQL、シードスクリプト (Deno)
+├── supabase/                # seed.sql
+├── legacy/flutter/          # Flutter 版（レガシー）
 └── docs/
 ```
 
 ### 3.2. 開発ツール
 
-| ツール            | 用途                               |
-| ----------------- | ---------------------------------- |
-| **Dev Container** | VS Code / Cursor での統一環境      |
-| **Supabase CLI**  | ローカル DB 起動、マイグレーション |
-| **Deno**          | Fresh + Edge Functions 開発        |
-| **deno fmt**      | フォーマッター（組み込み）         |
-| **deno lint**     | リンター（組み込み）               |
+| ツール     | 用途                                                             |
+| ---------- | ---------------------------------------------------------------- |
+| Node.js 22 | Web の実行（`package.json` の volta 設定）                       |
+| npm        | npm workspaces（`apps/web`, `packages/shared`）・スクリプト実行  |
+| Deno 2     | API の実行・型チェック（`deno task dev` / `check`）、シード投入 |
+| TypeScript | Web の型チェック（`npm run check:web`）                          |
 
 ### 3.3. ローカル開発フロー
 
 ```bash
-# 1. リポジトリクローン
-git clone https://github.com/digitaldemocracy2030/polimoney_ledger.git
-cd polimoney_ledger
+# 1. 依存インストール
+npm install
 
-# 2. Supabase ローカル起動
-supabase start
+# 2. 環境変数
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
 
-# 3. マイグレーション適用
-supabase db push
+# 3. Hub（polimoney_hub, :3722）を起動しておく
 
-# 4. ダミーデータ投入
-supabase db seed
-
-# 5. Edge Functions起動
-supabase functions serve
-
-# 6. Fresh (フロントエンド) 起動
-cd packages/web && deno task start
+# 4. 起動
+npm run dev:api   # http://localhost:3723
+npm run dev:web   # http://localhost:3721
 ```
 
-### 3.4. VS Code / Cursor 設定
+DB の準備・シード投入を含む詳細は [DEVELOPMENT.md](./DEVELOPMENT.md) を参照。
 
-```json
-// .vscode/settings.json
-{
-  "deno.enable": true,
-  "deno.enablePaths": ["./packages/web", "./packages/api/functions"],
-  "editor.formatOnSave": true,
-  "[typescript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  }
-}
-```
+### 3.4. 環境変数
+
+| アプリ | ファイル              | 変数                                                                                                                                                                                                                                                         |
+| ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| web    | `apps/web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL`（既定 `http://localhost:3723`）                                                                                                                                    |
+| api    | `apps/api/.env`       | `PORT`（既定 3723）, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ENV`, `HUB_API_URL_PROD`, `HUB_API_URL_DEV`, `HUB_API_KEY_PROD`, `HUB_API_KEY_DEV`, `CORS_ALLOWED_ORIGINS`（カンマ区切り、既定 `http://localhost:3721`） |
+
+service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_*` はブラウザに公開されるため秘密の値を入れない。
 
 ---
 
@@ -190,34 +173,61 @@ cd packages/web && deno task start
 
 ### 4.1. 認証・認可
 
+認証は **Supabase Auth**（Ledger 専用の Supabase A）を使う。認証（ID・トークンの発行と更新）だけは
+クライアントが Supabase Auth を直接使い、それ以外はすべて Ledger API を通す。
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ 認証フロー (OTP)                                            │
-├─────────────────────────────────────────────────────────────┤
-│ 1. ユーザーがメールアドレスを入力                          │
-│ 2. Supabase Auth が OTP をメール送信                        │
-│ 3. ユーザーが OTP を入力                                    │
-│ 4. JWT トークン発行                                         │
-│ 5. 以降のリクエストに JWT を付与                            │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ 認証フロー（メールアドレス + パスワード）                            │
+├──────────────────────────────────────────────────────────────────────┤
+│ 1. 登録: (auth)/register で supabase.auth.signUp()                   │
+│ 2. 確認メールのリンク（/auth/callback）でメールアドレスを確認        │
+│ 3. ログイン: (auth)/login で signInWithPassword()                    │
+│    セッションは @supabase/ssr の createBrowserClient で Cookie に保存 │
+│ 4. GET /v1/me でユーザー状態を取得し、未同意なら /onboarding         │
+│    （POST /v1/me/onboarding で規約・プライバシーポリシー同意を記録） │
+│ 5. middleware.ts が Cookie のセッションで画面を振り分ける            │
+│    - 未ログイン → /login?redirect=...                                │
+│    - app_metadata.registration_status = 'pending_review'             │
+│      → /pending-review                                               │
+│ 6. データは apiFetch('/v1/...') で取得し、                           │
+│    Authorization: Bearer <access_token> を付ける                     │
+│ 7. API の requireAuth が supabase.auth.getUser(token) で検証         │
+│    - 失敗 → 401 { error }（Web は /login へ遷移）                    │
+│    - 成功 → c.var に userId / user / accessToken / supabase を設定   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+| 箇所                                | 使うクライアント / 環境変数                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Web（ログイン・登録・ログアウト等） | `@supabase/ssr` の `createBrowserClient`（`apps/web/lib/supabase/client.ts`）、`NEXT_PUBLIC_SUPABASE_*`           |
+| Web の middleware                   | `@supabase/ssr` の `createServerClient`、`NEXT_PUBLIC_SUPABASE_*`                                                 |
+| Web → API                           | `apps/web/lib/api-client.ts`（`NEXT_PUBLIC_API_URL` + Bearer トークン）                                           |
+| API の通常のデータアクセス          | `c.get("supabase")`: リクエストごとに `SUPABASE_PUBLISHABLE_KEY` + ユーザーの JWT で作るクライアント（RLS 適用） |
+| API の特権処理                      | `getServiceClient()`（`SUPABASE_SERVICE_ROLE_KEY`、RLS をバイパス）                                               |
+
+**認可のルール（apps/api）:**
+
+- 原則として `c.get("supabase")` を使い、RLS をそのユーザーとして効かせる。
+- `getServiceClient()` は次の特権処理に限る: auth.admin の呼び出し、他ユーザーにまたがる操作
+  （メンバー招待、オーナー譲渡）、Hub 同期、RLS で表せない Storage 操作（他メンバーの証憑の署名付き URL など）、
+  台帳の構造の作成（Hub で認証済みであることを確認した後）。
+- service_role を使う前に必ず `apps/api/lib/authz.ts` のヘルパー（`requireLedgerRole`,
+  `requireLedgerPermission`, `requireLedgerOwner`, `requireJournalAccess`, `requireSelf` 等）で権限を確認する。
+- 審査状態は `app_metadata.registration_status` で表す（ユーザー自身は書き換えられない）。
+- Web は `supabase.from(...)` や `user_metadata` を使わない。ユーザー状態は `GET /v1/me` から得る。
+- CORS は `CORS_ALLOWED_ORIGINS` のオリジンのみ許可する（`Authorization`, `Content-Type` ヘッダーを許可し、
+  ダウンロードのファイル名用に `Content-Disposition` を公開）。
 
 ### 4.2. Row Level Security (RLS)
 
-> **v6 更新**: RLS は `ledger_members` テーブルの `ledger_id` を介してアクセス制御を行います。
-> `owner_user_id` ベースの旧ポリシーから、メンバーシップベースに移行済みです（GAG-544）。
+API がユーザーの JWT で DB にアクセスするため、RLS が主なアクセス制御になる。
+ポリシーは `db/migrate-rls-user-scoped-api.sql` で定義する（冪等）。
 
-```sql
--- 例: journals テーブルの RLS（v6 正規化後）
-CREATE POLICY "Members can access their ledger journals"
-ON journals FOR ALL
-USING (
-  ledger_id IN (
-    SELECT ledger_id FROM ledger_members
-    WHERE user_id = auth.uid()
-  )
-);
-```
+- 台帳のオーナーは `ledgers.owner_user_id`（暗黙の admin）、招待メンバーは `ledger_members(user_id, ledger_id, role)`。
+- ロールと権限の対応は `packages/shared/src/permissions.ts` と SQL 関数 `public.role_has_permission` の両方に持つ
+  （片方を変えたらもう片方も変える）。
+- API 側でも `lib/authz.ts` で台帳ロールを明示的に確認する（RLS と二重の防御）。
 
 ### 4.3. データ保護
 
@@ -234,37 +244,34 @@ USING (
 
 ### 5.1. エンドポイント一覧
 
-| メソッド | パス                        | 説明                       |
-| -------- | --------------------------- | -------------------------- |
-| GET      | `/api/journals`             | 仕訳一覧取得               |
-| POST     | `/api/journals`             | 仕訳登録                   |
-| PUT      | `/api/journals/:id`         | 仕訳更新                   |
-| DELETE   | `/api/journals/:id`         | 仕訳削除                   |
-| POST     | `/api/journals/:id/approve` | 仕訳承認                   |
-| GET      | `/api/elections`            | 選挙マスタ取得             |
-| GET      | `/api/organizations`        | 政治団体マスタ取得         |
-| POST     | `/api/export/polimoney`     | Polimoney 向けエクスポート |
+すべて `/v1` 配下。実装は `apps/api/routes/<名前>.ts`。`GET /v1/health` 以外は `Authorization: Bearer <JWT>` が必須。
+エラーは JSON `{ error: string }`（日本語）で返す。
 
-### 5.2. リアルタイム通知
-
-```typescript
-// Supabase Realtime でリッスン
-const channel = supabase
-  .channel("journals")
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "journals",
-      filter: `organization_id=eq.${orgId}`,
-    },
-    (payload) => {
-      // UIを更新
-    }
-  )
-  .subscribe();
-```
+| プレフィックス                                 | 主な操作                                                                                                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/health`                                      | `GET`（認証不要）                                                                                                                                                |
+| `/me`                                          | `GET` ユーザー情報・プロフィール・所属台帳、`POST /onboarding` 規約同意の記録                                                                                    |
+| `/dashboard`                                   | `GET` ダッシュボード用データ（自分宛ての承認待ちオーナー譲渡）                                                                                                   |
+| `/pending-review`                              | `GET` 登録審査中ページ用の情報                                                                                                                                   |
+| `/profile`                                     | `GET`/`PUT` 表示名、`GET`/`PUT /politician`、`GET /organization`、`GET /organization/:id`（Hub）                                                                 |
+| `/account-master`                              | `GET` 勘定科目マスタ（Hub の `account_codes`）                                                                                                                   |
+| `/journals`                                    | 仕訳の一覧・作成・取得・更新・削除、`POST /:id/approve`、`GET /:id/receipts`                                                                                     |
+| `/receipts`                                    | `POST` 領収書アップロード、`DELETE ?id=` 削除                                                                                                                    |
+| `/upload`                                      | `POST /`、`POST /image` ファイルアップロード                                                                                                                     |
+| `/contacts`                                    | 関係者 CRUD（`?ledger_id=` で台帳の関係者）                                                                                                                      |
+| `/sub-accounts`                                | 補助科目 CRUD                                                                                                                                                    |
+| `/organizations`                               | 政治団体台帳の一覧・作成、`/:id/ledger`・`/:id/members`・`/:id/assets`・`/:id/settings`、団体管理者認証 `/manager-verify`（`/:id/send-code`・`/verify-code`・`/verify-dns`） |
+| `/managed-organizations`                       | `GET` Hub で団体管理者として認証済みの政治団体                                                                                                                   |
+| `/hub-organizations`                           | `GET`/`PUT /:id` Hub の政治団体情報                                                                                                                              |
+| `/elections`                                   | 選挙台帳の一覧・作成、`GET /new-data`、`/:id/ledger`・`/:id/members`・`/:id/assets`                                                                              |
+| `/politicians`                                 | 政治家認証 `/verify`（`/:id/send-code`・`/verify-code`・`/verify-dns`）                                                                                          |
+| `/members`                                     | 台帳メンバーの一覧（`?ledger_id=`）・招待・ロール変更・削除                                                                                                      |
+| `/ownership-transfers`                         | 台帳オーナー譲渡の一覧・作成・取得・キャンセル、`POST /:id/accept`・`/:id/decline`                                                                               |
+| `/election-requests`, `/organization-requests` | `POST` Hub への登録リクエスト                                                                                                                                    |
+| `/closures`                                    | 年度締め（`GET /check`, `POST /execute`, `/archive`, `/reopen`, `GET`/`POST /unlock-request`）                                                                   |
+| `/sync`                                        | `POST` Hub への公開データ同期                                                                                                                                    |
+| `/export`                                      | `GET` 本人データの JSON エクスポート（データポータビリティ）                                                                                                     |
+| `/export-csv`, `/export-report`                | `GET` CSV・収支報告書エクスポート                                                                                                                                |
 
 ---
 
@@ -526,3 +533,4 @@ WHERE id = $1 AND updated_at = $2;  -- 競合検知
 - 初版作成
 - ストレージ戦略セクションを追加
 - 年度締め・ロック機構を追加
+- Next.js (apps/web) と Ledger API (apps/api, Hono on Deno, /v1) の分離構成に更新

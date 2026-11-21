@@ -128,3 +128,6 @@ out/
 node_modules/
 .env.local
 .env*.local
+
+# TypeScript incremental build info
+*.tsbuildinfo

@@ -11,21 +11,12 @@
     "vscode": {
       "extensions": [
         "denoland.vscode-deno",
-        "bradlc.vscode-tailwindcss",
         "esbenp.prettier-vscode"
       ],
       "settings": {
-        "deno.enable": true,
+        "deno.enablePaths": ["apps/api"],
         "deno.lint": true,
-        "deno.unstable": true,
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "denoland.vscode-deno",
-        "[typescript]": {
-          "editor.defaultFormatter": "denoland.vscode-deno"
-        },
-        "[typescriptreact]": {
-          "editor.defaultFormatter": "denoland.vscode-deno"
-        },
         "workbench.colorCustomizations": {
           "titleBar.activeBackground": "#6b1c1c",
           "titleBar.activeForeground": "#ffffff",
@@ -38,7 +29,7 @@
       }
     }
   },
-  "forwardPorts": [3001],
-  "postCreateCommand": "cd packages/web && deno cache dev.ts",
+  "forwardPorts": [3721, 3723],
+  "postCreateCommand": "npm install",
   "remoteUser": "vscode"
 }

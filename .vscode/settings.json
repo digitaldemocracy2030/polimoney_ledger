@@ -1,4 +1,5 @@
 {
+  "deno.enablePaths": ["apps/api"],
   "editor.formatOnSave": true,
   "editor.rulers": [80],
   "files.exclude": {
