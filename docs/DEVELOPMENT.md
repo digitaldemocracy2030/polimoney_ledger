@@ -42,6 +42,7 @@ API の依存（`npm:hono` など）は `apps/api/deno.json` の `imports` で�
 - `apps/api/.env` は `deno task dev`（`--env-file=.env`）が読み込みます。
 - service_role キーと Hub API キーは API だけに設定し、Web には置かないでください。
 - `APP_ENV=production` で Hub の URL / キーが `*_PROD` に切り替わります。
+- `HUB_API_KEY_PROD` / `HUB_API_KEY_DEV` は、Hub 側の `LEDGER_SYNC_API_KEY_PROD` / `LEDGER_SYNC_API_KEY_DEV`（`backend/.env`）と同じ値にします。
 
 テストユーザー（`00000000-0000-0000-0000-000000000001`）は常に
 `HUB_API_KEY_DEV` で Hub に接続します。詳細は [TEST_DATA.md](./TEST_DATA.md)

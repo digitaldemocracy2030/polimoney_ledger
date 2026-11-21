@@ -38,8 +38,10 @@
 | `getSyncStatus` | `GET /api/v1/sync/status` | ✅ | （未使用） |
 
 - 送るデータの形（Pydantic モデル）は Ledger と一致している。
-- ⚠️ **認証が無い。** `dependencies=[Depends(get_admin_supabase_client_dep)]` は service_role クライアントを
-  渡しているだけで、`X-API-Key` を検査していない。誰でも公開データを書き換えられる。
+- ~~認証が無い~~ → Hub のブランチ `feat/sync-api-key-auth` で対応済み（未マージ）。
+  `X-API-Key` が Hub の `LEDGER_SYNC_API_KEY_PROD` / `_DEV` に一致しないと 401、どちらも未設定なら 503。
+  DEV キーで送った台帳・仕訳は常に `is_test=true` になり、本番データは上書きできない。
+  関係者（`public_contacts`）と変更ログには `is_test` が無いため、この保護は掛かっていない。
 - ⚠️ `sync/ledger` は `politician_organization_id` / `politician_election_id` が必須だが、
   Ledger がこれを取得する API が無い（2 章）。
 
@@ -114,7 +116,7 @@
 
 ## 対応の優先順位（案）
 
-1. **sync API に `X-API-Key` 認証を付ける**（セキュリティ。公開データが改ざんできる状態）
+1. ~~sync API に `X-API-Key` 認証を付ける~~（Hub `feat/sync-api-key-auth` で対応、未マージ）
 2. **勘定科目 API**（`/api/v1/master/account-codes`）— Ledger の仕訳入力に必須。読み取りだけで小さい
 3. **政治家・団体・選挙の取得 API と中間 ID の解決 API** — 台帳作成と同期に必須
 4. **本人確認 API**（政治家・団体管理者）— 管理画面の審査 API とセット
