@@ -49,15 +49,26 @@ API の依存（`npm:hono` など）は `apps/api/deno.json` の `imports` で�
 
 ### データベース
 
-新規環境では、Supabase の SQL Editor（postgres ロール）で次の順に実行します。
+スキーマは `supabase/migrations/` で管理します（Supabase CLI）。リポジトリに完全なスキーマ SQL は置きません。
+本番の現状は `supabase db dump --linked` で確認してください（古いマイグレーションと本番が一部食い違っているため、
+新しいマイグレーションは本番のスキーマに対する差分として書きます）。
 
-1. `docs/schema-normalized.sql`（テーブル）
-2. `db/migrate-add-storage.sql`（Storage バケット）
-3. `db/migrate-rls-user-scoped-api.sql`（API が前提とする列・RLS・ヘルパー関数）
-4. テストデータ: `db/seed-supabase.ts --all`（または `--user` の後に `supabase/seed.sql`）
+- API 用の RLS・ヘルパー関数・Storage バケット: `supabase/migrations/20261121100000_api_user_scoped_rls.sql`
+- 適用: `supabase db push`（本番に適用する前に、`BEGIN; <SQL>; ROLLBACK;` のファイルを
+  `supabase db query --linked -f <file>` で流して確認する）
+- テストデータ: `db/seed-supabase.ts --all`（または `--user` の後に `supabase/seed.sql`）。**本番では実行しない。**
 
-既存環境では 3 を実行すれば、不足している列・制約・ポリシーがそろいます（冪等）。
-API はユーザーの JWT（RLS 適用）で DB を読むため、**3 を適用していない DB ではほとんどの API が権限エラーになります。**
+API はユーザーの JWT（RLS 適用）で DB を読むため、上記マイグレーションを適用していない DB では
+ほとんどの API が権限エラーになります。
+
+**データモデルの要点（v6）:**
+
+- 台帳: `ledgers(ledger_type = 'political_fund' | 'election_fund')`。`organization_id` → `political_organizations`、
+  `election_id` → `elections`。メンバーは `ledger_members(ledger_id, user_id)`（一意）。
+- 関係者: `contacts` を `ledger_contacts(ledger_id, contact_id)` で台帳に紐付ける。
+- Ledger に政治家のテーブルは無い。政治家・政治団体・選挙のマスタは Hub が持ち、Ledger は `hub_*` の ID だけを持つ。
+- Hub 同期に必要な `ledgers.hub_politician_organization_id` / `hub_politician_election_id` は、
+  Hub API に取得手段が無いため現状 null。未設定の台帳の同期は理由付きのエラーになる。
 
 ### 認証の設定
 

@@ -12,6 +12,9 @@
  *
  * is_test と Hub API キーの選択は、呼び出したユーザーではなく台帳ごとのオーナーで決める
  * （承認時の自動同期 journals.ts syncApprovedJournal と同じ）。
+ *
+ * Hub の中間テーブル ID（ledgers.hub_politician_organization_id / hub_politician_election_id）が
+ * 未設定の台帳は同期せず、レスポンスの error_details に理由を返す（lib/hub-ledger.ts）。
  */
 
 import { Hono } from "hono";
@@ -27,6 +30,12 @@ import {
   type LedgerType,
   requireLedgerPermission,
 } from "../lib/authz.ts";
+import {
+  getHubLedgerRecords,
+  hubLedgerLink,
+  type HubLedgerRecord,
+  HubLinkMissingError,
+} from "../lib/hub-ledger.ts";
 import {
   isTestUser,
   recordChangeLog,
@@ -57,25 +66,9 @@ const LEDGER_TYPE_BY_PARAM: Record<string, LedgerType> = {
   organization: "political_fund",
 };
 
-/** 正規化後の ledgers テーブル（Hub 側の中間テーブル ID を含む） */
-interface LedgerRecord {
-  id: string;
-  owner_user_id: string;
-  ledger_type: LedgerType;
-  hub_ledger_id: string | null;
-  hub_politician_organization_id: string | null;
-  hub_politician_election_id: string | null;
-}
-
 interface JournalWithEntries extends LedgerJournal {
   journal_entries: LedgerJournalEntry[];
   contacts: LedgerContact | null;
-}
-
-/** PostgREST の埋め込み（to-one）は配列で返る場合もあるので 1 件に正規化する */
-function firstOf<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
 }
 
 /**
@@ -99,9 +92,8 @@ async function listSyncableLedgerIds(
   if (ownedError) throw ownedError;
   for (const row of owned ?? []) candidates.add(row.id as string);
 
-  // 所属している台帳（本人の ledger_members 行のみ読む。
-  // ledger_members にはユーザー向けの RLS ポリシーが無いため service client で読む）
-  const { data: memberships, error: memberError } = await getServiceClient()
+  // 所属している台帳（本人の ledger_members 行。RLS: user_id = auth.uid() は読める）
+  const { data: memberships, error: memberError } = await c.get("supabase")
     .from("ledger_members")
     .select("ledger_id")
     .eq("user_id", userId);
@@ -119,58 +111,10 @@ async function listSyncableLedgerIds(
   return allowed;
 }
 
-/** 台帳を Hub の中間テーブル ID 付きで取得する（権限確認済みの ID のみ渡すこと） */
-async function getLedgerRecords(
-  svc: SupabaseClient,
-  ledgerIds: string[],
-): Promise<LedgerRecord[]> {
-  const { data, error } = await svc
-    .from("ledgers")
-    .select(
-      `
-      id,
-      owner_user_id,
-      ledger_type,
-      hub_ledger_id,
-      politician_organizations ( hub_politician_organization_id ),
-      politician_elections ( hub_politician_election_id )
-    `,
-    )
-    .in("id", ledgerIds);
-
-  if (error) {
-    throw new Error(`Failed to fetch ledgers: ${error.message}`);
-  }
-
-  return (data ?? []).map((row) => {
-    const po = firstOf(
-      row.politician_organizations as
-        | { hub_politician_organization_id: string | null }
-        | { hub_politician_organization_id: string | null }[]
-        | null,
-    );
-    const pe = firstOf(
-      row.politician_elections as
-        | { hub_politician_election_id: string | null }
-        | { hub_politician_election_id: string | null }[]
-        | null,
-    );
-    return {
-      id: row.id as string,
-      owner_user_id: row.owner_user_id as string,
-      ledger_type: row.ledger_type as LedgerType,
-      hub_ledger_id: (row.hub_ledger_id as string | null) ?? null,
-      hub_politician_organization_id: po?.hub_politician_organization_id ??
-        null,
-      hub_politician_election_id: pe?.hub_politician_election_id ?? null,
-    };
-  });
-}
-
 /** 台帳の承認済み仕訳を明細・関係者付きで取得する（権限確認済みの台帳のみ） */
 async function getApprovedJournals(
   svc: SupabaseClient,
-  ledger: LedgerRecord,
+  ledger: HubLedgerRecord,
 ): Promise<JournalWithEntries[]> {
   const { data, error } = await svc
     .from("journals")
@@ -334,6 +278,8 @@ syncRouter.post("/", async (c) => {
     errors: 0,
     ledgers_synced: 0,
     contacts_synced: 0,
+    /** 同期できなかった台帳と理由（Hub との紐付け未設定など） */
+    error_details: [] as Array<{ ledger_id: string; error: string }>,
   };
 
   if (ledgerIds.length === 0) {
@@ -343,7 +289,7 @@ syncRouter.post("/", async (c) => {
   try {
     // ここで使う ledgerIds はすべて上で権限確認済み
     const svc = getServiceClient();
-    const ledgers = await getLedgerRecords(svc, ledgerIds);
+    const ledgers = await getHubLedgerRecords(svc, ledgerIds);
 
     for (const ledger of ledgers) {
       try {
@@ -363,14 +309,11 @@ syncRouter.post("/", async (c) => {
 
         const totals = calculateLedgerTotals(journals);
 
-        // 1. 台帳を同期
+        // 1. 台帳を同期（Hub の中間テーブル ID が未設定なら HubLinkMissingError）
         const ledgerInput: SyncLedgerInput = {
           ledger_source_id: ledger.id,
           ledger_type: ledger.ledger_type,
-          politician_organization_id: ledger.hub_politician_organization_id ||
-            undefined,
-          politician_election_id: ledger.hub_politician_election_id ||
-            undefined,
+          ...hubLedgerLink(ledger),
           fiscal_year: new Date().getFullYear(),
           is_test: isTest,
           ...totals,
@@ -478,6 +421,12 @@ syncRouter.post("/", async (c) => {
           ledgerError,
         );
         result.errors++;
+        result.error_details.push({
+          ledger_id: ledger.id,
+          error: ledgerError instanceof HubLinkMissingError
+            ? ledgerError.message
+            : "Hub との同期に失敗しました",
+        });
       }
     }
 

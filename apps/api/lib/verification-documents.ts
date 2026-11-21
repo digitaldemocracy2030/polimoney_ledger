@@ -1,7 +1,7 @@
 /**
  * 証明書類（政治団体登録リクエスト等の証拠書類）
  *
- * 証明書類は非公開バケット（verification-documents）の `{user_id}/...` に保存する。
+ * 証明書類は非公開バケット（evidence-files）の `{user_id}/...` に保存する。
  * 証拠の参照は Storage のパス（evidence_file_path）で持ち、閲覧用の署名付き URL は
  * Hub に送る時点で発行する（URL だけを恒久的な参照にしない）。
  */
@@ -9,8 +9,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { httpError } from "./errors.ts";
 
-/** 証明書類用の非公開バケット */
-export const VERIFICATION_DOCUMENTS_BUCKET = "verification-documents";
+/** 証明書類用の非公開バケット（Storage RLS: 先頭フォルダ = 自分のユーザー ID） */
+export const VERIFICATION_DOCUMENTS_BUCKET = "evidence-files";
 
 /**
  * Hub の審査用に発行する署名付き URL の有効期限（秒）。

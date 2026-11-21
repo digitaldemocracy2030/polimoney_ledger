@@ -1,54 +1,66 @@
 -- ============================================
--- Polimoney Ledger: ユーザー権限 API 向け RLS マイグレーション
+-- Ledger API（apps/api）向け: ユーザー権限ベースの RLS への移行
 -- ============================================
 --
 -- 背景:
---   Ledger API（apps/api）は service_role ではなく、リクエストしたユーザーの JWT 付き
---   クライアント（c.get("supabase")）で DB にアクセスする。従来のポリシーはオーナー
---   （owner_user_id）限定で、journals / journal_entries / ledger_members にはポリシーが
---   無かったため、台帳メンバーの操作がすべて RLS で拒否されていた。
+--   Ledger API はリクエストしたユーザーの JWT 付きクライアントで DB にアクセスする
+--   （service_role は apps/api/lib/authz.ts で権限を確認した後の特権処理のみ）。
+--   既存のポリシーは 'admin' / 'editor'（アプリに存在しないロール）で判定しており、
+--   accountant / approver / submitter / viewer のメンバーは操作できなかった。
 --
--- メンバーシップモデル（docs/schema-normalized.sql）:
---   - ledgers.owner_user_id がオーナー（暗黙の admin）
---   - ledger_members(user_id, ledger_id, role) が招待メンバー
---   - 政治団体台帳: ledgers.politician_organization_id -> politician_organizations -> political_organizations
---   - 選挙台帳:     ledgers.politician_election_id     -> politician_elections     -> elections
+-- 前提（本番 v6 スキーマ。このファイルはその差分）:
+--   - ledgers(ledger_type = 'political_fund' | 'election_fund')
+--       political_fund: organization_id -> political_organizations
+--       election_fund : election_id     -> elections
+--   - journals.ledger_id / ledger_members.ledger_id / ledger_year_closures.ledger_id
+--   - contacts は ledger_contacts(ledger_id, contact_id) で台帳に紐付く
+--   - 政治家・政治団体・選挙のマスタは Hub が持つ（Ledger は hub_* の ID のみ保持）
 --
--- ロールと権限は packages/shared/src/permissions.ts と同じ定義を SQL 側にも持つ
--- （public.role_has_permission）。片方を変えたらもう片方も変えること。
+-- ロールと権限は packages/shared/src/permissions.ts と同じ定義を
+-- public.role_has_permission に持つ。片方を変えたらもう片方も変えること。
 --
--- 適用順（新規環境）:
---   1. docs/schema-normalized.sql
---   2. db/migrate-add-storage.sql（バケット作成）
---   3. このファイル
---   4. supabase/seed.sql または db/seed-supabase.ts（テストデータ）
---
--- 冪等: 何度実行してもよい。対象テーブルの既存ポリシーはすべて削除して作り直す
--- （ライブ DB に手で足したポリシーが残って権限が広がるのを防ぐため）。
+-- 冪等: 対象テーブルの既存ポリシーはすべて削除して作り直す。
+-- トランザクションは Supabase CLI が張るため BEGIN / COMMIT は書かない。
 -- ============================================
 
-BEGIN;
 
 -- ============================================
--- 1. API が前提とする列・インデックス
+-- 1. 列・制約・インデックス
 -- ============================================
 
--- 選挙台帳の Hub 政治家 ID（SPECIFICATION 2.6。POST/GET /elections が使う）
-ALTER TABLE public.elections ADD COLUMN IF NOT EXISTS hub_politician_id UUID;
-
--- 資産取得仕訳（GET /elections/:id/assets・/organizations/:id/assets が使う）
+-- 資産取得仕訳（GET /elections/:id/assets・/organizations/:id/assets、仕訳フォームの資産区分）
+-- 20251219065439_add_asset_acquisition_fields で追加したが本番から失われていたため戻す
 ALTER TABLE public.journals
     ADD COLUMN IF NOT EXISTS is_asset_acquisition BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE public.journals ADD COLUMN IF NOT EXISTS asset_type TEXT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'journals_asset_type_check'
+          AND conrelid = 'public.journals'::regclass
+    ) THEN
+        ALTER TABLE public.journals
+            ADD CONSTRAINT journals_asset_type_check CHECK (
+                asset_type IS NULL OR asset_type IN (
+                    'land', 'building', 'vehicle', 'securities',
+                    'facility_rights', 'deposit'
+                )
+            );
+    END IF;
+END $$;
 
--- 承認日時（POST /journals の即時登録・POST /journals/:id/approve が設定する）
-ALTER TABLE public.journals ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
-
--- 譲渡対象の台帳（/ownership-transfers・/dashboard が使う）
+-- オーナー譲渡は台帳単位（/ownership-transfers・/dashboard が使う）
 ALTER TABLE public.ownership_transfers
     ADD COLUMN IF NOT EXISTS ledger_id UUID REFERENCES public.ledgers(id) ON DELETE CASCADE;
-CREATE INDEX IF NOT EXISTS idx_ownership_transfers_ledger_status
-    ON public.ownership_transfers(ledger_id, status);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.ownership_transfers WHERE ledger_id IS NULL
+    ) THEN
+        ALTER TABLE public.ownership_transfers ALTER COLUMN ledger_id SET NOT NULL;
+    END IF;
+END $$;
 
 -- 台帳メンバーは 1 台帳につき 1 ユーザー 1 行（ロール判定を一意にするため）
 -- 既存の重複は最も古い行を残して削除する
@@ -58,36 +70,121 @@ WHERE a.ledger_id = b.ledger_id
   AND a.user_id = b.user_id
   AND (a.created_at, a.id) > (b.created_at, b.id);
 
+DELETE FROM public.ledger_members WHERE user_id IS NULL;
+ALTER TABLE public.ledger_members ALTER COLUMN user_id SET NOT NULL;
+
+-- 'editor' など未知のロールは閲覧者として扱っていた（roleFromString）ため viewer に寄せる
+UPDATE public.ledger_members
+SET role = 'viewer'
+WHERE role NOT IN ('admin', 'accountant', 'approver', 'submitter', 'viewer');
+
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'ledger_members_ledger_user_unique'
+          AND conrelid = 'public.ledger_members'::regclass
     ) THEN
         ALTER TABLE public.ledger_members
             ADD CONSTRAINT ledger_members_ledger_user_unique UNIQUE (ledger_id, user_id);
     END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'ledger_members_role_check'
+          AND conrelid = 'public.ledger_members'::regclass
+    ) THEN
+        ALTER TABLE public.ledger_members
+            ADD CONSTRAINT ledger_members_role_check CHECK (
+                role IN ('admin', 'accountant', 'approver', 'submitter', 'viewer')
+            );
+    END IF;
 END $$;
 
--- ポリシーとヘルパー関数の検索用
+-- 関係者を削除したら台帳との紐付けも消す（仕訳から参照されている関係者は journals の FK で削除できない）
+ALTER TABLE public.ledger_contacts
+    DROP CONSTRAINT IF EXISTS ledger_contacts_contact_id_fkey;
+ALTER TABLE public.ledger_contacts
+    ADD CONSTRAINT ledger_contacts_contact_id_fkey
+    FOREIGN KEY (contact_id) REFERENCES public.contacts(id) ON DELETE CASCADE;
+
+-- ポリシー・ヘルパー関数の検索用
 CREATE INDEX IF NOT EXISTS idx_ledgers_owner ON public.ledgers(owner_user_id);
-CREATE INDEX IF NOT EXISTS idx_ledgers_politician_organization
-    ON public.ledgers(politician_organization_id);
-CREATE INDEX IF NOT EXISTS idx_ledgers_politician_election
-    ON public.ledgers(politician_election_id);
-CREATE INDEX IF NOT EXISTS idx_ledger_members_user_ledger
-    ON public.ledger_members(user_id, ledger_id);
-CREATE INDEX IF NOT EXISTS idx_ledger_members_ledger ON public.ledger_members(ledger_id);
+CREATE INDEX IF NOT EXISTS idx_ledgers_org ON public.ledgers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ledgers_election ON public.ledgers(election_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_members_user ON public.ledger_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_contacts_contact ON public.ledger_contacts(contact_id);
 CREATE INDEX IF NOT EXISTS idx_journals_ledger_date ON public.journals(ledger_id, journal_date);
 CREATE INDEX IF NOT EXISTS idx_journals_contact ON public.journals(contact_id);
 CREATE INDEX IF NOT EXISTS idx_journals_submitted_by ON public.journals(submitted_by_user_id);
 CREATE INDEX IF NOT EXISTS idx_journal_entries_journal ON public.journal_entries(journal_id);
+CREATE INDEX IF NOT EXISTS idx_journal_entries_sub_account ON public.journal_entries(sub_account_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_owner ON public.contacts(owner_user_id);
-CREATE INDEX IF NOT EXISTS idx_contacts_ledger ON public.contacts(ledger_id);
 CREATE INDEX IF NOT EXISTS idx_sub_accounts_owner ON public.sub_accounts(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_political_organizations_owner ON public.political_organizations(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_elections_owner ON public.elections(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_ownership_transfers_ledger_status
+    ON public.ownership_transfers(ledger_id, status);
+CREATE INDEX IF NOT EXISTS idx_ownership_transfers_to_user
+    ON public.ownership_transfers(to_user_id, status);
+
 
 -- ============================================
--- 2. ヘルパー関数
+-- 2. 既存ポリシーの削除（新しいヘルパー関数の差し替え前に依存を外す）
+-- ============================================
+
+DO $$
+DECLARE
+    t TEXT;
+    pol RECORD;
+BEGIN
+    FOREACH t IN ARRAY ARRAY[
+        'account_master',
+        'profiles',
+        'political_organizations',
+        'elections',
+        'ledgers',
+        'ledger_members',
+        'ledger_contacts',
+        'sub_accounts',
+        'contacts',
+        'journals',
+        'journal_entries',
+        'media_assets',
+        'ownership_transfers',
+        'transaction_drafts',
+        'ledger_year_closures'
+    ]
+    LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        FOR pol IN
+            SELECT policyname FROM pg_policies
+            WHERE schemaname = 'public' AND tablename = t
+        LOOP
+            EXECUTE format('DROP POLICY %I ON public.%I', pol.policyname, t);
+        END LOOP;
+    END LOOP;
+END $$;
+
+
+-- ============================================
+-- 3. 壊れた・不要な関数の削除
+-- ============================================
+
+-- journals.organization_id / election_id（v6 で削除済み）を参照していて実行できない。
+-- 利用していたのは legacy/flutter のみ（apps/ からは未使用）。
+DROP FUNCTION IF EXISTS public.calculate_carry_over(UUID, TEXT, INTEGER);
+DROP FUNCTION IF EXISTS public.get_journals_by_year(UUID, TEXT, INTEGER);
+
+-- 旧ポリシー用（下の is_ledger_member / ledger_role に置き換え）
+DROP FUNCTION IF EXISTS public.accessible_ledger_ids();
+
+-- auth.users の件数を anon に公開していた（legacy/flutter のスプラッシュ画面用）
+REVOKE ALL ON FUNCTION public.get_user_count() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_count() TO service_role;
+
+
+-- ============================================
+-- 4. ヘルパー関数
 -- ============================================
 -- ポリシーから他テーブル（RLS 付き）を直接参照すると、ポリシーの連鎖・再帰が起きる。
 -- SECURITY DEFINER の関数に閉じ込め、常に auth.uid() 本人についてだけ答える。
@@ -147,19 +244,12 @@ AS $$
             END
             FROM public.ledger_members m
             WHERE m.ledger_id = p_ledger_id AND m.user_id = auth.uid()
-            ORDER BY CASE m.role
-                WHEN 'admin' THEN 1
-                WHEN 'accountant' THEN 2
-                WHEN 'approver' THEN 3
-                WHEN 'submitter' THEN 4
-                ELSE 5
-            END
             LIMIT 1
         )
     END;
 $$;
 
--- 台帳のオーナーまたはメンバーか
+-- 台帳のオーナーまたはメンバーか（既存関数を置き換え。オーナーも含める）
 CREATE OR REPLACE FUNCTION public.is_ledger_member(p_ledger_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -247,6 +337,21 @@ AS $$
     );
 $$;
 
+-- 関係者が、自分が所属する台帳に紐付いているか（ledger_contacts）
+CREATE OR REPLACE FUNCTION public.is_contact_linked_to_my_ledgers(p_contact_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM public.ledger_contacts lc
+        WHERE lc.contact_id = p_contact_id
+          AND public.is_ledger_member(lc.ledger_id)
+    );
+$$;
+
 -- 関係者が、自分が所属する台帳の仕訳から参照されているか（仕訳への contacts 埋め込み用）
 CREATE OR REPLACE FUNCTION public.is_contact_used_in_my_ledgers(p_contact_id UUID)
 RETURNS BOOLEAN
@@ -263,8 +368,8 @@ AS $$
 $$;
 
 -- 仕訳の関係者として台帳で使えるか（apps/api/lib/authz.ts の assertContactUsableInLedger と同じ）
--- - 台帳に紐付いた関係者
--- - 台帳オーナーが作成した、台帳に紐付いていない関係者
+-- - 台帳に紐付いた関係者（ledger_contacts）
+-- - 台帳オーナーが作成し、どの台帳にも紐付いていない関係者（関係者マスタ画面で作成したもの）
 -- - その台帳の仕訳で既に使われている関係者（オーナー譲渡前の旧オーナーの関係者など）
 -- 他の台帳の関係者を仕訳に紐付けて、is_contact_used_in_my_ledgers 経由で読み出すのを防ぐ。
 CREATE OR REPLACE FUNCTION public.is_contact_usable_in_ledger(p_contact_id UUID, p_ledger_id UUID)
@@ -274,19 +379,26 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-    SELECT p_contact_id IS NULL OR EXISTS (
-        SELECT 1
-        FROM public.contacts ct
-        JOIN public.ledgers l ON l.id = p_ledger_id
-        WHERE ct.id = p_contact_id
-          AND (
-              ct.ledger_id = l.id
-              OR (ct.ledger_id IS NULL AND ct.owner_user_id = l.owner_user_id)
-          )
-    ) OR EXISTS (
-        SELECT 1 FROM public.journals j
-        WHERE j.contact_id = p_contact_id AND j.ledger_id = p_ledger_id
-    );
+    SELECT p_contact_id IS NULL
+        OR EXISTS (
+            SELECT 1 FROM public.ledger_contacts lc
+            WHERE lc.contact_id = p_contact_id AND lc.ledger_id = p_ledger_id
+        )
+        OR EXISTS (
+            SELECT 1
+            FROM public.contacts ct
+            JOIN public.ledgers l ON l.id = p_ledger_id
+            WHERE ct.id = p_contact_id
+              AND ct.owner_user_id = l.owner_user_id
+              AND NOT EXISTS (
+                  SELECT 1 FROM public.ledger_contacts lc2
+                  WHERE lc2.contact_id = ct.id
+              )
+        )
+        OR EXISTS (
+            SELECT 1 FROM public.journals j
+            WHERE j.contact_id = p_contact_id AND j.ledger_id = p_ledger_id
+        );
 $$;
 
 -- 補助科目が、自分が所属する台帳の仕訳明細から参照されているか
@@ -351,37 +463,7 @@ AS $$
     );
 $$;
 
--- 政治家 ↔ 政治団体の紐付けを、それを使う台帳のメンバーとして閲覧できるか
-CREATE OR REPLACE FUNCTION public.can_view_politician_organization(p_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-    SELECT EXISTS (
-        SELECT 1 FROM public.ledgers l
-        WHERE l.politician_organization_id = p_id
-          AND public.is_ledger_member(l.id)
-    );
-$$;
-
--- 政治家 ↔ 選挙の紐付けを、それを使う台帳のメンバーとして閲覧できるか
-CREATE OR REPLACE FUNCTION public.can_view_politician_election(p_id UUID)
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-    SELECT EXISTS (
-        SELECT 1 FROM public.ledgers l
-        WHERE l.politician_election_id = p_id
-          AND public.is_ledger_member(l.id)
-    );
-$$;
-
--- 政治団体を、その台帳のメンバーとして閲覧できるか
+-- Ledger 内の政治団体（台帳の付帯情報）を、その台帳のメンバーとして閲覧できるか
 CREATE OR REPLACE FUNCTION public.can_view_political_organization(p_organization_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -390,15 +472,13 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
     SELECT EXISTS (
-        SELECT 1
-        FROM public.politician_organizations po
-        JOIN public.ledgers l ON l.politician_organization_id = po.id
-        WHERE po.organization_id = p_organization_id
+        SELECT 1 FROM public.ledgers l
+        WHERE l.organization_id = p_organization_id
           AND public.is_ledger_member(l.id)
     );
 $$;
 
--- 選挙を、その台帳のメンバーとして閲覧できるか
+-- Ledger 内の選挙（台帳の付帯情報）を、その台帳のメンバーとして閲覧できるか
 CREATE OR REPLACE FUNCTION public.can_view_election(p_election_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -407,10 +487,8 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
     SELECT EXISTS (
-        SELECT 1
-        FROM public.politician_elections pe
-        JOIN public.ledgers l ON l.politician_election_id = pe.id
-        WHERE pe.election_id = p_election_id
+        SELECT 1 FROM public.ledgers l
+        WHERE l.election_id = p_election_id
           AND public.is_ledger_member(l.id)
     );
 $$;
@@ -428,13 +506,12 @@ BEGIN
         'public.journal_ledger_id(uuid)',
         'public.is_fiscal_year_writable(uuid, date)',
         'public.can_modify_journal(uuid)',
+        'public.is_contact_linked_to_my_ledgers(uuid)',
         'public.is_contact_used_in_my_ledgers(uuid)',
         'public.is_contact_usable_in_ledger(uuid, uuid)',
         'public.is_sub_account_used_in_my_ledgers(uuid)',
         'public.is_sub_account_usable_in_ledger(uuid, uuid)',
         'public.is_member_of_ledger_owned_by(uuid)',
-        'public.can_view_politician_organization(uuid)',
-        'public.can_view_politician_election(uuid)',
         'public.can_view_political_organization(uuid)',
         'public.can_view_election(uuid)'
     ]
@@ -458,17 +535,39 @@ $$;
 REVOKE ALL ON FUNCTION public.find_user_id_by_email(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.find_user_id_by_email(TEXT) TO service_role;
 
+
 -- ============================================
--- 3. 不変列ガード
+-- 5. トリガー
 -- ============================================
--- UPDATE の WITH CHECK は変更前の行を参照できないため、変更前後の比較が必要な制約は
--- トリガーで行う。
+
+-- 台帳作成時にオーナーを admin メンバーとして登録する（既存トリガーの関数を差し替え）。
+-- UNIQUE (ledger_id, user_id) と衝突しないよう ON CONFLICT DO NOTHING。
+CREATE OR REPLACE FUNCTION public.auto_add_owner_as_member()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.ledger_members (user_id, ledger_id, role, invited_by_user_id)
+    VALUES (NEW.owner_user_id, NEW.id, 'admin', NEW.owner_user_id)
+    ON CONFLICT (ledger_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.auto_add_owner_as_member() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_ledger_auto_member ON public.ledgers;
+CREATE TRIGGER trg_ledger_auto_member
+    AFTER INSERT ON public.ledgers
+    FOR EACH ROW EXECUTE FUNCTION public.auto_add_owner_as_member();
 
 -- 仕訳:
 --   - 台帳の付け替え・起票者の書き換えは禁止（service_role にも適用。API はこれらを変更しない）
 --   - ユーザー（authenticated）による承認者の記録の改ざんを禁止する
---     - 承認済みのまま approved_by_user_id / approved_at を変えることはできない
+--     - 承認済みのまま approved_by_user_id を変えることはできない
 --     - 下書き -> 承認 のときの approved_by_user_id は自分でなければならない
+-- UPDATE の WITH CHECK は変更前の行を参照できないため、変更前後の比較はトリガーで行う。
 CREATE OR REPLACE FUNCTION public.journals_guard_immutable_columns()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -482,10 +581,8 @@ BEGIN
         RAISE EXCEPTION '仕訳の起票者は変更できません';
     END IF;
     IF current_user = 'authenticated' THEN
-        IF OLD.status = 'approved' AND NEW.status = 'approved' AND (
-            NEW.approved_by_user_id IS DISTINCT FROM OLD.approved_by_user_id
-            OR NEW.approved_at IS DISTINCT FROM OLD.approved_at
-        ) THEN
+        IF OLD.status = 'approved' AND NEW.status = 'approved'
+            AND NEW.approved_by_user_id IS DISTINCT FROM OLD.approved_by_user_id THEN
             RAISE EXCEPTION '承認済み仕訳の承認者は変更できません';
         END IF;
         IF NEW.status = 'approved'
@@ -503,16 +600,13 @@ CREATE TRIGGER journals_guard_immutable_columns
     BEFORE UPDATE ON public.journals
     FOR EACH ROW EXECUTE FUNCTION public.journals_guard_immutable_columns();
 
--- 関係者: 台帳の付け替え（特に NULL 化して台帳の権限チェックから外すこと）と作成者の書き換えを禁止する
+-- 関係者: 作成者の書き換えを禁止する（作成者 = 編集・削除できるユーザー）
 CREATE OR REPLACE FUNCTION public.contacts_guard_immutable_columns()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    IF NEW.ledger_id IS DISTINCT FROM OLD.ledger_id THEN
-        RAISE EXCEPTION '関係者の台帳は変更できません';
-    END IF;
     IF NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id THEN
         RAISE EXCEPTION '関係者の作成者は変更できません';
     END IF;
@@ -525,24 +619,28 @@ CREATE TRIGGER contacts_guard_immutable_columns
     BEFORE UPDATE ON public.contacts
     FOR EACH ROW EXECUTE FUNCTION public.contacts_guard_immutable_columns();
 
+REVOKE ALL ON FUNCTION public.journals_guard_immutable_columns() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.contacts_guard_immutable_columns() FROM PUBLIC, anon, authenticated;
+
+
 -- ============================================
--- 4. RLS 有効化・権限付与・既存ポリシーの削除
+-- 6. テーブル権限（GRANT / REVOKE）
 -- ============================================
+-- Web は DB に直接アクセスしない（API 経由のみ）ため anon には何も許可しない。
+-- authenticated は API のユーザークライアント用。必要な操作だけ付与し、RLS で行を絞る。
 
 DO $$
 DECLARE
     t TEXT;
-    pol RECORD;
 BEGIN
     FOREACH t IN ARRAY ARRAY[
+        'account_master',
         'profiles',
         'political_organizations',
-        'politicians',
         'elections',
-        'politician_organizations',
-        'politician_elections',
         'ledgers',
         'ledger_members',
+        'ledger_contacts',
         'sub_accounts',
         'contacts',
         'journals',
@@ -553,55 +651,59 @@ BEGIN
         'ledger_year_closures'
     ]
     LOOP
-        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-        EXECUTE format(
-            'GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated',
-            t
-        );
-        FOR pol IN
-            SELECT policyname FROM pg_policies
-            WHERE schemaname = 'public' AND tablename = t
-        LOOP
-            EXECUTE format('DROP POLICY %I ON public.%I', pol.policyname, t);
-        END LOOP;
+        EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+        EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
     END LOOP;
 END $$;
 
--- 台帳の構造（政治家・政治団体・選挙・その紐付け・台帳）はユーザーが直接書き込めない。
+-- 読み取りのみ
+GRANT SELECT ON
+    public.account_master,
+    public.political_organizations,
+    public.elections,
+    public.ledgers
+TO authenticated;
+-- 台帳の構造（政治団体・選挙・台帳）はユーザーが直接書き込めない。
 -- hub_organization_id / hub_politician_id / hub_election_id / hub_politician_organization_id /
 -- hub_politician_election_id / hub_ledger_id は Hub 上の実在の政治家・政治団体の名義で
 -- 公開データを同期するための ID なので、ユーザーが任意の値を入れられると他人の名義で
--- 偽の収支を公開できてしまう。
--- 作成は API が Hub で認証済み政治家・団体管理者であることを確認した後に service client で行い、
--- オーナー譲渡・Hub 同期の記録も API が authz 確認後に service client で行う。
-REVOKE INSERT, UPDATE, DELETE ON
-    public.politicians,
-    public.political_organizations,
-    public.elections,
-    public.politician_organizations,
-    public.politician_elections,
-    public.ledgers
-FROM anon, authenticated;
+-- 偽の収支を公開できてしまう。作成は API が Hub で認証済み政治家・団体管理者であることを
+-- 確認した後に service client で行い、オーナー譲渡・Hub 同期の記録も API が authz 確認後に行う。
+
+-- 読み書き（行は RLS で制限）
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    public.ledger_members,
+    public.sub_accounts,
+    public.contacts,
+    public.journals,
+    public.journal_entries,
+    public.transaction_drafts,
+    public.ledger_year_closures
+TO authenticated;
+
+-- ledger_contacts は紐付けの追加・削除のみ
+GRANT SELECT, INSERT, DELETE ON public.ledger_contacts TO authenticated;
+
+-- media_assets は登録・削除のみ（storage_path を書き換えられないよう UPDATE は付けない）
+GRANT SELECT, INSERT, DELETE ON public.media_assets TO authenticated;
+
+-- ownership_transfers: 譲渡先による拒否（status の更新）のみ。作成・キャンセル・承認は service client
+GRANT SELECT ON public.ownership_transfers TO authenticated;
+GRANT UPDATE (status, updated_at) ON public.ownership_transfers TO authenticated;
 
 -- profiles: hub_politician_id / verified_email_domain は Hub の承認結果（service_role のみが書く）。
 -- ユーザーが書けるのは利用規約・プライバシーポリシーの同意日時などに限る。
 -- （PostgREST の upsert は ON CONFLICT DO UPDATE で id も SET するため UPDATE (id) も付ける。
 --   id は RLS で auth.uid() に固定される）
-REVOKE INSERT, UPDATE ON public.profiles FROM anon, authenticated;
+GRANT SELECT ON public.profiles TO authenticated;
 GRANT INSERT (id, avatar_url, tos_accepted_at, privacy_policy_accepted_at, updated_at)
     ON public.profiles TO authenticated;
 GRANT UPDATE (id, avatar_url, tos_accepted_at, privacy_policy_accepted_at, updated_at)
     ON public.profiles TO authenticated;
 
--- media_assets は登録・削除のみ（storage_path を書き換えられないよう UPDATE は付けない）
-REVOKE UPDATE ON public.media_assets FROM anon, authenticated;
-
--- 旧バージョンで台帳作成のチェックに使っていた関数（ユーザーの直接作成をやめたため不要）
-DROP FUNCTION IF EXISTS public.owns_politician_organization(UUID);
-DROP FUNCTION IF EXISTS public.owns_politician_election(UUID);
 
 -- ============================================
--- 5. テーブルごとのポリシー
+-- 7. テーブルごとのポリシー
 -- ============================================
 -- 方針: ARCHITECTURE.md 4.2 と同じく ledger_members を介したアクセス制御。
 --   閲覧（SELECT）  : 台帳のオーナー / メンバー全員（viewer 含む）
@@ -610,12 +712,18 @@ DROP FUNCTION IF EXISTS public.owns_politician_election(UUID);
 --   仕訳の承認      : approveJournal（approver 以上）。自分の起票は registerJournal のみ
 --   メンバー管理    : manageMembers（admin = オーナーまたは admin メンバー）
 --   年度締め        : editLedgerSettings（admin / accountant）
---   台帳の作成      : ユーザーは不可。API が Hub で認証済み政治家・団体管理者であることを
---                     確認した後に service client で作成する（hub_* 列の偽装を防ぐ）
+--   台帳の作成      : ユーザーは不可（6 節）
 -- ポリシーに無い操作は拒否。service_role は RLS を通らない（API は authz 確認後のみ使う）。
 
 -- --------------------------------------------
--- profiles: 本人の行のみ（書き込める列は 4 節の列単位 GRANT で制限）
+-- account_master: ログインユーザーは閲覧のみ
+-- --------------------------------------------
+CREATE POLICY account_master_select_authenticated ON public.account_master
+    FOR SELECT TO authenticated
+    USING (true);
+
+-- --------------------------------------------
+-- profiles: 本人の行のみ（書き込める列は 6 節の列単位 GRANT で制限）
 -- --------------------------------------------
 CREATE POLICY profiles_select_own ON public.profiles
     FOR SELECT TO authenticated
@@ -631,18 +739,8 @@ CREATE POLICY profiles_update_own ON public.profiles
     WITH CHECK (id = (SELECT auth.uid()));
 
 -- --------------------------------------------
--- 台帳の構造（politicians / political_organizations / elections /
--- politician_organizations / politician_elections / ledgers）: ユーザーは閲覧のみ。
--- 作成・オーナー譲渡・Hub 同期の記録は API が authz 確認後に service client で行う
--- （4 節で INSERT / UPDATE / DELETE 権限を REVOKE 済み）。
+-- 台帳の構造（political_organizations / elections / ledgers）: 閲覧のみ
 -- --------------------------------------------
-
--- politicians: Ledger 内の政治家（台帳作成時の紐付け用）。オーナーのみ閲覧
-CREATE POLICY politicians_select_owner ON public.politicians
-    FOR SELECT TO authenticated
-    USING (owner_user_id = (SELECT auth.uid()));
-
--- political_organizations: オーナーと台帳メンバーが閲覧
 CREATE POLICY political_organizations_select ON public.political_organizations
     FOR SELECT TO authenticated
     USING (
@@ -650,7 +748,6 @@ CREATE POLICY political_organizations_select ON public.political_organizations
         OR public.can_view_political_organization(id)
     );
 
--- elections: オーナーと台帳メンバーが閲覧
 CREATE POLICY elections_select ON public.elections
     FOR SELECT TO authenticated
     USING (
@@ -658,29 +755,6 @@ CREATE POLICY elections_select ON public.elections
         OR public.can_view_election(id)
     );
 
--- politician_organizations: 自分の政治家の紐付けと、台帳メンバーが閲覧
-CREATE POLICY politician_organizations_select ON public.politician_organizations
-    FOR SELECT TO authenticated
-    USING (
-        politician_id IN (
-            SELECT p.id FROM public.politicians p
-            WHERE p.owner_user_id = (SELECT auth.uid())
-        )
-        OR public.can_view_politician_organization(id)
-    );
-
--- politician_elections: 同上
-CREATE POLICY politician_elections_select ON public.politician_elections
-    FOR SELECT TO authenticated
-    USING (
-        politician_id IN (
-            SELECT p.id FROM public.politicians p
-            WHERE p.owner_user_id = (SELECT auth.uid())
-        )
-        OR public.can_view_politician_election(id)
-    );
-
--- ledgers: オーナーとメンバーが閲覧
 CREATE POLICY ledgers_select_members ON public.ledgers
     FOR SELECT TO authenticated
     USING (
@@ -704,7 +778,6 @@ CREATE POLICY ledger_members_insert_manager ON public.ledger_members
     FOR INSERT TO authenticated
     WITH CHECK (
         public.has_ledger_permission(ledger_id, 'manageMembers')
-        AND role IN ('admin', 'accountant', 'approver', 'submitter', 'viewer')
         AND invited_by_user_id = (SELECT auth.uid())
     );
 
@@ -718,7 +791,6 @@ CREATE POLICY ledger_members_update_manager ON public.ledger_members
     )
     WITH CHECK (
         public.has_ledger_permission(ledger_id, 'manageMembers')
-        AND role IN ('admin', 'accountant', 'approver', 'submitter', 'viewer')
         AND user_id IS DISTINCT FROM (
             SELECT l.owner_user_id FROM public.ledgers l WHERE l.id = ledger_id
         )
@@ -760,57 +832,55 @@ CREATE POLICY sub_accounts_delete_owner ON public.sub_accounts
     USING (owner_user_id = (SELECT auth.uid()));
 
 -- --------------------------------------------
--- contacts:
---   台帳に紐づかない関係者: 作成者（owner_user_id）が CRUD
---   台帳に紐づく関係者:     台帳メンバーが閲覧、manageContacts で編集・削除
---                           （作成者でも台帳の権限が無ければ編集・削除できない）
---   仕訳から参照されている関係者は、その台帳のメンバーが閲覧（仕訳への埋め込み用）。
---   ledger_id / owner_user_id の変更は contacts_guard_immutable_columns トリガーで禁止。
+-- contacts: 作成者（owner_user_id）が CRUD。
+--   台帳に紐付いた関係者（ledger_contacts）と、仕訳から参照されている関係者は
+--   その台帳のメンバーが閲覧（仕訳フォームの選択肢・仕訳への埋め込み用）。
+--   owner_user_id の変更は contacts_guard_immutable_columns トリガーで禁止。
 -- --------------------------------------------
 CREATE POLICY contacts_select ON public.contacts
     FOR SELECT TO authenticated
     USING (
         owner_user_id = (SELECT auth.uid())
-        OR (ledger_id IS NOT NULL AND public.is_ledger_member(ledger_id))
+        OR public.is_contact_linked_to_my_ledgers(id)
         OR public.is_contact_used_in_my_ledgers(id)
     );
 
-CREATE POLICY contacts_insert ON public.contacts
+CREATE POLICY contacts_insert_own ON public.contacts
+    FOR INSERT TO authenticated
+    WITH CHECK (owner_user_id = (SELECT auth.uid()));
+
+CREATE POLICY contacts_update_own ON public.contacts
+    FOR UPDATE TO authenticated
+    USING (owner_user_id = (SELECT auth.uid()))
+    WITH CHECK (owner_user_id = (SELECT auth.uid()));
+
+CREATE POLICY contacts_delete_own ON public.contacts
+    FOR DELETE TO authenticated
+    USING (owner_user_id = (SELECT auth.uid()));
+
+-- --------------------------------------------
+-- ledger_contacts（関係者 ↔ 台帳の紐付け）
+--   閲覧: 台帳メンバー全員
+--   追加: manageContacts。紐付けられるのは自分が作成した関係者のみ
+--   削除: manageContacts
+-- --------------------------------------------
+CREATE POLICY ledger_contacts_select_members ON public.ledger_contacts
+    FOR SELECT TO authenticated
+    USING (public.is_ledger_member(ledger_id));
+
+CREATE POLICY ledger_contacts_insert ON public.ledger_contacts
     FOR INSERT TO authenticated
     WITH CHECK (
-        owner_user_id = (SELECT auth.uid())
-        AND (
-            ledger_id IS NULL
-            OR public.has_ledger_permission(ledger_id, 'manageContacts')
+        public.has_ledger_permission(ledger_id, 'manageContacts')
+        AND contact_id IN (
+            SELECT ct.id FROM public.contacts ct
+            WHERE ct.owner_user_id = (SELECT auth.uid())
         )
     );
 
-CREATE POLICY contacts_update ON public.contacts
-    FOR UPDATE TO authenticated
-    USING (
-        (ledger_id IS NULL AND owner_user_id = (SELECT auth.uid()))
-        OR (
-            ledger_id IS NOT NULL
-            AND public.has_ledger_permission(ledger_id, 'manageContacts')
-        )
-    )
-    WITH CHECK (
-        (ledger_id IS NULL AND owner_user_id = (SELECT auth.uid()))
-        OR (
-            ledger_id IS NOT NULL
-            AND public.has_ledger_permission(ledger_id, 'manageContacts')
-        )
-    );
-
-CREATE POLICY contacts_delete ON public.contacts
+CREATE POLICY ledger_contacts_delete ON public.ledger_contacts
     FOR DELETE TO authenticated
-    USING (
-        (ledger_id IS NULL AND owner_user_id = (SELECT auth.uid()))
-        OR (
-            ledger_id IS NOT NULL
-            AND public.has_ledger_permission(ledger_id, 'manageContacts')
-        )
-    );
+    USING (public.has_ledger_permission(ledger_id, 'manageContacts'));
 
 -- --------------------------------------------
 -- journals
@@ -847,8 +917,7 @@ CREATE POLICY journals_insert ON public.journals
 --   - registerJournal（承認済みのまま編集・即時承認を含む）
 --   - 下書きのまま: approveJournal、または起票者本人（submitJournal）
 --   - 承認: approveJournal で approved_by_user_id = 自分。自分の起票は registerJournal のみ（上）
--- 承認者の記録（approved_by_user_id / approved_at）の改ざんは journals_guard_immutable_columns で禁止。
--- 関係者はその台帳で使えるもののみ（is_contact_usable_in_ledger）
+-- 承認者の記録の改ざんは journals_guard_immutable_columns で禁止。
 CREATE POLICY journals_update ON public.journals
     FOR UPDATE TO authenticated
     USING (
@@ -954,7 +1023,6 @@ CREATE POLICY journal_entries_delete ON public.journal_entries
 -- 仕訳削除時の CASCADE は RLS を通らない。
 -- storage_path は `{uploaded_by_user_id}/{journal_id}/...` に限る（API は service client で
 -- このパスの署名付き URL 発行・削除を行うため、他人の証憑のパスを登録させない）。
--- UPDATE 権限は付けない（4 節）。
 -- --------------------------------------------
 CREATE POLICY media_assets_select ON public.media_assets
     FOR SELECT TO authenticated
@@ -1051,18 +1119,31 @@ CREATE POLICY ledger_year_closures_delete ON public.ledger_year_closures
         AND status = 'closed'
     );
 
+
 -- ============================================
--- 6. Storage
+-- 8. Storage
 -- ============================================
--- API がユーザーの JWT で Storage を操作する箇所:
---   - receipts:               POST /receipts（upload / createSignedUrl / ロールバックの remove）、
---                             DELETE /receipts（remove）
---   - verification-documents: POST /upload（upload / createSignedUrl）
---   - public-images:          POST /upload/image（upload。getPublicUrl はポリシー不要）
--- いずれもパスの先頭フォルダ = 自分のユーザー ID。
+-- API がユーザーの JWT で Storage を操作する箇所（いずれもパスの先頭フォルダ = 自分のユーザー ID）:
+--   - receipts（非公開）      : POST /receipts（upload / createSignedUrl / ロールバックの remove）、
+--                               DELETE /receipts（remove）
+--   - evidence-files（非公開）: POST /upload（証明書類の upload / createSignedUrl）、
+--                               POST /organization-requests（審査用の署名付き URL）
+--   - public-images（公開）   : POST /upload/image（政治家写真・ロゴ。getPublicUrl はポリシー不要）
 -- 他メンバーの証憑の署名付き URL 発行・削除は API が authz 確認後に service client で行う。
 
--- 公開画像バケット（政治家写真・ロゴ）
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'receipts',
+    'receipts',
+    false,
+    5242880,  -- 5MB（packages/shared/src/receipts.ts の RECEIPT_MAX_SIZE）
+    ARRAY['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = EXCLUDED.public,
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
+
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
     'public-images',
@@ -1076,17 +1157,16 @@ ON CONFLICT (id) DO UPDATE SET
     file_size_limit = EXCLUDED.file_size_limit,
     allowed_mime_types = EXCLUDED.allowed_mime_types;
 
--- migrate-add-storage.sql のユーザー向けポリシーを冪等に作り直す
-DROP POLICY IF EXISTS "Users can upload receipts" ON storage.objects;
-DROP POLICY IF EXISTS "Users can read own receipts" ON storage.objects;
-DROP POLICY IF EXISTS "Users can delete own receipts" ON storage.objects;
-DROP POLICY IF EXISTS "Users can upload verification documents" ON storage.objects;
-DROP POLICY IF EXISTS "Users can read own verification documents" ON storage.objects;
+-- 証明書類は既存の非公開バケット evidence-files を使う（存在しない環境のために作成のみ）
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('evidence-files', 'evidence-files', false)
+ON CONFLICT (id) DO NOTHING;
+
 DROP POLICY IF EXISTS receipts_insert_own_folder ON storage.objects;
 DROP POLICY IF EXISTS receipts_select_own_folder ON storage.objects;
 DROP POLICY IF EXISTS receipts_delete_own_folder ON storage.objects;
-DROP POLICY IF EXISTS verification_documents_insert_own_folder ON storage.objects;
-DROP POLICY IF EXISTS verification_documents_select_own_folder ON storage.objects;
+DROP POLICY IF EXISTS evidence_files_insert_own_folder ON storage.objects;
+DROP POLICY IF EXISTS evidence_files_select_own_folder ON storage.objects;
 DROP POLICY IF EXISTS public_images_insert_own_folder ON storage.objects;
 
 CREATE POLICY receipts_insert_own_folder ON storage.objects
@@ -1110,17 +1190,17 @@ CREATE POLICY receipts_delete_own_folder ON storage.objects
         AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
     );
 
-CREATE POLICY verification_documents_insert_own_folder ON storage.objects
+CREATE POLICY evidence_files_insert_own_folder ON storage.objects
     FOR INSERT TO authenticated
     WITH CHECK (
-        bucket_id = 'verification-documents'
+        bucket_id = 'evidence-files'
         AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
     );
 
-CREATE POLICY verification_documents_select_own_folder ON storage.objects
+CREATE POLICY evidence_files_select_own_folder ON storage.objects
     FOR SELECT TO authenticated
     USING (
-        bucket_id = 'verification-documents'
+        bucket_id = 'evidence-files'
         AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
     );
 
@@ -1130,5 +1210,3 @@ CREATE POLICY public_images_insert_own_folder ON storage.objects
         bucket_id = 'public-images'
         AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
     );
-
-COMMIT;

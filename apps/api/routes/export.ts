@@ -24,6 +24,8 @@ interface ExportData {
   political_organizations: unknown[];
   elections: unknown[];
   contacts: unknown[];
+  /** 所有する台帳と関係者の紐付け */
+  ledger_contacts: unknown[];
   sub_accounts: unknown[];
   /** journal_entries / media_assets を埋め込んだ仕訳 */
   journals: unknown[];
@@ -65,6 +67,20 @@ exportRouter.get("/", async (c) => {
     const ownedLedgerIds = (ledgersResult.data ?? []).map(
       (l: { id: string }) => l.id,
     );
+
+    const ledgerContactsResult = ownedLedgerIds.length > 0
+      ? await supabase
+        .from("ledger_contacts")
+        .select("*")
+        .in("ledger_id", ownedLedgerIds)
+      : { data: [], error: null };
+    if (ledgerContactsResult.error) {
+      console.error(
+        "Export ledger_contacts error:",
+        ledgerContactsResult.error,
+      );
+      return c.json({ error: "エクスポートに失敗しました" }, 500);
+    }
     const journalFilter = ownedLedgerIds.length > 0
       ? `submitted_by_user_id.eq.${userId},ledger_id.in.(${
         ownedLedgerIds.join(",")
@@ -97,6 +113,7 @@ exportRouter.get("/", async (c) => {
       political_organizations: orgsResult.data ?? [],
       elections: electionsResult.data ?? [],
       contacts: contactsResult.data ?? [],
+      ledger_contacts: ledgerContactsResult.data ?? [],
       sub_accounts: subAccountsResult.data ?? [],
       journals: journalsResult.data ?? [],
     };

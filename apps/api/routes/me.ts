@@ -9,14 +9,13 @@
  */
 
 import { Hono } from "hono";
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
   type AppRole,
   roleFromString,
 } from "@polimoney-ledger/shared/permissions.ts";
 import type { AppEnv } from "../lib/types.ts";
 import type { LedgerType } from "../lib/authz.ts";
-import { getServiceClient } from "../lib/supabase.ts";
 import { httpError } from "../lib/errors.ts";
 
 export const meRouter = new Hono<AppEnv>();
@@ -83,35 +82,24 @@ interface LedgerJoinRow {
   owner_user_id: string;
   ledger_type: LedgerType;
   created_at: string | null;
-  politician_organizations: One<{
-    organization_id: string;
-    political_organizations: One<{
-      id: string;
-      name: string;
-      hub_organization_id: string | null;
-    }>;
+  political_organizations: One<{
+    id: string;
+    name: string;
+    hub_organization_id: string | null;
   }>;
-  politician_elections: One<{
-    election_id: string;
-    elections: One<{
-      id: string;
-      election_name: string;
-      election_date: string | null;
-      hub_election_id: string | null;
-    }>;
+  elections: One<{
+    id: string;
+    election_name: string;
+    election_date: string | null;
+    hub_election_id: string | null;
   }>;
 }
 
+// ledgers.organization_id -> political_organizations / ledgers.election_id -> elections
 const LEDGER_JOIN_COLUMNS = `
   id, owner_user_id, ledger_type, created_at,
-  politician_organizations (
-    organization_id,
-    political_organizations ( id, name, hub_organization_id )
-  ),
-  politician_elections (
-    election_id,
-    elections ( id, election_name, election_date, hub_election_id )
-  )
+  political_organizations ( id, name, hub_organization_id ),
+  elections ( id, election_name, election_date, hub_election_id )
 `;
 
 function toMyLedger(
@@ -119,11 +107,8 @@ function toMyLedger(
   role: AppRole,
   isOwner: boolean,
 ): MyLedger {
-  const org = one(
-    one(row.politician_organizations)?.political_organizations ??
-      null,
-  );
-  const elec = one(one(row.politician_elections)?.elections ?? null);
+  const org = one(row.political_organizations);
+  const elec = one(row.elections);
   return {
     ledgerId: row.id,
     ledgerType: row.ledger_type,
@@ -148,53 +133,42 @@ function toMyLedger(
 }
 
 /**
- * ユーザーが所有・所属する台帳を取得する。
- *
- * 読み取り対象はリクエストしたユーザー本人の所有（owner_user_id = userId）と
- * 本人のメンバーシップ（ledger_members.user_id = userId）に限定している。
- * ledgers / ledger_members / political_organizations / elections の RLS は
- * オーナー限定またはポリシー無しで、メンバーとして所属する台帳を
- * ユーザークライアントでは読めないため、service client で本人分だけを読む。
+ * ユーザーが所有・所属する台帳を取得する（ユーザークライアント・RLS 適用）。
+ * ledgers の RLS はオーナーとメンバーに閲覧を許可し、political_organizations / elections は
+ * その台帳のメンバーにも閲覧を許可している。ロールは本人の ledger_members 行から決める
+ * （オーナーは常に admin）。
  */
-async function fetchMyLedgers(userId: string): Promise<MyLedger[]> {
-  const svc = getServiceClient();
-
-  const [ownedRes, memberRes] = await Promise.all([
-    svc
+async function fetchMyLedgers(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<MyLedger[]> {
+  const [ledgerRes, memberRes] = await Promise.all([
+    supabase
       .from("ledgers")
       .select(LEDGER_JOIN_COLUMNS)
-      .eq("owner_user_id", userId)
       .order("created_at", { ascending: true }),
-    svc
+    supabase
       .from("ledger_members")
       .select("ledger_id, role")
       .eq("user_id", userId),
   ]);
-  if (ownedRes.error) throw ownedRes.error;
+  if (ledgerRes.error) throw ledgerRes.error;
   if (memberRes.error) throw memberRes.error;
 
-  const owned = (ownedRes.data ?? []) as unknown as LedgerJoinRow[];
-  const result: MyLedger[] = owned.map((row) => toMyLedger(row, "admin", true));
-  const ownedIds = new Set(owned.map((row) => row.id));
+  const roleByLedger = new Map(
+    ((memberRes.data ?? []) as { ledger_id: string; role: string }[]).map((
+      m,
+    ) => [m.ledger_id, roleFromString(m.role)]),
+  );
 
-  const memberships = (memberRes.data ?? []) as {
-    ledger_id: string;
-    role: string;
-  }[];
-  const memberOnly = memberships.filter((m) => !ownedIds.has(m.ledger_id));
-  if (memberOnly.length === 0) return result;
-
-  const { data: memberLedgers, error } = await svc
-    .from("ledgers")
-    .select(LEDGER_JOIN_COLUMNS)
-    .in("id", memberOnly.map((m) => m.ledger_id))
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-
-  for (const row of (memberLedgers ?? []) as unknown as LedgerJoinRow[]) {
-    const m = memberOnly.find((mm) => mm.ledger_id === row.id);
-    if (!m) continue;
-    result.push(toMyLedger(row, roleFromString(m.role), false));
+  const result: MyLedger[] = [];
+  for (const row of (ledgerRes.data ?? []) as unknown as LedgerJoinRow[]) {
+    if (row.owner_user_id === userId) {
+      result.push(toMyLedger(row, "admin", true));
+      continue;
+    }
+    const role = roleByLedger.get(row.id);
+    if (role) result.push(toMyLedger(row, role, false));
   }
   return result;
 }
@@ -246,7 +220,7 @@ meRouter.get("/", async (c) => {
       .select(PROFILE_COLUMNS)
       .eq("id", userId)
       .maybeSingle(),
-    fetchMyLedgers(userId),
+    fetchMyLedgers(supabase, userId),
   ]);
 
   if (profileRes.error) {
@@ -300,6 +274,6 @@ meRouter.post("/onboarding", async (c) => {
     throw httpError(500, "同意の記録に失敗しました");
   }
 
-  const ledgers = await fetchMyLedgers(userId);
+  const ledgers = await fetchMyLedgers(supabase, userId);
   return c.json(buildMe(user, profile as ProfileRow, ledgers));
 });

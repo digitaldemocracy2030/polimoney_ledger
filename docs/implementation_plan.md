@@ -26,8 +26,8 @@
 
 ### 0.1. 残っている手作業
 
-1. **DB マイグレーションの適用**: 対象の Supabase（Ledger 用 A）に `db/migrate-rls-user-scoped-api.sql` を適用する（冪等）。
-   新規環境は `docs/schema-normalized.sql` → `db/migrate-add-storage.sql` → このファイルの順。適用しないと API の大半が RLS で拒否される。
+1. **DB マイグレーションの適用**: 対象の Supabase（Ledger 用 A）に `supabase/migrations/20261121100000_api_user_scoped_rls.sql` を適用する（`supabase db push`）。
+   本番の v6 スキーマに対する差分。適用しないと API の大半が RLS で拒否される。
 2. **環境変数の設定**: web と api に分けて設定する（3.2 節）。service_role キーと Hub API キーは api だけに置く。
    api の `CORS_ALLOWED_ORIGINS` に本番 Web のオリジン、web の `NEXT_PUBLIC_API_URL` に本番 API の URL を設定する。
 3. **Deno Deploy のアプリ作成**: `ledger-web`（`apps/web`）と `ledger-api`（`apps/api`、エントリ `main.ts`）の 2 つを作る。
@@ -154,7 +154,7 @@ service_role（RLS を通らない）で DB にアクセスできてしまう。
 
 > 結果: `apps/api/lib/auth.ts` の `requireAuth` が `supabase.auth.getUser(token)` で検証する。
 > テストユーザー向けの service_role 分岐はすべて削除し、service_role を使う箇所は `apps/api/lib/authz.ts` で権限を確認してから使う。
-> RLS ポリシーは `db/migrate-rls-user-scoped-api.sql` にまとめた（適用は 0.1 節の手作業）。
+> RLS ポリシーは `supabase/migrations/20261121100000_api_user_scoped_rls.sql` にまとめた（適用は 0.1 節の手作業）。
 
 1. Hono ミドルウェアで `Authorization: Bearer` の JWT を検証し、`c.set("userId")` と `c.set("supabase")` を設定する。
    - 検証は `supabase.auth.getClaims(token)`（JWT 署名鍵による検証）または `getUser(token)` を使う。
@@ -211,7 +211,8 @@ service_role（RLS を通らない）で DB にアクセスできてしまう。
 
 | 項目 | 内容 |
 | ---- | ---- |
-| RLS ポリシーの網羅性 | `db/migrate-rls-user-scoped-api.sql` で API が使うテーブルのポリシーを定義したが、実 DB での動作確認はマイグレーション適用後に行う |
+| RLS ポリシーの網羅性 | `supabase/migrations/20261121100000_api_user_scoped_rls.sql` で API が使うテーブルのポリシーを定義した。本番に対して BEGIN…ROLLBACK で適用・RLS の確認済み。適用後の API での動作確認は未実施 |
+| Hub の中間テーブル ID | Hub 同期に必要な `politician_organization_id` / `politician_election_id` を Hub API から取得できない。`ledgers.hub_politician_*_id` は null のままで、同期は理由付きエラーになる。Hub 側にエンドポイントが必要 |
 | `members` と `ledger_members` | ✅ 解決: `ledger_members` に統一した（`POST /v1/members` はユーザー作成・登録・OTP メール送信まで実装） |
 | Deno Deploy の制限 | 報告書の生成など CPU を多く使う処理がリクエスト単位の制限に当たらないか、フェーズ 6 で確認する |
 | SSR でのデータ取得 | 今は画面がほぼクライアント側でデータを取得している。将来 SSR で API を呼ぶ場合は、Cookie のセッションからトークンを取り出して渡す |

@@ -235,9 +235,7 @@ ownershipTransfersRouter.post("/:id/accept", async (c) => {
     // 台帳のオーナーが申請時から変わっていないこと
     const { data: ledger, error: ledgerError } = await svc
       .from("ledgers")
-      .select(
-        "id, owner_user_id, politician_organization_id, politician_election_id",
-      )
+      .select("id, owner_user_id, organization_id, election_id")
       .eq("id", transfer.ledger_id)
       .maybeSingle();
     if (ledgerError) throw ledgerError;
@@ -281,48 +279,34 @@ ownershipTransfersRouter.post("/:id/accept", async (c) => {
 
     // 3. 台帳に紐づく政治団体 / 選挙のオーナーも変更（旧オーナー所有の場合のみ）
     await transferLinkedOwners(
-      ledger.politician_organization_id,
-      ledger.politician_election_id,
+      ledger.organization_id,
+      ledger.election_id,
       transfer.from_user_id,
       userId,
     );
 
-    // 4. 新オーナーのメンバー行を削除し、旧オーナーを admin メンバーとして残す
-    const { error: removeError } = await svc
-      .from("ledger_members")
-      .delete()
-      .eq("ledger_id", ledger.id)
-      .eq("user_id", userId);
-    if (removeError) {
-      console.error("Failed to remove new owner membership:", removeError);
-    }
-
-    const { data: existingMember, error: existingError } = await svc
-      .from("ledger_members")
-      .select("id")
-      .eq("ledger_id", ledger.id)
-      .eq("user_id", transfer.from_user_id)
-      .maybeSingle();
-    if (existingError) {
-      console.error(
-        "Failed to check previous owner membership:",
-        existingError,
-      );
-    } else if (existingMember) {
-      await svc
-        .from("ledger_members")
-        .update({ role: "admin" })
-        .eq("id", existingMember.id);
-    } else {
-      const { error: addError } = await svc.from("ledger_members").insert({
-        user_id: transfer.from_user_id,
-        ledger_id: ledger.id,
-        role: "admin",
-        invited_by_user_id: userId,
-      });
-      if (addError) {
-        console.error("Failed to add previous owner as member:", addError);
-      }
+    // 4. 新オーナー・旧オーナーとも admin メンバーにする
+    //    （台帳作成時のトリガーと同じく、オーナーも ledger_members に admin で載せる。
+    //     UNIQUE(ledger_id, user_id) により 1 ユーザー 1 行）
+    const { error: memberError } = await svc.from("ledger_members").upsert(
+      [
+        {
+          user_id: userId,
+          ledger_id: ledger.id,
+          role: "admin",
+          invited_by_user_id: transfer.from_user_id,
+        },
+        {
+          user_id: transfer.from_user_id,
+          ledger_id: ledger.id,
+          role: "admin",
+          invited_by_user_id: userId,
+        },
+      ],
+      { onConflict: "ledger_id,user_id" },
+    );
+    if (memberError) {
+      console.error("Failed to update owner memberships:", memberError);
     }
 
     return c.json({
@@ -374,55 +358,31 @@ ownershipTransfersRouter.post("/:id/decline", async (c) => {
 });
 
 /**
- * 台帳に紐づく政治団体 / 選挙の owner_user_id を新オーナーに変更する。
+ * 台帳に紐づく政治団体 / 選挙（ledgers.organization_id / election_id）の owner_user_id を
+ * 新オーナーに変更する（旧オーナー所有の場合のみ）。
  * 認可: 呼び出し側で譲渡申請の承認（to_user_id = 自分、pending）を確認済みであること。
  * 失敗しても台帳の譲渡自体は完了しているため、ログのみ残す。
  */
 async function transferLinkedOwners(
-  politicianOrganizationId: string | null,
-  politicianElectionId: string | null,
+  organizationId: string | null,
+  electionId: string | null,
   fromUserId: string,
   toUserId: string,
 ): Promise<void> {
   const svc = getServiceClient();
-
-  if (politicianOrganizationId) {
-    const { data: link, error } = await svc
-      .from("politician_organizations")
-      .select("organization_id")
-      .eq("id", politicianOrganizationId)
-      .maybeSingle();
+  const targets = [
+    { table: "political_organizations", id: organizationId },
+    { table: "elections", id: electionId },
+  ];
+  for (const target of targets) {
+    if (!target.id) continue;
+    const { error } = await svc
+      .from(target.table)
+      .update({ owner_user_id: toUserId })
+      .eq("id", target.id)
+      .eq("owner_user_id", fromUserId);
     if (error) {
-      console.error("Failed to fetch politician_organizations:", error);
-    } else if (link?.organization_id) {
-      const { error: updateError } = await svc
-        .from("political_organizations")
-        .update({ owner_user_id: toUserId })
-        .eq("id", link.organization_id)
-        .eq("owner_user_id", fromUserId);
-      if (updateError) {
-        console.error("Failed to update organization owner:", updateError);
-      }
-    }
-  }
-
-  if (politicianElectionId) {
-    const { data: link, error } = await svc
-      .from("politician_elections")
-      .select("election_id")
-      .eq("id", politicianElectionId)
-      .maybeSingle();
-    if (error) {
-      console.error("Failed to fetch politician_elections:", error);
-    } else if (link?.election_id) {
-      const { error: updateError } = await svc
-        .from("elections")
-        .update({ owner_user_id: toUserId })
-        .eq("id", link.election_id)
-        .eq("owner_user_id", fromUserId);
-      if (updateError) {
-        console.error("Failed to update election owner:", updateError);
-      }
+      console.error(`Failed to update ${target.table} owner:`, error);
     }
   }
 }

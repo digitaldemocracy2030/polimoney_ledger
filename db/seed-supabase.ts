@@ -11,14 +11,18 @@
  *   --data    ダミーデータのみ投入（テストユーザーが既に存在する前提）
  *
  * 前提:
- *   docs/schema-normalized.sql と db/migrate-rls-user-scoped-api.sql が適用済みであること。
+ *   supabase/migrations が適用済みであること（20261121100000_api_user_scoped_rls.sql まで）。
  *
  * 注意:
+ *   - 本番 DB には実行しないこと
  *   - このスクリプトは service_role キーを使用します（DB の初期投入のため RLS を通らない）
  *   - 投入するデータは supabase/seed.sql と同じです
- *   - API はユーザーの JWT（RLS 適用）で DB を読むため、テストユーザーを台帳のオーナーにし、
- *     ledger_members にも admin として登録します（API の台帳作成と同じ形）
- *   - 既存の行（migrate-normalize.sql が作った台帳など）は自然キーで見つけて再利用します
+ *   - API はユーザーの JWT（RLS 適用）で DB を読むため、テストユーザーを台帳のオーナーにします
+ *     （オーナーの admin メンバー行は DB トリガー trg_ledger_auto_member が作る）
+ *   - 台帳 -> 政治団体 / 選挙 は ledgers.organization_id / election_id、
+ *     関係者 -> 台帳 は ledger_contacts で紐付けます（Ledger に政治家のテーブルは無い）
+ *   - 政治家・政治団体・選挙の ID は Hub（polimoney_hub/db/seed-supabase.ts）のテストデータと同じです
+ *   - 既存の台帳は organization_id / election_id で見つけて再利用します
  */
 
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
@@ -67,23 +71,6 @@ const testProfile = {
 };
 
 // ============================================
-// ダミーデータ: 政治家（Ledger 内。台帳の紐付け用）
-// ============================================
-
-const testPoliticians = [
-  {
-    id: "11111111-1111-1111-1111-111111111111",
-    owner_user_id: TEST_USER_ID,
-    name: "山田 太郎",
-  },
-  {
-    id: "22222222-2222-2222-2222-222222222222",
-    owner_user_id: TEST_USER_ID,
-    name: "佐藤 花子",
-  },
-];
-
-// ============================================
 // ダミーデータ: 政治団体
 // ============================================
 
@@ -113,6 +100,7 @@ const testElections = [
     hub_politician_id: "11111111-1111-1111-1111-111111111111",
     election_name: "2024年 第50回衆議院議員総選挙（テスト）",
     election_date: "2024-10-27",
+    hub_election_id: "eeee1111-1111-1111-1111-111111111111",
   },
   {
     id: "eeee2222-2222-2222-2222-222222222222",
@@ -120,6 +108,7 @@ const testElections = [
     hub_politician_id: "22222222-2222-2222-2222-222222222222",
     election_name: "令和7年東京都知事選挙（テスト）",
     election_date: "2025-07-06",
+    hub_election_id: null,
   },
 ];
 
@@ -134,9 +123,6 @@ interface LedgerSeed {
   label: string;
   /** 新規作成時の台帳 ID */
   ledgerId: string;
-  /** 新規作成時の中間テーブル行 ID */
-  linkId: string;
-  politicianId: string;
   ledgerType: "political_fund" | "election_fund";
   /** political_fund なら政治団体 ID、election_fund なら選挙 ID */
   targetId: string;
@@ -147,8 +133,6 @@ const testLedgers: LedgerSeed[] = [
     key: "org_taro",
     label: "山田太郎後援会",
     ledgerId: "1ed01111-1111-1111-1111-111111111111",
-    linkId: "a0001111-1111-1111-1111-111111111111",
-    politicianId: "11111111-1111-1111-1111-111111111111",
     ledgerType: "political_fund",
     targetId: "aaaa1111-1111-1111-1111-111111111111",
   },
@@ -156,8 +140,6 @@ const testLedgers: LedgerSeed[] = [
     key: "org_taro_fund",
     label: "山田太郎を応援する会",
     ledgerId: "1ed02222-2222-2222-2222-222222222222",
-    linkId: "a0002222-2222-2222-2222-222222222222",
-    politicianId: "11111111-1111-1111-1111-111111111111",
     ledgerType: "political_fund",
     targetId: "aaaa1111-2222-2222-2222-222222222222",
   },
@@ -165,8 +147,6 @@ const testLedgers: LedgerSeed[] = [
     key: "elec_taro",
     label: "2024年 第50回衆議院議員総選挙（テスト）",
     ledgerId: "1ed03333-3333-3333-3333-333333333333",
-    linkId: "e0001111-1111-1111-1111-111111111111",
-    politicianId: "11111111-1111-1111-1111-111111111111",
     ledgerType: "election_fund",
     targetId: "eeee1111-1111-1111-1111-111111111111",
   },
@@ -174,8 +154,6 @@ const testLedgers: LedgerSeed[] = [
     key: "elec_hanako",
     label: "令和7年東京都知事選挙（テスト）",
     ledgerId: "1ed04444-4444-4444-4444-444444444444",
-    linkId: "e0002222-2222-2222-2222-222222222222",
-    politicianId: "22222222-2222-2222-2222-222222222222",
     ledgerType: "election_fund",
     targetId: "eeee2222-2222-2222-2222-222222222222",
   },
@@ -446,17 +424,6 @@ async function seedProfile() {
   console.log(`  ✓ ${TEST_USER_ID}`);
 }
 
-async function seedPoliticians() {
-  console.log("\n📝 政治家データを投入中...");
-  for (const politician of testPoliticians) {
-    const { error } = await supabase.from("politicians").upsert(politician, {
-      onConflict: "id",
-    });
-    check(error, `politicians ${politician.name}`);
-    console.log(`  ✓ ${politician.name}`);
-  }
-}
-
 async function seedOrganizations() {
   console.log("\n📝 政治団体データを投入中...");
   for (const org of testOrganizations) {
@@ -479,40 +446,17 @@ async function seedElections() {
   }
 }
 
-/** 中間テーブル行を自然キー（政治家 + 政治団体/選挙）で探し、無ければ作成する */
-async function ensureLink(seed: LedgerSeed): Promise<string> {
-  const link = seed.ledgerType === "political_fund"
-    ? { table: "politician_organizations", column: "organization_id" }
-    : { table: "politician_elections", column: "election_id" };
-
-  const { data: existing, error: findError } = await supabase
-    .from(link.table)
-    .select("id")
-    .eq("politician_id", seed.politicianId)
-    .eq(link.column, seed.targetId)
-    .maybeSingle();
-  check(findError, link.table);
-  if (existing) return existing.id as string;
-
-  const { error } = await supabase.from(link.table).insert({
-    id: seed.linkId,
-    politician_id: seed.politicianId,
-    [link.column]: seed.targetId,
-  });
-  check(error, link.table);
-  return seed.linkId;
-}
-
-/** 台帳を中間テーブル行で探し、無ければ作成する。オーナーはテストユーザーにそろえる */
-async function ensureLedger(seed: LedgerSeed, linkId: string): Promise<string> {
-  const linkColumn = seed.ledgerType === "political_fund"
-    ? "politician_organization_id"
-    : "politician_election_id";
+/** 台帳を政治団体 / 選挙で探し、無ければ作成する。オーナーはテストユーザーにそろえる */
+async function ensureLedger(seed: LedgerSeed): Promise<string> {
+  const targetColumn = seed.ledgerType === "political_fund"
+    ? "organization_id"
+    : "election_id";
 
   const { data: existing, error: findError } = await supabase
     .from("ledgers")
     .select("id")
-    .eq(linkColumn, linkId)
+    .eq("ledger_type", seed.ledgerType)
+    .eq(targetColumn, seed.targetId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -527,40 +471,25 @@ async function ensureLedger(seed: LedgerSeed, linkId: string): Promise<string> {
     return existing.id as string;
   }
 
+  // オーナーの admin メンバー行はトリガー trg_ledger_auto_member が作る
   const { error } = await supabase.from("ledgers").insert({
     id: seed.ledgerId,
     owner_user_id: TEST_USER_ID,
     ledger_type: seed.ledgerType,
-    [linkColumn]: linkId,
+    [targetColumn]: seed.targetId,
   });
   check(error, "ledgers");
   return seed.ledgerId;
 }
 
-/** オーナー自身を admin として ledger_members に登録する */
+/** オーナー自身の admin メンバー行をそろえる（既存台帳のオーナーを変えた場合のため） */
 async function ensureOwnerMembership(ledgerId: string): Promise<void> {
-  const { data: existing, error: findError } = await supabase
-    .from("ledger_members")
-    .select("id")
-    .eq("ledger_id", ledgerId)
-    .eq("user_id", TEST_USER_ID);
-  check(findError, "ledger_members");
-
-  if (existing && existing.length > 0) {
-    const { error } = await supabase
-      .from("ledger_members")
-      .update({ role: "admin" })
-      .in("id", existing.map((m: { id: string }) => m.id));
-    check(error, "ledger_members");
-    return;
-  }
-
-  const { error } = await supabase.from("ledger_members").insert({
+  const { error } = await supabase.from("ledger_members").upsert({
     user_id: TEST_USER_ID,
     ledger_id: ledgerId,
     role: "admin",
     invited_by_user_id: TEST_USER_ID,
-  });
+  }, { onConflict: "ledger_id,user_id" });
   check(error, "ledger_members");
 }
 
@@ -568,8 +497,7 @@ async function seedLedgers(): Promise<Record<LedgerKey, string>> {
   console.log("\n📝 台帳データを投入中...");
   const ledgerIds = {} as Record<LedgerKey, string>;
   for (const seed of testLedgers) {
-    const linkId = await ensureLink(seed);
-    const ledgerId = await ensureLedger(seed, linkId);
+    const ledgerId = await ensureLedger(seed);
     await ensureOwnerMembership(ledgerId);
     ledgerIds[seed.key] = ledgerId;
     console.log(`  ✓ ${seed.label} (${ledgerId})`);
@@ -583,12 +511,17 @@ async function seedContacts(ledgerIds: Record<LedgerKey, string>) {
     const { error } = await supabase.from("contacts").upsert({
       ...contact,
       owner_user_id: TEST_USER_ID,
-      ledger_id: ledgerIds[ledger],
       is_name_private: false,
       is_address_private: false,
       is_occupation_private: false,
     }, { onConflict: "id" });
     check(error, `contacts ${contact.name}`);
+
+    const { error: linkError } = await supabase.from("ledger_contacts").upsert({
+      ledger_id: ledgerIds[ledger],
+      contact_id: contact.id,
+    }, { onConflict: "ledger_id,contact_id", ignoreDuplicates: true });
+    check(linkError, `ledger_contacts ${contact.name}`);
     console.log(`  ✓ ${contact.name}`);
   }
 }
@@ -626,7 +559,6 @@ async function seedJournalEntries() {
 
 async function seedData() {
   await seedProfile();
-  await seedPoliticians();
   await seedOrganizations();
   await seedElections();
   const ledgerIds = await seedLedgers();

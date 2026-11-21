@@ -222,7 +222,15 @@ service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_
 ### 4.2. Row Level Security (RLS)
 
 API がユーザーの JWT で DB にアクセスするため、RLS が主なアクセス制御になる。
-ポリシーは `db/migrate-rls-user-scoped-api.sql` で定義する（冪等）。
+ポリシーとヘルパー関数は `supabase/migrations/20261121100000_api_user_scoped_rls.sql` で定義する。
+
+- 閲覧はオーナーとメンバー全員。書き込みはロールの権限で絞る（仕訳の起票 = `submitJournal`、即時登録 = `registerJournal`、
+  承認 = `approveJournal`、メンバー管理 = `manageMembers`、年度締め = `editLedgerSettings`）。
+- `political_organizations` / `elections` / `ledgers` はユーザーが書き込めない（`hub_*` ID のなりすまし防止）。
+  API が Hub で認証済み政治家・団体管理者であることを確認した後に service client で作成する。
+- `profiles.hub_politician_id` / `verified_email_domain` はユーザーが書き込めない（列単位の GRANT）。
+- `journals` は台帳・起票者の変更と、承認者（`approved_by_user_id`）のなりすましをトリガーで禁止する。
+- `media_assets.storage_path` は `{自分のユーザー ID}/{journal_id}/...` に限る。
 
 - 台帳のオーナーは `ledgers.owner_user_id`（暗黙の admin）、招待メンバーは `ledger_members(user_id, ledger_id, role)`。
 - ロールと権限の対応は `packages/shared/src/permissions.ts` と SQL 関数 `public.role_has_permission` の両方に持つ

@@ -37,6 +37,7 @@ import {
   syncLedger,
   type SyncLedgerInput,
 } from "../lib/hub-client.ts";
+import { getHubLedgerRecords, hubLedgerLink } from "../lib/hub-ledger.ts";
 import {
   type LedgerContact,
   type LedgerJournal,
@@ -299,7 +300,6 @@ journalsRouter.post("/", async (c) => {
       status,
       submitted_by_user_id: userId,
       approved_by_user_id: status === "approved" ? userId : null,
-      approved_at: status === "approved" ? new Date().toISOString() : null,
     })
     .select("id")
     .single();
@@ -338,12 +338,12 @@ journalsRouter.get("/:id", async (c) => {
       id, journal_date, description, status, ledger_id, contact_id,
       classification, non_monetary_basis, notes, amount_public_subsidy,
       is_receipt_hard_to_collect, receipt_hard_to_collect_reason,
-      is_asset_acquisition, asset_type, approved_at, created_at,
+      is_asset_acquisition, asset_type, approved_by_user_id, created_at,
       journal_entries ( id, account_code, sub_account_id, debit_amount, credit_amount ),
       contacts ( name, contact_type, address ),
       ledgers (
-        politician_organizations ( political_organizations ( name ) ),
-        politician_elections ( elections ( election_name ) )
+        political_organizations ( name ),
+        elections ( election_name )
       )
     `,
     )
@@ -365,17 +365,9 @@ journalsRouter.get("/:id", async (c) => {
   // deno-lint-ignore no-explicit-any
   const ledger = one(ledgers as any) as
     | {
-      politician_organizations: unknown;
-      politician_elections: unknown;
+      political_organizations: unknown;
+      elections: unknown;
     }
-    | null;
-  // deno-lint-ignore no-explicit-any
-  const po = one(ledger?.politician_organizations as any) as
-    | { political_organizations: unknown }
-    | null;
-  // deno-lint-ignore no-explicit-any
-  const pe = one(ledger?.politician_elections as any) as
-    | { elections: unknown }
     | null;
 
   return c.json({
@@ -383,9 +375,10 @@ journalsRouter.get("/:id", async (c) => {
       ...rest,
       contacts: one(rest.contacts as Record<string, unknown> | null),
       // deno-lint-ignore no-explicit-any
-      political_organizations: one(po?.political_organizations as any) ?? null,
+      political_organizations: one(ledger?.political_organizations as any) ??
+        null,
       // deno-lint-ignore no-explicit-any
-      elections: one(pe?.elections as any) ?? null,
+      elections: one(ledger?.elections as any) ?? null,
     },
   });
 });
@@ -630,7 +623,6 @@ journalsRouter.post("/:id/approve", async (c) => {
     .update({
       status: "approved",
       approved_by_user_id: userId,
-      approved_at: new Date().toISOString(),
     })
     .eq("id", id)
     .eq("status", "draft")
@@ -664,8 +656,9 @@ journalsRouter.post("/:id/approve", async (c) => {
 
 /**
  * 承認済み仕訳を Hub に同期する。
- * 台帳の Hub 中間テーブル ID はメンバーが RLS で読めないため、
- * authz 確認済み（approveJournal）の前提で service client から取得する。
+ * 台帳の Hub 中間テーブル ID はメンバーが RLS で読めない場合があるため、
+ * authz 確認済み（approveJournal / registerJournal）の前提で service client から取得する。
+ * 中間テーブル ID が未設定の台帳は HubLinkMissingError を throw する（呼び出し側で非致命扱い）。
  * is_test と Hub API キーの選択は台帳オーナーがテストユーザーかどうかで決める。
  */
 async function syncApprovedJournal(
@@ -676,18 +669,9 @@ async function syncApprovedJournal(
 ) {
   if (!shouldSync(journal)) return;
 
-  const { data: ledger, error } = await getServiceClient()
-    .from("ledgers")
-    .select(
-      `
-      id, ledger_type,
-      politician_organizations ( hub_politician_organization_id ),
-      politician_elections ( hub_politician_election_id )
-    `,
-    )
-    .eq("id", access.ledgerId)
-    .maybeSingle();
-  if (error) throw error;
+  const [ledger] = await getHubLedgerRecords(getServiceClient(), [
+    access.ledgerId,
+  ]);
   if (!ledger) {
     console.warn(
       `[Approve] No ledger found for journal ${journal.id}, skipping Hub sync`,
@@ -697,26 +681,12 @@ async function syncApprovedJournal(
 
   const hubUserId = access.ownerUserId;
   const isTest = isTestUser(hubUserId);
-  const po = one(
-    ledger.politician_organizations as
-      | { hub_politician_organization_id: string | null }
-      | { hub_politician_organization_id: string | null }[]
-      | null,
-  );
-  const pe = one(
-    ledger.politician_elections as
-      | { hub_politician_election_id: string | null }
-      | { hub_politician_election_id: string | null }[]
-      | null,
-  );
 
   // 台帳の集計を更新
   const ledgerInput: SyncLedgerInput = {
     ledger_source_id: ledger.id,
     ledger_type: ledger.ledger_type,
-    politician_organization_id: po?.hub_politician_organization_id ||
-      undefined,
-    politician_election_id: pe?.hub_politician_election_id || undefined,
+    ...hubLedgerLink(ledger),
     fiscal_year: Number(journal.journal_date.slice(0, 4)),
     is_test: isTest,
     total_income: 0, // 集計は Hub 側で再計算される想定

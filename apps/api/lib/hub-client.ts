@@ -671,7 +671,7 @@ export interface CreateOrganizationRequestInput {
   evidence_type: string;
   /** 審査用の署名付き URL（期限あり） */
   evidence_file_url: string;
-  /** Ledger Storage（verification-documents バケット）上のパス。URL の期限切れ後の再発行に使う */
+  /** Ledger Storage（evidence-files バケット）上のパス。URL の期限切れ後の再発行に使う */
   evidence_file_path: string;
   evidence_file_name?: string;
   notes?: string;
@@ -839,9 +839,15 @@ export interface SyncLedgerInput {
   ledger_source_id: string;
   /** 台帳種別 */
   ledger_type: "political_fund" | "election_fund";
-  /** 政治家×政治団体の中間テーブルID (Hub の politician_organizations.id) */
+  /**
+   * 政治家×政治団体の中間テーブルID (Hub の politician_organizations.id)。political_fund で必須。
+   * Ledger では ledgers.hub_politician_organization_id に保持する（lib/hub-ledger.ts）
+   */
   politician_organization_id?: string;
-  /** 政治家×選挙の中間テーブルID (Hub の politician_elections.id) */
+  /**
+   * 政治家×選挙の中間テーブルID (Hub の politician_elections.id)。election_fund で必須。
+   * Ledger では ledgers.hub_politician_election_id に保持する（lib/hub-ledger.ts）
+   */
   politician_election_id?: string;
   /** 会計年度 */
   fiscal_year: number;

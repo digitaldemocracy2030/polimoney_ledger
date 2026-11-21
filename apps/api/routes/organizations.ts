@@ -12,7 +12,9 @@
  *
  * :id は Ledger の political_organizations.id（Hub 上の団体情報の更新は PUT /hub-organizations/:id）。
  *
- * 台帳の構造（政治団体・紐付け・台帳）はユーザーが直接書き込めないため、
+ * 政治団体台帳 = ledgers(ledger_type = 'political_fund', organization_id -> political_organizations.id)。
+ * 政治団体のマスタは Hub が持ち、Ledger の political_organizations は hub_organization_id だけを持つ。
+ * 台帳の構造（政治団体・台帳）はユーザーが直接書き込めないため、
  * 作成は Hub で認証済みの団体管理者であることを確認した後に service client で行う。
  */
 
@@ -34,7 +36,6 @@ import {
   verifyOrganizationManagerEmail,
 } from "../lib/hub-client.ts";
 import {
-  addOwnerMembership,
   deleteRowsQuietly,
   fetchAccountCodes,
   fetchLedgerAssets,
@@ -42,8 +43,6 @@ import {
   fetchLedgerJournals,
   fetchLedgerMembers,
   fetchLedgerSubAccounts,
-  fetchMyMembershipLedgerIds,
-  findOrCreatePolitician,
 } from "../lib/ledger-data.ts";
 
 export const organizationsRouter = new Hono<AppEnv>();
@@ -83,51 +82,30 @@ async function getOrganizationOr404<T>(
 // ============================================
 
 // GET /organizations - 政治団体台帳一覧（自分がオーナー、またはメンバーの台帳）
+// ledgers の RLS（オーナーまたはメンバー）で見える政治団体台帳から政治団体を取り出す
 organizationsRouter.get("/", async (c) => {
-  const supabase = c.get("supabase");
-  const userId = c.get("userId");
-
-  const { data: owned, error: ownedError } = await supabase
-    .from("political_organizations")
-    .select("id, name, created_at")
-    .eq("owner_user_id", userId);
-  if (ownedError) {
-    console.error("Failed to fetch organizations:", ownedError);
+  const { data, error } = await c.get("supabase")
+    .from("ledgers")
+    .select("political_organizations ( id, name, created_at )")
+    .eq("ledger_type", "political_fund");
+  if (error) {
+    console.error("Failed to fetch organization ledgers:", error);
     return c.json({ error: "政治団体台帳の取得に失敗しました" }, 500);
   }
 
   const organizations = new Map<string, OrganizationListItem>();
-  for (const o of (owned ?? []) as OrganizationListItem[]) {
-    organizations.set(o.id, o);
-  }
-
-  // メンバーとして所属している政治団体台帳
-  const ledgerIds = await fetchMyMembershipLedgerIds(c);
-  if (ledgerIds.length > 0) {
-    const { data: memberLedgers, error: memberError } = await supabase
-      .from("ledgers")
-      .select(
-        "politician_organizations ( political_organizations ( id, name, created_at ) )",
-      )
-      .in("id", ledgerIds)
-      .eq("ledger_type", "political_fund");
-    if (memberError) {
-      console.error(
-        "Failed to fetch member organization ledgers:",
-        memberError,
-      );
-      return c.json({ error: "政治団体台帳の取得に失敗しました" }, 500);
-    }
-    for (
-      const ledger of (memberLedgers ?? []) as unknown as Array<{
-        politician_organizations: {
-          political_organizations: OrganizationListItem | null;
-        } | null;
-      }>
-    ) {
-      const o = ledger.politician_organizations?.political_organizations;
-      if (o && !organizations.has(o.id)) organizations.set(o.id, o);
-    }
+  for (
+    const ledger of (data ?? []) as unknown as Array<{
+      political_organizations:
+        | OrganizationListItem
+        | OrganizationListItem[]
+        | null;
+    }>
+  ) {
+    const o = Array.isArray(ledger.political_organizations)
+      ? ledger.political_organizations[0]
+      : ledger.political_organizations;
+    if (o && !organizations.has(o.id)) organizations.set(o.id, o);
   }
 
   const list = [...organizations.values()].sort((a, b) =>
@@ -137,7 +115,9 @@ organizationsRouter.get("/", async (c) => {
 });
 
 // POST /organizations - 政治団体台帳の作成
-// 政治団体 -> 政治家と政治団体の紐付け -> 台帳 -> オーナーの admin メンバー登録 の順に作成する
+// 政治団体 -> 台帳 の順に作成する（オーナーの admin メンバー登録は DB トリガー trg_ledger_auto_member）。
+// Hub の politician_organizations.id（ledgers.hub_politician_organization_id）は Hub API に取得手段が無いため
+// ここでは設定しない（null）。Hub 同期時に未設定ならエラーになる（lib/hub-ledger.ts）。
 organizationsRouter.post("/", async (c) => {
   const userId = c.get("userId");
 
@@ -181,25 +161,13 @@ organizationsRouter.post("/", async (c) => {
     );
   }
 
-  // 台帳は政治家との紐付け（politician_organizations）を経由するため、
-  // 政治団体の代表者を Ledger 内の政治家として扱う（未設定なら団体名）
-  const politicianName = hubOrganization.representative_name?.trim() ||
-    hubOrganization.name;
-
   // 上で Hub の管理者認証を確認したうえで service client で作成する
   // （hub_organization_id は Hub で確認した値のみ）
   const svc = getServiceClient();
   let organizationId: string | null = null;
-  let politicianOrganizationId: string | null = null;
   let ledgerId: string | null = null;
 
   try {
-    const politicianId = await findOrCreatePolitician(
-      svc,
-      userId,
-      politicianName,
-    );
-
     const { data: organization, error: orgError } = await svc
       .from("political_organizations")
       .insert({
@@ -212,34 +180,24 @@ organizationsRouter.post("/", async (c) => {
     if (orgError) throw orgError;
     organizationId = organization.id as string;
 
-    const { data: link, error: linkError } = await svc
-      .from("politician_organizations")
-      .insert({ politician_id: politicianId, organization_id: organizationId })
-      .select("id")
-      .single();
-    if (linkError) throw linkError;
-    politicianOrganizationId = link.id as string;
-
     const { data: ledger, error: ledgerError } = await svc
       .from("ledgers")
       .insert({
         owner_user_id: userId,
         ledger_type: "political_fund",
-        politician_organization_id: politicianOrganizationId,
+        organization_id: organizationId,
       })
       .select("id")
       .single();
     if (ledgerError) throw ledgerError;
     ledgerId = ledger.id as string;
 
-    await addOwnerMembership(c, ledgerId);
-
     return c.json({ success: true, organization_id: organizationId }, 201);
   } catch (error) {
     console.error("Failed to create organization ledger:", error);
     await deleteRowsQuietly(svc, [
+      { table: "ledger_members", column: "ledger_id", id: ledgerId },
       { table: "ledgers", id: ledgerId },
-      { table: "politician_organizations", id: politicianOrganizationId },
       { table: "political_organizations", id: organizationId },
     ]);
     return c.json({ error: "政治団体台帳の作成に失敗しました" }, 500);

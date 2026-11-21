@@ -9,9 +9,12 @@
  * - GET  /elections/:id/assets      資産一覧
  *
  * データ取得は原則 c.get("supabase")（RLS 適用）。service client は
- * lib/authz.ts で権限を確認した後の特権処理（auth.admin、ledger_members の作成）と、
+ * lib/authz.ts で権限を確認した後の特権処理（auth.admin）と、
  * Hub で認証済み政治家本人であることを確認した後の台帳作成のみ
- * （台帳の構造はユーザーが直接書き込めない。db/migrate-rls-user-scoped-api.sql 4 節）。
+ * （台帳の構造はユーザーが直接書き込めない。supabase/migrations/20261121100000_api_user_scoped_rls.sql 6 節）。
+ *
+ * 選挙台帳 = ledgers(ledger_type = 'election_fund', election_id -> elections.id)。
+ * 政治家・選挙のマスタは Hub が持ち、Ledger の elections は hub_politician_id / hub_election_id だけを持つ。
  *
  * 台帳まわりの共通処理は lib/ledger-data.ts にある。
  */
@@ -23,7 +26,6 @@ import type { AppEnv } from "../lib/types.ts";
 import { httpError } from "../lib/errors.ts";
 import { requireLedgerPermission } from "../lib/authz.ts";
 import {
-  addOwnerMembership,
   deleteRowsQuietly,
   fetchAccountCodes,
   fetchLedgerAssets,
@@ -31,8 +33,6 @@ import {
   fetchLedgerJournals,
   fetchLedgerMembers,
   fetchLedgerSubAccounts,
-  fetchMyMembershipLedgerIds,
-  findOrCreatePolitician,
 } from "../lib/ledger-data.ts";
 import { getServiceClient } from "../lib/supabase.ts";
 import {
@@ -81,46 +81,27 @@ async function getElectionOr404<T>(
 // ============================================
 
 // GET /elections - 選挙台帳一覧（自分がオーナー、またはメンバーの台帳）
+// ledgers の RLS（オーナーまたはメンバー）で見える選挙台帳から選挙を取り出す
 electionsRouter.get("/", async (c) => {
-  const supabase = c.get("supabase");
-  const userId = c.get("userId");
-
-  const { data: owned, error: ownedError } = await supabase
-    .from("elections")
-    .select(ELECTION_LIST_COLUMNS)
-    .eq("owner_user_id", userId);
-  if (ownedError) {
-    console.error("Failed to fetch elections:", ownedError);
+  const { data, error } = await c.get("supabase")
+    .from("ledgers")
+    .select(`elections ( ${ELECTION_LIST_COLUMNS} )`)
+    .eq("ledger_type", "election_fund");
+  if (error) {
+    console.error("Failed to fetch election ledgers:", error);
     return c.json({ error: "選挙台帳の取得に失敗しました" }, 500);
   }
 
   const elections = new Map<string, ElectionListItem>();
-  for (const e of (owned ?? []) as ElectionListItem[]) {
-    elections.set(e.id, e);
-  }
-
-  // メンバーとして所属している選挙台帳
-  const ledgerIds = await fetchMyMembershipLedgerIds(c);
-  if (ledgerIds.length > 0) {
-    const { data: memberLedgers, error: memberError } = await supabase
-      .from("ledgers")
-      .select(
-        `politician_elections ( elections ( ${ELECTION_LIST_COLUMNS} ) )`,
-      )
-      .in("id", ledgerIds)
-      .eq("ledger_type", "election_fund");
-    if (memberError) {
-      console.error("Failed to fetch member election ledgers:", memberError);
-      return c.json({ error: "選挙台帳の取得に失敗しました" }, 500);
-    }
-    for (
-      const ledger of (memberLedgers ?? []) as unknown as Array<{
-        politician_elections: { elections: ElectionListItem | null } | null;
-      }>
-    ) {
-      const e = ledger.politician_elections?.elections;
-      if (e && !elections.has(e.id)) elections.set(e.id, e);
-    }
+  for (
+    const ledger of (data ?? []) as unknown as Array<{
+      elections: ElectionListItem | ElectionListItem[] | null;
+    }>
+  ) {
+    const e = Array.isArray(ledger.elections)
+      ? ledger.elections[0]
+      : ledger.elections;
+    if (e && !elections.has(e.id)) elections.set(e.id, e);
   }
 
   const list = [...elections.values()].sort((a, b) =>
@@ -175,7 +156,9 @@ electionsRouter.get("/new-data", async (c) => {
 });
 
 // POST /elections - 選挙台帳の作成
-// 選挙 -> 政治家と選挙の紐付け -> 台帳 -> オーナーの admin メンバー登録 の順に作成する
+// 選挙 -> 台帳 の順に作成する（オーナーの admin メンバー登録は DB トリガー trg_ledger_auto_member）。
+// Hub の politician_elections.id（ledgers.hub_politician_election_id）は Hub API に取得手段が無いため
+// ここでは設定しない（null）。Hub 同期時に未設定ならエラーになる（lib/hub-ledger.ts）。
 electionsRouter.post("/", async (c) => {
   const userId = c.get("userId");
 
@@ -229,26 +212,13 @@ electionsRouter.post("/", async (c) => {
     );
   }
 
-  // Ledger 内の政治家名は Hub の登録名を使う
-  const politicianName = politician.name?.trim();
-  if (!politicianName) {
-    return c.json({ error: "政治家名を取得できませんでした" }, 400);
-  }
-
   // 台帳の構造はユーザーが直接書き込めないため、上で Hub の認証を確認したうえで
   // service client で作成する（hub_politician_id は Hub で確認した値のみ）
   const svc = getServiceClient();
   let electionId: string | null = null;
-  let politicianElectionId: string | null = null;
   let ledgerId: string | null = null;
 
   try {
-    const politicianId = await findOrCreatePolitician(
-      svc,
-      userId,
-      politicianName,
-    );
-
     const { data: election, error: electionError } = await svc
       .from("elections")
       .insert({
@@ -263,34 +233,24 @@ electionsRouter.post("/", async (c) => {
     if (electionError) throw electionError;
     electionId = election.id as string;
 
-    const { data: link, error: linkError } = await svc
-      .from("politician_elections")
-      .insert({ politician_id: politicianId, election_id: electionId })
-      .select("id")
-      .single();
-    if (linkError) throw linkError;
-    politicianElectionId = link.id as string;
-
     const { data: ledger, error: ledgerError } = await svc
       .from("ledgers")
       .insert({
         owner_user_id: userId,
         ledger_type: "election_fund",
-        politician_election_id: politicianElectionId,
+        election_id: electionId,
       })
       .select("id")
       .single();
     if (ledgerError) throw ledgerError;
     ledgerId = ledger.id as string;
 
-    await addOwnerMembership(c, ledgerId);
-
     return c.json({ success: true, election_id: electionId }, 201);
   } catch (error) {
     console.error("Failed to create election ledger:", error);
     await deleteRowsQuietly(svc, [
+      { table: "ledger_members", column: "ledger_id", id: ledgerId },
       { table: "ledgers", id: ledgerId },
-      { table: "politician_elections", id: politicianElectionId },
       { table: "elections", id: electionId },
     ]);
     return c.json({ error: "選挙台帳の作成に失敗しました" }, 500);

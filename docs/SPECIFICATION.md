@@ -56,6 +56,19 @@ v3.7 では、テーブル定義の明確化と、仕様書のフォーマット
 
 ## **2. データモデル (Data Model)**
 
+> **v6（本番スキーマ）での注意**: 以下の表のうち、台帳への紐付け方は本番と異なる箇所があります。
+> 正は `supabase/migrations/` と `supabase db dump --linked` です。
+>
+> - 台帳は `ledgers(id, owner_user_id, ledger_type, organization_id, election_id, hub_politician_organization_id, hub_politician_election_id, hub_ledger_id)`。
+>   `ledger_type` は `political_fund`（`organization_id` → `political_organizations`）/ `election_fund`（`election_id` → `elections`）。
+> - `journals` / `ledger_members` / `ledger_year_closures` は `ledger_id` で台帳に紐付く（`organization_id` / `election_id` 列は無い）。
+>   `ledger_members` は `UNIQUE(ledger_id, user_id)`。オーナーの admin 行は DB トリガーが作る。
+> - `contacts` は台帳の列を持たず、`ledger_contacts(ledger_id, contact_id)` で台帳に紐付く。
+> - `journals` には資産取得用の `is_asset_acquisition` / `asset_type` がある。承認日時の列は無い。
+> - Ledger に `politicians` / `politician_organizations` / `politician_elections` は無い（Hub が管理）。
+> - `sub_accounts.ledger_type` は従来どおり `political_organization` / `election`。
+
+
 ### **2.1. 勘定科目マスタ (【v3.9 更新】)**
 
 **方針変更:** 勘定科目（Master Accounts）は、Supabase
@@ -226,8 +239,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | 列名 (Column Name)             | データ型 (Data Type) | 説明 (Description)   | 備考 (Notes)                                                                                                            |
 | :----------------------------- | :------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------- |
 | id                             | uuid                 | 一意な ID (仕訳 ID)  | 主キー, uuid_generate_v4()                                                                                              |
-| organization_id                | uuid                 | 紐づく政治団体の ID  | NULL 許容, political_organizations.id への FK                                                                           |
-| election_id                    | uuid                 | 紐づく選挙台帳の ID  | NULL 許容, elections.id への FK                                                                                         |
+| ledger_id                      | uuid                 | 紐づく台帳の ID      | **【v6】** ledgers.id への FK（旧 organization_id / election_id）                                                       |
 | journal_date                   | date                 | 仕訳日（取引日）     | 必須                                                                                                                    |
 | description                    | text                 | 摘要（取引内容）     | 必須。例: 「事務所家賃 5 月分」                                                                                         |
 | status                         | text                 | 承認ステータス       | draft (起票/承認前), approved (承認済)。必須                                                                            |
@@ -299,7 +311,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 ### **2.7. 関係者テーブル (【v3.16 更新】)**
 
 プライバシー設定（匿名化）のためのカラムを追加。
-**【v3.16 変更】** 関係者は台帳（選挙または政治団体）に紐付けられます。
+**【v6 変更】** 関係者は `ledger_contacts(ledger_id, contact_id)` で台帳に紐付けます（1 つの関係者を複数の台帳に紐付け可能）。
 
 **テーブル名:** contacts
 
@@ -307,8 +319,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | :-------------------- | :------------------- | :------------------------------ | :----------------------------------------------------------------------------------- |
 | id                    | uuid                 | 一意な ID (関係者 ID)           | 主キー, uuid_generate_v4()                                                           |
 | owner_user_id         | uuid                 | このマスターの管理ユーザー ID   | auth.users.id への参照 (RLS 用)                                                      |
-| organization_id       | uuid                 | **紐づく政治団体 ID**           | **【v3.16 追加】** political_organizations.id への FK。NULL 許容                     |
-| election_id           | uuid                 | **紐づく選挙台帳 ID**           | **【v3.16 追加】** elections.id への FK。NULL 許容                                   |
+| hub_organization_id   | uuid                 | Hub 上の政治団体 ID             | NULL 許容（関係者が政治団体の場合）                                                  |
 | contact_type          | text                 | **関係者種別**                  | **person (個人) or corporation (法人/団体)**。必須                                   |
 | name                  | text                 | 氏名 又は 団体名                | 必須。例: 「田中太郎（寄付者）」, 「みずほ銀行」                                     |
 | address               | text                 | 住所                            | NULL 許容                                                                            |
@@ -320,7 +331,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | privacy_reason_other  | text                 | **非公開理由（その他）**        | privacy_reason_type = 'other' の場合必須                                             |
 | created_at            | timestamptz          | レコード作成日時                | デフォルトで now()                                                                   |
 
-> **注意**: `organization_id` または `election_id` のいずれか一方が設定されます（両方 NULL または両方設定は不可）。
+> **注意**: 台帳との紐付けは `ledger_contacts` で行います。台帳に紐付いていない関係者は、作成者がオーナーの台帳で使えます。
 
 ### **2.8. メディア（証憑）テーブル**
 
@@ -348,8 +359,7 @@ v2.6 の仕様に基づき、役割名を text で直接保持します。
 | :----------------- | :------------------- | :---------------------- | :---------------------------------------------------------------------------------------------------- |
 | id                 | uuid                 | 一意な ID               | 主キー, uuid_generate_v4()                                                                            |
 | user_id            | uuid                 | 招待されたユーザーの ID | auth.users.id への参照                                                                                |
-| organization_id    | uuid                 | 紐づく政治団体の ID     | **NULL 許容**, political_organizations.id への FK                                                     |
-| election_id        | uuid                 | 紐づく選挙台帳の ID     | **NULL 許容**, elections.id への FK                                                                   |
+| ledger_id          | uuid                 | 紐づく台帳の ID         | **【v6】** ledgers.id への FK。必須。UNIQUE(ledger_id, user_id)                                       |
 | role               | text                 | **役割（権限）**        | アプリ側で定義した文字列キー。下記 2.11 参照。 例: **admin**, **approver**, **submitter**, **viewer** |
 | invited_by_user_id | uuid                 | 招待したユーザー ID     | auth.users.id への参照                                                                                |
 | created_at         | timestamptz          | 招待日時                | デフォルトで now()                                                                                    |

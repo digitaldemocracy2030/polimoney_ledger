@@ -42,7 +42,6 @@ interface Journal {
   is_receipt_hard_to_collect: boolean;
   receipt_hard_to_collect_reason: string | null;
   created_at: string;
-  approved_at: string | null;
   journal_entries: JournalEntry[];
   contacts: { name: string; contact_type: string; address: string | null } | null;
   political_organizations: { name: string } | null;
@@ -274,7 +273,6 @@ export default function JournalDetailPage() {
 
       <Text size="sm" c="dimmed">
         作成日時: {formatDateTime(journal.created_at)}
-        {journal.approved_at && <> / 承認日時: {formatDateTime(journal.approved_at)}</>}
       </Text>
     </Stack>
   );

@@ -12,7 +12,7 @@ import {
   roleFromString,
 } from "@polimoney-ledger/shared/permissions.ts";
 import type { AppEnv } from "./types.ts";
-import { type LedgerAccess, requireLedgerOwner } from "./authz.ts";
+import type { LedgerAccess } from "./authz.ts";
 import { getServiceClient } from "./supabase.ts";
 import { type AccountCode, getAccountCodes } from "./hub-client.ts";
 
@@ -78,28 +78,66 @@ export async function fetchLedgerJournals(
   return data ?? [];
 }
 
+const LEDGER_CONTACT_COLUMNS =
+  "id, name, contact_type, address, occupation, hub_organization_id";
+
+interface LedgerContactView {
+  id: string;
+  name: string;
+  contact_type: string;
+  address: string | null;
+  occupation: string | null;
+  hub_organization_id: string | null;
+}
+
 /**
- * 台帳で使える関係者一覧を取得する
- * - 台帳に紐付いた関係者
- * - 台帳オーナーが作成した、台帳に紐付いていない関係者（関係者マスタ画面で作成したもの）
- *   ※ RLS により、オーナー以外のメンバーには前者と仕訳で使われているものだけが返る
+ * 台帳で使える関係者一覧を取得する（DB の is_contact_usable_in_ledger と対応）
+ * - 台帳に紐付いた関係者（ledger_contacts）
+ * - 台帳オーナーが作成し、どの台帳にも紐付いていない関係者（関係者マスタ画面で作成したもの）
+ *   ※ RLS により、オーナー以外のメンバーには前者だけが返る
  */
 export async function fetchLedgerContacts(
   supabase: SupabaseClient,
   ledgerId: string,
   ownerUserId: string,
-) {
-  const { data, error } = await supabase
-    .from("contacts")
-    .select(
-      "id, name, contact_type, address, occupation, hub_organization_id",
-    )
-    .or(
-      `ledger_id.eq.${ledgerId},and(ledger_id.is.null,owner_user_id.eq.${ownerUserId})`,
-    )
-    .order("name");
-  if (error) throw error;
-  return data ?? [];
+): Promise<LedgerContactView[]> {
+  const [linkedRes, ownerRes] = await Promise.all([
+    supabase
+      .from("ledger_contacts")
+      .select(`contacts ( ${LEDGER_CONTACT_COLUMNS} )`)
+      .eq("ledger_id", ledgerId),
+    supabase
+      .from("contacts")
+      .select(`${LEDGER_CONTACT_COLUMNS}, ledger_contacts ( ledger_id )`)
+      .eq("owner_user_id", ownerUserId),
+  ]);
+  if (linkedRes.error) throw linkedRes.error;
+  if (ownerRes.error) throw ownerRes.error;
+
+  const contacts = new Map<string, LedgerContactView>();
+  for (
+    const row of (linkedRes.data ?? []) as unknown as Array<{
+      contacts: LedgerContactView | LedgerContactView[] | null;
+    }>
+  ) {
+    const contact = Array.isArray(row.contacts)
+      ? row.contacts[0]
+      : row.contacts;
+    if (contact) contacts.set(contact.id, contact);
+  }
+  for (
+    const row of (ownerRes.data ?? []) as unknown as Array<
+      LedgerContactView & { ledger_contacts: Array<{ ledger_id: string }> }
+    >
+  ) {
+    const { ledger_contacts: links, ...contact } = row;
+    if ((links ?? []).length === 0 && !contacts.has(contact.id)) {
+      contacts.set(contact.id, contact);
+    }
+  }
+  return [...contacts.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "ja")
+  );
 }
 
 /**
@@ -267,69 +305,20 @@ export async function fetchLedgerAssets(
 }
 
 /**
- * Ledger 内の politicians 行を探し、無ければ作成する（オーナー + 氏名で一致判定）。
- * 台帳（ledgers）は politician_organizations / politician_elections 経由で
- * 政治家に紐づくため、台帳作成時に必要になる。
- * politicians はユーザーが直接書き込めないため、呼び出し側で Hub の認証を確認したうえで
- * service client を渡すこと。
- */
-export async function findOrCreatePolitician(
-  supabase: SupabaseClient,
-  ownerUserId: string,
-  name: string,
-): Promise<string> {
-  const { data: existing, error: findError } = await supabase
-    .from("politicians")
-    .select("id")
-    .eq("owner_user_id", ownerUserId)
-    .eq("name", name)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (findError) throw findError;
-  if (existing) return existing.id as string;
-
-  const { data: created, error: insertError } = await supabase
-    .from("politicians")
-    .insert({ owner_user_id: ownerUserId, name })
-    .select("id")
-    .single();
-  if (insertError) throw insertError;
-  return created.id as string;
-}
-
-/**
- * 作成直後の台帳に、オーナー自身を admin メンバーとして登録する。
- * ledger_members はユーザーの JWT では書き込めないため、オーナー確認の後で service client を使う。
- */
-export async function addOwnerMembership(
-  c: Context<AppEnv>,
-  ledgerId: string,
-): Promise<void> {
-  await requireLedgerOwner(c, { ledgerId });
-  const userId = c.get("userId");
-  const { error } = await getServiceClient()
-    .from("ledger_members")
-    .insert({
-      user_id: userId,
-      ledger_id: ledgerId,
-      role: "admin",
-      invited_by_user_id: userId,
-    });
-  if (error) throw error;
-}
-
-/**
  * 作成途中で失敗したときの後始末（ベストエフォート）。
  * 台帳の構造はユーザーが直接削除できないため、作成に使った service client を渡す。
+ * column を省略すると id で削除する（台帳の ledger_members は column: "ledger_id" で消す）。
  */
 export async function deleteRowsQuietly(
   supabase: SupabaseClient,
-  rows: Array<{ table: string; id: string | null }>,
+  rows: Array<{ table: string; id: string | null; column?: string }>,
 ): Promise<void> {
   for (const row of rows) {
     if (!row.id) continue;
-    const { error } = await supabase.from(row.table).delete().eq("id", row.id);
+    const { error } = await supabase
+      .from(row.table)
+      .delete()
+      .eq(row.column ?? "id", row.id);
     if (error) {
       console.error(`Failed to roll back ${row.table} ${row.id}:`, error);
     }

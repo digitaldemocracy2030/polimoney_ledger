@@ -1,10 +1,12 @@
 /**
  * 関係者 API
  *
- * 関係者マスタは作成者（contacts.owner_user_id）単位で管理し、台帳に紐付けることもできる。
+ * 関係者マスタは作成者（contacts.owner_user_id）単位で管理し、
+ * ledger_contacts(ledger_id, contact_id) で台帳に紐付ける（1 つの関係者を複数の台帳に紐付けられる）。
  * - GET /contacts             : 自分が作成した関係者
  * - GET /contacts?ledger_id=  : 台帳に紐付いた関係者（viewLedger が必要）
- * - POST /contacts（ledger_id 付き）: 台帳に紐付けて作成（manageContacts が必要）
+ * - POST /contacts（ledger_id 付き）: 作成して台帳に紐付ける（manageContacts が必要）
+ * - PUT / DELETE /contacts/:id: 作成者のみ
  * データアクセスはすべてユーザークライアント（RLS 適用）経由。
  */
 
@@ -34,7 +36,7 @@ interface ContactRequest {
 }
 
 const CONTACT_COLUMNS =
-  "id, ledger_id, contact_type, name, address, occupation, hub_organization_id, is_name_private, is_address_private, is_occupation_private, privacy_reason_type, privacy_reason_other, created_at";
+  "id, contact_type, name, address, occupation, hub_organization_id, is_name_private, is_address_private, is_occupation_private, privacy_reason_type, privacy_reason_other, created_at";
 
 const VALID_CONTACT_TYPES: ContactType[] = [
   "person",
@@ -119,18 +121,28 @@ contactsRouter.get("/", async (c) => {
   }
 
   try {
-    let query = supabase.from("contacts").select(CONTACT_COLUMNS);
-    query = ledgerId
-      ? query.eq("ledger_id", ledgerId)
-      : query.eq("owner_user_id", userId);
-    const { data, error } = await query.order("name");
+    const { data, error } = ledgerId
+      ? await supabase
+        .from("contacts")
+        .select(`${CONTACT_COLUMNS}, ledger_contacts!inner ( ledger_id )`)
+        .eq("ledger_contacts.ledger_id", ledgerId)
+        .order("name")
+      : await supabase
+        .from("contacts")
+        .select(CONTACT_COLUMNS)
+        .eq("owner_user_id", userId)
+        .order("name");
 
     if (error) {
       console.error("Failed to fetch contacts:", error);
       return c.json({ error: "関係者の取得に失敗しました" }, 500);
     }
 
-    return c.json({ data: data ?? [] });
+    // 紐付け確認用の埋め込みは返さない
+    const contacts = ((data ?? []) as Array<Record<string, unknown>>).map(
+      ({ ledger_contacts: _links, ...contact }) => contact,
+    );
+    return c.json({ data: contacts });
   } catch (error) {
     console.error("Error fetching contacts:", error);
     return c.json({ error: "サーバーエラーが発生しました" }, 500);
@@ -175,13 +187,25 @@ contactsRouter.post("/", async (c) => {
 
     const { data, error } = await supabase
       .from("contacts")
-      .insert({ owner_user_id: userId, ledger_id: ledgerId, ...built.fields })
+      .insert({ owner_user_id: userId, ...built.fields })
       .select(CONTACT_COLUMNS)
       .single();
 
-    if (error) {
+    if (error || !data) {
       console.error("Failed to create contact:", error);
       return c.json({ error: "関係者の登録に失敗しました" }, 500);
+    }
+
+    if (ledgerId) {
+      // RLS: manageContacts かつ自分が作成した関係者のみ紐付けられる
+      const { error: linkError } = await supabase
+        .from("ledger_contacts")
+        .insert({ ledger_id: ledgerId, contact_id: data.id });
+      if (linkError) {
+        console.error("Failed to link contact to ledger:", linkError);
+        await supabase.from("contacts").delete().eq("id", data.id);
+        return c.json({ error: "関係者の登録に失敗しました" }, 500);
+      }
     }
 
     return c.json({ data }, 201);

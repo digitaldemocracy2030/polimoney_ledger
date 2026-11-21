@@ -11,20 +11,28 @@ import { getServiceClient } from "../lib/supabase.ts";
 
 export const dashboardRouter = new Hono<AppEnv>();
 
-/** ownership_transfers の行（ledger_id は台帳単位の譲渡用に追加される列） */
+/** ownership_transfers の行（譲渡は台帳単位） */
 interface TransferRow {
   id: string;
   from_user_id: string;
   to_user_id: string;
   status: string;
   requested_at: string;
-  ledger_id?: string | null;
+  ledger_id: string | null;
 }
 
-interface LedgerLinkRow {
+interface LedgerTargetRow {
   id: string;
-  politician_organization_id: string | null;
-  politician_election_id: string | null;
+  organization_id: string | null;
+  election_id: string | null;
+  political_organizations: One<{ id: string; name: string }>;
+  elections: One<{ id: string; election_name: string }>;
+}
+
+type One<T> = T | T[] | null;
+function one<T>(v: One<T>): T | null {
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v ?? null;
 }
 
 interface PendingTransfer {
@@ -46,7 +54,7 @@ dashboardRouter.get("/", async (c) => {
     // 自分宛ての承認待ち譲渡（RLS: to_user_id = auth.uid() の行は SELECT 可）
     const { data: transfers, error } = await supabase
       .from("ownership_transfers")
-      .select("*")
+      .select("id, from_user_id, to_user_id, status, requested_at, ledger_id")
       .eq("to_user_id", userId)
       .eq("status", "pending")
       .order("requested_at", { ascending: false });
@@ -85,102 +93,32 @@ async function resolveTransferTargets(
     ),
   ];
 
-  const ledgerMap = new Map<string, LedgerLinkRow>();
-  const orgByLink = new Map<string, string>();
-  const electionByLink = new Map<string, string>();
-  const orgMap = new Map<string, { id: string; name: string }>();
-  const electionMap = new Map<string, { id: string; election_name: string }>();
-
+  const ledgerMap = new Map<string, LedgerTargetRow>();
   if (ledgerIds.length > 0) {
-    const svc = getServiceClient();
-
-    const { data: ledgers, error: ledgerError } = await svc
+    const { data: ledgers, error: ledgerError } = await getServiceClient()
       .from("ledgers")
-      .select("id, politician_organization_id, politician_election_id")
+      .select(`
+        id, organization_id, election_id,
+        political_organizations ( id, name ),
+        elections ( id, election_name )
+      `)
       .in("id", ledgerIds);
     if (ledgerError) throw ledgerError;
-    for (const l of (ledgers ?? []) as LedgerLinkRow[]) ledgerMap.set(l.id, l);
-
-    const poIds = [...ledgerMap.values()]
-      .map((l) => l.politician_organization_id)
-      .filter((id): id is string => !!id);
-    const peIds = [...ledgerMap.values()]
-      .map((l) => l.politician_election_id)
-      .filter((id): id is string => !!id);
-
-    if (poIds.length > 0) {
-      const { data, error } = await svc
-        .from("politician_organizations")
-        .select("id, organization_id")
-        .in("id", poIds);
-      if (error) throw error;
-      for (
-        const row of (data ?? []) as { id: string; organization_id: string }[]
-      ) {
-        orgByLink.set(row.id, row.organization_id);
-      }
-
-      const orgIds = [...new Set(orgByLink.values())];
-      if (orgIds.length > 0) {
-        const { data: orgs, error: orgError } = await svc
-          .from("political_organizations")
-          .select("id, name")
-          .in("id", orgIds);
-        if (orgError) throw orgError;
-        for (const o of (orgs ?? []) as { id: string; name: string }[]) {
-          orgMap.set(o.id, o);
-        }
-      }
-    }
-
-    if (peIds.length > 0) {
-      const { data, error } = await svc
-        .from("politician_elections")
-        .select("id, election_id")
-        .in("id", peIds);
-      if (error) throw error;
-      for (const row of (data ?? []) as { id: string; election_id: string }[]) {
-        electionByLink.set(row.id, row.election_id);
-      }
-
-      const electionIds = [...new Set(electionByLink.values())];
-      if (electionIds.length > 0) {
-        const { data: elections, error: electionError } = await svc
-          .from("elections")
-          .select("id, election_name")
-          .in("id", electionIds);
-        if (electionError) throw electionError;
-        for (
-          const e of (elections ?? []) as {
-            id: string;
-            election_name: string;
-          }[]
-        ) {
-          electionMap.set(e.id, e);
-        }
-      }
+    for (const l of (ledgers ?? []) as unknown as LedgerTargetRow[]) {
+      ledgerMap.set(l.id, l);
     }
   }
 
   return authorized.map((r) => {
     const ledger = r.ledger_id ? ledgerMap.get(r.ledger_id) : undefined;
-    const organizationId = ledger?.politician_organization_id
-      ? orgByLink.get(ledger.politician_organization_id) ?? null
-      : null;
-    const electionId = ledger?.politician_election_id
-      ? electionByLink.get(ledger.politician_election_id) ?? null
-      : null;
-
     return {
       id: r.id,
       from_user_id: r.from_user_id,
-      organization_id: organizationId,
-      election_id: electionId,
+      organization_id: ledger?.organization_id ?? null,
+      election_id: ledger?.election_id ?? null,
       requested_at: r.requested_at,
-      political_organizations: organizationId
-        ? orgMap.get(organizationId) ?? null
-        : null,
-      elections: electionId ? electionMap.get(electionId) ?? null : null,
+      political_organizations: one(ledger?.political_organizations ?? null),
+      elections: one(ledger?.elections ?? null),
     };
   });
 }

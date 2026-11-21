@@ -1,11 +1,12 @@
 /**
  * 認可ヘルパー（台帳ごとのロール・権限チェック）
  *
- * メンバーシップモデル（docs/schema-normalized.sql）:
+ * メンバーシップモデル（本番 v6 スキーマ。supabase/migrations 参照）:
  * - ledgers.owner_user_id が台帳のオーナー（暗黙の admin）
- * - ledger_members(user_id, ledger_id, role) が招待メンバー
- * - 政治団体台帳: ledgers.politician_organization_id -> politician_organizations.organization_id
- * - 選挙台帳:     ledgers.politician_election_id     -> politician_elections.election_id
+ * - ledger_members(user_id, ledger_id, role) が招待メンバー（UNIQUE(ledger_id, user_id)）
+ * - 政治団体台帳（political_fund）: ledgers.organization_id -> political_organizations.id
+ * - 選挙台帳（election_fund）:      ledgers.election_id     -> elections.id
+ * - 関係者は ledger_contacts(ledger_id, contact_id) で台帳に紐付く
  *
  * RLS に左右されずに所有・所属を判定するため、ここでは service client で読む。
  * service client を使うルートは、必ず先にこれらのヘルパーで権限を確認すること。
@@ -59,46 +60,24 @@ const LEDGER_COLUMNS = "id, owner_user_id, ledger_type";
 
 /**
  * 指定に一致する台帳の候補を取得する（作成日時の昇順）
+ * - ledgerId: 台帳 ID
+ * - organizationId: ledgers.organization_id（政治団体台帳）
+ * - electionId: ledgers.election_id（選挙台帳）
  */
 export async function findLedgers(target: LedgerTarget): Promise<LedgerRow[]> {
-  const svc = getServiceClient();
-
+  let query = getServiceClient().from("ledgers").select(LEDGER_COLUMNS);
   if ("ledgerId" in target) {
-    const { data, error } = await svc
-      .from("ledgers")
-      .select(LEDGER_COLUMNS)
-      .eq("id", target.ledgerId);
-    if (error) throw error;
-    return (data ?? []) as LedgerRow[];
+    query = query.eq("id", target.ledgerId);
+  } else if ("organizationId" in target) {
+    query = query
+      .eq("ledger_type", "political_fund")
+      .eq("organization_id", target.organizationId);
+  } else {
+    query = query
+      .eq("ledger_type", "election_fund")
+      .eq("election_id", target.electionId);
   }
-
-  const link = "organizationId" in target
-    ? {
-      table: "politician_organizations",
-      column: "organization_id",
-      ledgerColumn: "politician_organization_id",
-      id: target.organizationId,
-    }
-    : {
-      table: "politician_elections",
-      column: "election_id",
-      ledgerColumn: "politician_election_id",
-      id: target.electionId,
-    };
-
-  const { data: links, error: linkError } = await svc
-    .from(link.table)
-    .select("id")
-    .eq(link.column, link.id);
-  if (linkError) throw linkError;
-  const linkIds = (links ?? []).map((l: { id: string }) => l.id);
-  if (linkIds.length === 0) return [];
-
-  const { data, error } = await svc
-    .from("ledgers")
-    .select(LEDGER_COLUMNS)
-    .in(link.ledgerColumn, linkIds)
-    .order("created_at", { ascending: true });
+  const { data, error } = await query.order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as LedgerRow[];
 }
@@ -241,8 +220,8 @@ export async function requireJournalAccess(
 /**
  * 仕訳の関係者として、その台帳で使える関係者であることを要求する（違えば 400）。
  * DB 側の public.is_contact_usable_in_ledger と同じ条件:
- * - 台帳に紐付いた関係者
- * - 台帳オーナーが作成した、台帳に紐付いていない関係者
+ * - 台帳に紐付いた関係者（ledger_contacts）
+ * - 台帳オーナーが作成し、どの台帳にも紐付いていない関係者（関係者マスタ画面で作成したもの）
  * - その台帳の仕訳で既に使われている関係者（オーナー譲渡前の旧オーナーの関係者など）
  * オーナーの関係者はメンバーから RLS で読めないため service client で判定する。
  */
@@ -257,13 +236,15 @@ export async function assertContactUsableInLedger(
 
   const { data: contact, error } = await svc
     .from("contacts")
-    .select("id, ledger_id, owner_user_id")
+    .select("id, owner_user_id, ledger_contacts ( ledger_id )")
     .eq("id", contactId)
     .maybeSingle();
   if (error) throw error;
   if (!contact) throw invalid();
-  if (contact.ledger_id === access.ledgerId) return;
-  if (!contact.ledger_id && contact.owner_user_id === access.ownerUserId) {
+
+  const links = (contact.ledger_contacts ?? []) as Array<{ ledger_id: string }>;
+  if (links.some((l) => l.ledger_id === access.ledgerId)) return;
+  if (links.length === 0 && contact.owner_user_id === access.ownerUserId) {
     return;
   }
 

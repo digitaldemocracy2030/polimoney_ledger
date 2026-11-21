@@ -11,6 +11,8 @@ interface SyncResult {
   updated: number;
   skipped: number;
   errors: number;
+  /** 同期できなかった台帳と理由（Hub との紐付け未設定など） */
+  error_details?: { ledger_id: string; error: string }[];
 }
 
 interface ReSyncButtonProps {
@@ -119,6 +121,11 @@ export function ReSyncButton({ ledgerType, ledgerId }: ReSyncButtonProps) {
               <Text span c="red"> / エラー: {result.errors} 件</Text>
             )}
           </Text>
+          {result.error_details?.map((detail) => (
+            <Text key={detail.ledger_id} size="sm" c="red">
+              {detail.error}
+            </Text>
+          ))}
         </Alert>
       )}
     </Paper>
