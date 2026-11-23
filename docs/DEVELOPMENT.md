@@ -68,8 +68,10 @@ API はユーザーの JWT（RLS 適用）で DB を読むため、上記マイ�
   `election_id` → `elections`。メンバーは `ledger_members(ledger_id, user_id)`（一意）。
 - 関係者: `contacts` を `ledger_contacts(ledger_id, contact_id)` で台帳に紐付ける。
 - Ledger に政治家のテーブルは無い。政治家・政治団体・選挙のマスタは Hub が持ち、Ledger は `hub_*` の ID だけを持つ。
-- Hub 同期に必要な `ledgers.hub_politician_organization_id` / `hub_politician_election_id` は、
-  Hub API に取得手段が無いため現状 null。未設定の台帳の同期は理由付きのエラーになる。
+- Hub 同期に必要な `ledgers.hub_politician_organization_id`（政治団体の代表者との紐付け）/
+  `hub_politician_election_id`（政治家×選挙 の紐付け）は、台帳作成時に Hub から取得して保存する。
+  未設定の台帳は同期時に Hub から取得し、取得できなければ理由付きのエラーになる（`apps/api/lib/hub-ledger.ts`）。
+- Hub の API は `/health` 以外すべて Ledger 専用キーが必要。テストユーザーは DEV キーでテストデータだけを扱う。
 
 ### 認証の設定
 
