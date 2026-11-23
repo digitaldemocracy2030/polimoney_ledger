@@ -39,7 +39,9 @@ import {
   getElections,
   getVerifiedPoliticianByUserId,
   getVerifiedPoliticiansByUserId,
+  resolvePoliticianElection,
 } from "../lib/hub-client.ts";
+import { hubLinkErrorResponse } from "../lib/hub-ledger.ts";
 
 export const electionsRouter = new Hono<AppEnv>();
 
@@ -137,7 +139,7 @@ electionsRouter.get("/new-data", async (c) => {
   }
 
   try {
-    const elections = await getElections();
+    const elections = await getElections({ userId });
     const hubElections = elections.map((e) => ({
       id: e.id,
       name: e.name,
@@ -157,8 +159,9 @@ electionsRouter.get("/new-data", async (c) => {
 
 // POST /elections - 選挙台帳の作成
 // 選挙 -> 台帳 の順に作成する（オーナーの admin メンバー登録は DB トリガー trg_ledger_auto_member）。
-// Hub の politician_elections.id（ledgers.hub_politician_election_id）は Hub API に取得手段が無いため
-// ここでは設定しない（null）。Hub 同期時に未設定ならエラーになる（lib/hub-ledger.ts）。
+// Hub の選挙を選んだ場合は、Hub 同期に使う 政治家×選挙 の紐付けを Hub から取得（無ければ作成）し、
+// ledgers.hub_politician_election_id に保存する。Hub に無い選挙（申請中など）は null のまま作成し、
+// 選挙が Hub に登録された後の同期時に lib/hub-ledger.ts が紐付けを取得する。
 electionsRouter.post("/", async (c) => {
   const userId = c.get("userId");
 
@@ -212,6 +215,21 @@ electionsRouter.post("/", async (c) => {
     );
   }
 
+  // Hub 同期に使う紐付け（politician_elections）を取得する
+  let hubPoliticianElectionId: string | null = null;
+  if (body.hub_election_id) {
+    try {
+      const link = await resolvePoliticianElection({
+        ledgerUserId: userId,
+        politicianId: politician.id,
+        electionId: body.hub_election_id,
+      });
+      hubPoliticianElectionId = link.id;
+    } catch (error) {
+      return hubLinkErrorResponse(c, error, "選挙");
+    }
+  }
+
   // 台帳の構造はユーザーが直接書き込めないため、上で Hub の認証を確認したうえで
   // service client で作成する（hub_politician_id は Hub で確認した値のみ）
   const svc = getServiceClient();
@@ -239,6 +257,7 @@ electionsRouter.post("/", async (c) => {
         owner_user_id: userId,
         ledger_type: "election_fund",
         election_id: electionId,
+        hub_politician_election_id: hubPoliticianElectionId,
       })
       .select("id")
       .single();

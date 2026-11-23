@@ -658,7 +658,7 @@ journalsRouter.post("/:id/approve", async (c) => {
  * 承認済み仕訳を Hub に同期する。
  * 台帳の Hub 中間テーブル ID はメンバーが RLS で読めない場合があるため、
  * authz 確認済み（approveJournal / registerJournal）の前提で service client から取得する。
- * 中間テーブル ID が未設定の台帳は HubLinkMissingError を throw する（呼び出し側で非致命扱い）。
+ * Hub の紐付けが未設定なら Hub から取得し、取得できなければ HubLinkMissingError を throw する（呼び出し側で非致命扱い）。
  * is_test と Hub API キーの選択は台帳オーナーがテストユーザーかどうかで決める。
  */
 async function syncApprovedJournal(
@@ -669,9 +669,8 @@ async function syncApprovedJournal(
 ) {
   if (!shouldSync(journal)) return;
 
-  const [ledger] = await getHubLedgerRecords(getServiceClient(), [
-    access.ledgerId,
-  ]);
+  const svc = getServiceClient();
+  const [ledger] = await getHubLedgerRecords(svc, [access.ledgerId]);
   if (!ledger) {
     console.warn(
       `[Approve] No ledger found for journal ${journal.id}, skipping Hub sync`,
@@ -686,7 +685,7 @@ async function syncApprovedJournal(
   const ledgerInput: SyncLedgerInput = {
     ledger_source_id: ledger.id,
     ledger_type: ledger.ledger_type,
-    ...hubLedgerLink(ledger),
+    ...(await hubLedgerLink(svc, ledger)),
     fiscal_year: Number(journal.journal_date.slice(0, 4)),
     is_test: isTest,
     total_income: 0, // 集計は Hub 側で再計算される想定

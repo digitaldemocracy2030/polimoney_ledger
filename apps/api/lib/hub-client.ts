@@ -112,6 +112,13 @@ export class HubApiError extends Error {
   }
 }
 
+/** Hub のエラーレスポンスからメッセージを取り出す（FastAPI は detail、旧 API は error） */
+function hubErrorMessage(json: ApiError): string {
+  if (typeof json.detail === "string" && json.detail) return json.detail;
+  if (json.error) return json.error;
+  return "API request failed";
+}
+
 /** Hub が 404 を返したかどうか */
 export function isHubNotFound(error: unknown): boolean {
   return error instanceof HubApiError && error.status === 404;
@@ -185,10 +192,7 @@ async function fetchApi<T>(
   const json = await response.json();
 
   if (!response.ok) {
-    throw new HubApiError(
-      (json as ApiError).error || "API request failed",
-      response.status,
-    );
+    throw new HubApiError(hubErrorMessage(json as ApiError), response.status);
   }
 
   return json as T;
@@ -198,8 +202,12 @@ async function fetchApi<T>(
 // 選挙 API
 // ============================================
 
-export async function getElections(): Promise<Election[]> {
-  const result = await fetchApi<ApiResponse<Election[]>>("/api/v1/elections");
+export async function getElections(
+  options: { userId?: string } = {},
+): Promise<Election[]> {
+  const result = await fetchApi<ApiResponse<Election[]>>("/api/v1/elections", {
+    userId: options.userId,
+  });
   return result.data;
 }
 
@@ -211,12 +219,72 @@ export async function getElection(id: string): Promise<Election> {
 }
 
 // ============================================
+// 政治家×選挙 / 政治家×政治団体 の紐付け
+// （ledgers.hub_politician_election_id / hub_politician_organization_id に保存し、Hub 同期で使う）
+// ============================================
+
+/** Hub の紐付け（politician_elections / politician_organizations）の ID */
+export interface HubLink {
+  id: string;
+}
+
+/**
+ * 政治家×選挙 の紐付けを取得する（無ければ Hub が作成する）
+ * Hub は、政治家が認証済みで ledger_user_id が一致することを確認する（一致しなければ 403）。
+ */
+export async function resolvePoliticianElection(params: {
+  ledgerUserId: string;
+  politicianId: string;
+  electionId: string;
+}): Promise<HubLink> {
+  const result = await fetchApi<ApiResponse<HubLink>>(
+    "/api/v1/politician-elections",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ledger_user_id: params.ledgerUserId,
+        politician_id: params.politicianId,
+        election_id: params.electionId,
+      }),
+      userId: params.ledgerUserId,
+    },
+  );
+  return result.data;
+}
+
+/**
+ * 政治団体の代表者との紐付け（politician_organizations, role = representative）を取得する
+ * Hub は、ユーザーがその団体の管理者（または代表者本人）であることを確認する（違えば 403）。
+ * 代表者の紐付けが無い・複数ある場合は 409（Hub 管理者の設定が必要）。紐付けは作成しない。
+ */
+export async function resolvePoliticianOrganization(params: {
+  ledgerUserId: string;
+  organizationId: string;
+}): Promise<HubLink> {
+  const result = await fetchApi<ApiResponse<HubLink>>(
+    "/api/v1/politician-organizations/resolve",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ledger_user_id: params.ledgerUserId,
+        organization_id: params.organizationId,
+      }),
+      userId: params.ledgerUserId,
+    },
+  );
+  return result.data;
+}
+
+// ============================================
 // 政治団体 API
 // ============================================
 
-export async function getOrganizations(): Promise<Organization[]> {
+export async function getOrganizations(
+  options: { userId?: string } = {},
+): Promise<Organization[]> {
   const result = await fetchApi<ApiResponse<Organization[]>>(
     "/api/v1/organizations",
+    { userId: options.userId },
   );
   return result.data;
 }
@@ -338,12 +406,15 @@ export async function getAccountCode(code: string): Promise<AccountCode> {
 // 政治家 API
 // ============================================
 
-export async function getPoliticians(
-  options: { userId?: string } = {},
+/**
+ * Ledger ユーザーに紐付いた政治家を取得する（Hub は ledger_user_id で絞り込む）
+ */
+export async function getPoliticiansByLedgerUserId(
+  ledgerUserId: string,
 ): Promise<Politician[]> {
   const result = await fetchApi<ApiResponse<Politician[]>>(
-    "/api/v1/politicians",
-    { userId: options.userId },
+    `/api/v1/politicians?ledger_user_id=${encodeURIComponent(ledgerUserId)}`,
+    { userId: ledgerUserId },
   );
   return result.data;
 }
@@ -419,7 +490,7 @@ export async function getVerifiedPoliticiansByUserId(
   ledgerUserId: string,
 ): Promise<Politician[]> {
   // テストユーザーの場合は DEV キーを使用
-  const politicians = await getPoliticians({ userId: ledgerUserId });
+  const politicians = await getPoliticiansByLedgerUserId(ledgerUserId);
   return politicians.filter(
     (p) => p.ledger_user_id === ledgerUserId && p.is_verified,
   );

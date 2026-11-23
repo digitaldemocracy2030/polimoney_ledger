@@ -8,7 +8,8 @@ export interface Election {
   id: string;
   name: string;
   type: string; // HR, HC, PG, CM, GM
-  area_code: string;
+  district_id: string | null;
+  is_active: boolean;
   election_date: string;
   created_at: string;
   updated_at: string;
@@ -236,6 +237,7 @@ export interface ApiResponse<T> {
 }
 
 export interface ApiError {
-  error: string;
+  error?: string;
+  /** Hub（FastAPI）のエラー。文字列、またはバリデーションエラーの配列 */
+  detail?: string | unknown[];
 }
-

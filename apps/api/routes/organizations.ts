@@ -31,6 +31,7 @@ import {
   getOrganizationManagerVerificationsByUser,
   getOrganizations,
   type PoliticalFundReportInfo,
+  resolvePoliticianOrganization,
   sendOrganizationManagerVerificationCode,
   verifyOrganizationManagerDns,
   verifyOrganizationManagerEmail,
@@ -44,6 +45,7 @@ import {
   fetchLedgerMembers,
   fetchLedgerSubAccounts,
 } from "../lib/ledger-data.ts";
+import { hubLinkErrorResponse } from "../lib/hub-ledger.ts";
 
 export const organizationsRouter = new Hono<AppEnv>();
 
@@ -116,8 +118,8 @@ organizationsRouter.get("/", async (c) => {
 
 // POST /organizations - 政治団体台帳の作成
 // 政治団体 -> 台帳 の順に作成する（オーナーの admin メンバー登録は DB トリガー trg_ledger_auto_member）。
-// Hub の politician_organizations.id（ledgers.hub_politician_organization_id）は Hub API に取得手段が無いため
-// ここでは設定しない（null）。Hub 同期時に未設定ならエラーになる（lib/hub-ledger.ts）。
+// Hub 同期に使う 政治家×政治団体 の紐付け（団体の代表者との紐付け）を Hub から取得し、
+// ledgers.hub_politician_organization_id に保存する。紐付けが無い団体は台帳を作成できない。
 organizationsRouter.post("/", async (c) => {
   const userId = c.get("userId");
 
@@ -161,6 +163,17 @@ organizationsRouter.post("/", async (c) => {
     );
   }
 
+  // Hub 同期に使う紐付け（代表者との politician_organizations）を取得する
+  let hubLink;
+  try {
+    hubLink = await resolvePoliticianOrganization({
+      ledgerUserId: userId,
+      organizationId: hubOrganization.id,
+    });
+  } catch (error) {
+    return hubLinkErrorResponse(c, error, "政治団体");
+  }
+
   // 上で Hub の管理者認証を確認したうえで service client で作成する
   // （hub_organization_id は Hub で確認した値のみ）
   const svc = getServiceClient();
@@ -186,6 +199,7 @@ organizationsRouter.post("/", async (c) => {
         owner_user_id: userId,
         ledger_type: "political_fund",
         organization_id: organizationId,
+        hub_politician_organization_id: hubLink.id,
       })
       .select("id")
       .single();
@@ -221,7 +235,7 @@ organizationsRouter.get("/manager-verify", async (c) => {
       console.error("Failed to fetch manager verifications:", error);
       return [];
     }),
-    getOrganizations().catch((error) => {
+    getOrganizations({ userId }).catch((error) => {
       console.error("Failed to fetch organizations from Hub:", error);
       return [];
     }),

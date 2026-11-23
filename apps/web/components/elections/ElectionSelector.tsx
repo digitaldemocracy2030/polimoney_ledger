@@ -11,7 +11,6 @@ interface Election {
   name: string;
   type: string;
   election_date: string;
-  area_code: string;
 }
 
 interface Props {
@@ -33,9 +32,7 @@ export function ElectionSelector({ initialElections }: Props) {
   const [showRequestForm, setShowRequestForm] = useState(false);
 
   const filteredElections = elections.filter((election) => {
-    const matchesSearch =
-      election.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      election.area_code.includes(searchTerm);
+    const matchesSearch = election.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !selectedType || election.type === selectedType;
     return matchesSearch && matchesType;
   });
@@ -105,9 +102,6 @@ export function ElectionSelector({ initialElections }: Props) {
                           </Badge>
                           <Text size="xs" c="dimmed">
                             {new Date(election.election_date).toLocaleDateString('ja-JP')}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            選挙区: {election.area_code}
                           </Text>
                         </Group>
                       </div>

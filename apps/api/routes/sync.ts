@@ -309,11 +309,11 @@ syncRouter.post("/", async (c) => {
 
         const totals = calculateLedgerTotals(journals);
 
-        // 1. 台帳を同期（Hub の中間テーブル ID が未設定なら HubLinkMissingError）
+        // 1. 台帳を同期（Hub の紐付けが未設定なら Hub から取得。取得できなければ HubLinkMissingError）
         const ledgerInput: SyncLedgerInput = {
           ledger_source_id: ledger.id,
           ledger_type: ledger.ledger_type,
-          ...hubLedgerLink(ledger),
+          ...(await hubLedgerLink(svc, ledger)),
           fiscal_year: new Date().getFullYear(),
           is_test: isTest,
           ...totals,
