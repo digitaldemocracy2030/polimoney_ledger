@@ -100,7 +100,7 @@
 - `/api/admin/election-requests`, `/api/admin/organization-requests`（承認・却下）
 - `/api/v1/registration-requests/{id}`, `/api/v1/organizations`, `/api/v1/elections`
 
-既定の接続先も `http://localhost:3722`（`lib/auth.ts`）と `http://localhost:8000`（各ルート）で食い違っている。
+既定の接続先が `http://localhost:3722`（`lib/auth.ts`）と `http://localhost:8000`（各ルート）で食い違っていた件は、Hub のブランチ `chore/local-port-3722` で 3722 に統一（未マージ）。
 
 ## 影響のまとめ
 
