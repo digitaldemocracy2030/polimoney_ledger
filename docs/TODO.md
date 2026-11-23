@@ -1,9 +1,56 @@
 # Polimoney Ledger TODO
 
-最終更新: 2026-02-12
+最終更新: 2026-11-24
 
-> ⚠️ **方針**: Ledger を先に完成させてから Hub を進める。 Ledger 開発中に DB
-> 構成変更やマスタ追加が発生する可能性があるため。
+> Ledger・Hub・Polimoney の 3 リポジトリにまたがる作業の残りは、下の「🚧 次にやること（リポジトリ横断）」にまとめる。
+> Hub API の対応状況の詳細は [HUB_API_GAP.md](./HUB_API_GAP.md)、システム全体の構成は
+> Polimoney リポジトリの `docs/ARCHITECTURE.md`。
+
+---
+
+## 🚧 次にやること（リポジトリ横断）
+
+### レビュー・マージ待ちの PR
+
+| リポジトリ | PR | 内容 |
+| --- | --- | --- |
+| Ledger | [#88](https://github.com/digitaldemocracy2030/polimoney_ledger/pull/88) | API を `apps/api` に分離、本番 Ledger DB（v6）対応、Hub 紐付け ID の保存、資料 |
+| Hub | [#64](https://github.com/digitaldemocracy2030/polimoney_hub/pull/64) | ローカル開発の Hub API のポートを 3722 に統一 |
+| Polimoney | [#270](https://github.com/digitaldemocracy2030/polimoney/pull/270) | システム全体のアーキテクチャ文書（`docs/ARCHITECTURE.md`） |
+
+### Hub API（未実装。Ledger の該当機能は Hub に API が無いため動かない）
+
+上から順に進める。詳細は [HUB_API_GAP.md](./HUB_API_GAP.md)。
+
+| # | タスク | Ledger で動かない機能 |
+| --- | --- | --- |
+| 1 | 本人確認 API（政治家・団体管理者の申請・確認コード送信・メール / DNS 確認）と、管理画面の審査 API | 政治家認証・団体管理者認証 |
+| 2 | 登録申請（選挙・政治団体）・年度ロック解除・登録審査（`registration_requests` は DB にテーブルも無い）の API と、管理画面の承認 API | 選挙・団体の登録申請、ロック解除申請、登録審査中の確認 |
+| 3 | 政治家・政治団体の情報の更新 API（`PUT /politicians/{id}`, `PUT /organizations/{id}`） | プロフィールでの編集 |
+| 4 | Hub 管理画面（`admin/`, Fresh）を Next.js + Mantine に移行。管理画面用 API（`/api/admin/*`, 認証）を FastAPI に用意する | （Hub 管理画面が旧 Deno API を呼んでいて動かない） |
+| 5 | 一般公開用の API キーの仕組み（利用キー・レート制限・返す項目の決定）。Polimoney を Hub API に切り替える前に必要 | （Polimoney は静的データのまま） |
+
+- 1 は管理画面の審査 API とセットで設計する（4 の移行方針と関わるので、着手前に進め方を相談する）。
+- `/api/v1` は現在すべて Ledger 専用キーが必要（一般公開まで）。Hub DB の公開読み取りの RLS も削除済み。
+
+### Ledger
+
+| # | タスク | 備考 |
+| --- | --- | --- |
+| 1 | Web をブラウザで一通り操作して確認する | API は本番 DB・本番 Hub に対してテストユーザーで確認済み。画面操作は未確認 |
+| 2 | Deno Deploy へのデプロイ（Web と API の 2 アプリ） | API の環境変数 `HUB_API_KEY_PROD` / `_DEV` は Hub の `LEDGER_SYNC_API_KEY_PROD` / `_DEV` と同じ値 |
+| 3 | Supabase Auth の Redirect URLs に `<Web のオリジン>/auth/callback` を登録 | |
+| 4 | Next.js 16 の `middleware.ts` → `proxy.ts` への改名 | |
+| 5 | 証憑の再添付 UI | |
+| 6 | 本番 Ledger DB の既存テストデータ（「テスト太郎後援会」など）を Hub のテストデータ名に揃える | シードは Hub に合わせ済み。本番では未実行 |
+
+### Hub（API 以外）
+
+| # | タスク | 備考 |
+| --- | --- | --- |
+| 1 | `public_contacts` と `ledger_change_logs` に `is_test` が無い | DEV キーで本番の関係者データを上書きできてしまう（対象の ID が必要なので悪用は難しい） |
+| 2 | 既存テスト（`tests/test_polimoney_api.py` 等）の失敗 | main の時点で失敗している（SQLAlchemy の import など） |
+| 3 | `docs/API.md` が旧 Deno 版のまま | |
 
 ---
 
@@ -38,6 +85,9 @@
 | ✓   | 年度締め機能                            | 2026-02-04 |
 | ✓   | ロック/アーカイブ機能                   | 2026-02-04 |
 | ✓   | ロック解除リクエスト                    | 2026-02-04 |
+| ✓   | API を `apps/api`（Hono / Deno）に分離  | 2026-11-21 |
+| ✓   | 本番 Ledger DB（v6）に合わせた RLS      | 2026-11-21 |
+| ✓   | Hub 同期（承認時・手動、紐付け ID 付き） | 2026-11-24 |
 | ✓   | 仕訳登録：日付初期値の改善              | 2026-02-12 |
 | ✓   | 仕訳登録：締め済み年度で非表示          | 2026-02-12 |
 | ✓   | 台帳設定・メンバー管理                  | 2026-02-12 |
@@ -50,9 +100,8 @@
 
 | #   | タスク                     | 状態      | 詳細                                       |
 | --- | -------------------------- | --------- | ------------------------------------------ |
-| 1   | Hub 同期機能（送信側）完成 | 🔲 未着手 | 承認時の自動同期 + 手動再同期              |
-| 2   | 画像エクスポート（ZIP）    | 🔲 未着手 | 領収書画像も含めた完全なデータエクスポート |
-| 3   | 収支報告書出力             | 🔲 未着手 | PDF/Excel 出力（選挙種別で様式異なる）※最後に実施 |
+| 1   | 画像エクスポート（ZIP）    | 🔲 未着手 | 領収書画像も含めた完全なデータエクスポート |
+| 2   | 収支報告書出力             | 🔲 未着手 | PDF/Excel 出力（選挙種別で様式異なる）※最後に実施 |
 
 ---
 
@@ -83,8 +132,8 @@ Ledger と Hub の両方で作業が必要なもの。
 
 | タスク             | Hub 側             | Ledger 側            |
 | ------------------ | ------------------ | -------------------- |
-| 同期 API           | ✅ 受信実装済      | 🔲 送信ロジック      |
-| ロック解除フロー   | ✅ 承認 API 実装済 | ✅ リクエスト送信 UI |
+| 同期 API           | ✅ 受信実装済      | ✅ 送信（本番で確認済み） |
+| ロック解除フロー   | 🔲 FastAPI 版に API が無い | ✅ リクエスト送信 UI |
 | 匿名化ルール       | -                  | 🔲 contacts 匿名化   |
 | 画像ストレージ移行 | 受信               | 🔲 送信              |
 
@@ -92,40 +141,7 @@ Ledger と Hub の両方で作業が必要なもの。
 
 ## 📊 API エンドポイント一覧
 
-### 仕訳 API
-
-| Method | Endpoint                    | 説明         |
-| ------ | --------------------------- | ------------ |
-| GET    | `/api/journals`             | 仕訳一覧取得 |
-| POST   | `/api/journals`             | 仕訳登録     |
-| PUT    | `/api/journals/:id`         | 仕訳更新     |
-| DELETE | `/api/journals/:id`         | 仕訳削除     |
-| POST   | `/api/journals/:id/approve` | 仕訳承認     |
-
-### マスタ API
-
-| Method | Endpoint            | 説明         |
-| ------ | ------------------- | ------------ |
-| GET    | `/api/contacts`     | 関係者一覧   |
-| POST   | `/api/contacts`     | 関係者登録   |
-| PUT    | `/api/contacts/:id` | 関係者更新   |
-| DELETE | `/api/contacts/:id` | 関係者削除   |
-| GET    | `/api/sub-accounts` | 補助科目一覧 |
-| POST   | `/api/sub-accounts` | 補助科目登録 |
-
-### エクスポート API
-
-| Method | Endpoint                         | 説明                     |
-| ------ | -------------------------------- | ------------------------ |
-| GET    | `/api/export`                    | JSON エクスポート        |
-| GET    | `/api/export?include_media=true` | ZIP エクスポート（予定） |
-
-### Hub 連携 API
-
-| Method | Endpoint                     | 説明                   |
-| ------ | ---------------------------- | ---------------------- |
-| POST   | `/api/election-requests`     | 選挙登録リクエスト送信 |
-| POST   | `/api/organization-requests` | 団体登録リクエスト送信 |
+Ledger API はすべて `/v1` 配下（`apps/api/routes/*.ts`）。一覧はコードを参照。
 
 ---
 
@@ -156,5 +172,6 @@ Hub に同期する際、`contacts` の情報を匿名化する必要がある�
 
 ## 更新履歴
 
+- 2026-11-24: リポジトリ横断の残タスクを追加。Hub 同期を完了に。API 一覧を削除（コード参照）
 - 2025-12-17: TODO.md を新規作成（TODO_UNIFIED.md から統合）
 - 2024-12-14: TODO_UNIFIED.md 初版作成
