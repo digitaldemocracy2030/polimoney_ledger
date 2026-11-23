@@ -85,8 +85,8 @@
 | `createUnlockRequest` | `POST /api/v1/unlock-requests` | ❌ | closures |
 | `checkUnlockStatus` | `GET /api/v1/unlock-requests/check/{ledgerId}` | ❌ | closures |
 | `checkRegistrationRequest` | `GET /api/v1/registration-requests/check/{email}` | ❌（DB にテーブルも無い） | pending-review |
-| `getAccountCodes` | `GET /api/v1/master/account-codes` | ❌ | account-master, ledger-data |
-| `getAccountCode` | `GET /api/v1/master/account-codes/{code}` | ❌ | sync-transform（同期） |
+| `getAccountCodes` | `GET /api/v1/master/account-codes` | ✅（Hub #65） | account-master, ledger-data |
+| `getAccountCode` | `GET /api/v1/master/account-codes/{code}` | ✅（Hub #65） | （未使用。sync-transform の同名関数は別物） |
 
 未使用の関数（`getElection`, `getPolitician`, `createPolitician`, `get*Requests`, `getUnlockRequests`）は Hub 側の実装対象外にしてよい。
 
@@ -107,7 +107,7 @@
 | Ledger の機能 | 現状 |
 | --- | --- |
 | ログイン・台帳・仕訳・関係者・メンバー | 動く（Hub を使わない） |
-| 仕訳フォームの勘定科目 | **動かない**（account-codes が無い） |
+| 仕訳フォームの勘定科目 | 動く（Hub #65 で 2026-11-24 にデプロイ。Ledger 専用キーが必要） |
 | 政治家認証・団体管理者認証 | **動かない** |
 | 政治団体・選挙の台帳作成 | **動かない**（認証済み政治家の確認ができない） |
 | 承認時・手動の Hub 同期 | **動かない**（中間 ID が無い。あっても無認証の API に送ることになる） |
@@ -117,7 +117,7 @@
 ## 対応の優先順位（案）
 
 1. ~~sync API に `X-API-Key` 認証を付ける~~（Hub #63、本番デプロイ済み）
-2. **勘定科目 API**（`/api/v1/master/account-codes`）— Ledger の仕訳入力に必須。読み取りだけで小さい
+2. ~~勘定科目 API~~（Hub #65、本番デプロイ済み。一般公開まではLedger 専用キーが必要）
 3. **政治家・団体・選挙の取得 API と中間 ID の解決 API** — 台帳作成と同期に必須
 4. **本人確認 API**（政治家・団体管理者）— 管理画面の審査 API とセット
 5. **登録申請・ロック解除・登録審査** — 管理画面の承認 API とセット
