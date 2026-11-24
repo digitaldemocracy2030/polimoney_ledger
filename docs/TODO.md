@@ -16,8 +16,6 @@
 | --- | --- | --- |
 | Ledger | [#88](https://github.com/digitaldemocracy2030/polimoney_ledger/pull/88) | API を `apps/api` に分離、本番 Ledger DB（v6）対応、Hub 紐付け ID の保存、資料 |
 | Polimoney | [#270](https://github.com/digitaldemocracy2030/polimoney/pull/270) | システム全体のアーキテクチャ文書（`docs/ARCHITECTURE.md`） |
-| Hub | [#70](https://github.com/digitaldemocracy2030/polimoney_hub/pull/70) | Claude Code 向けの CLAUDE.md（実装のルール） |
-| Hub | [#71](https://github.com/digitaldemocracy2030/polimoney_hub/pull/71) | 開発用キーで本番データの関係者を作成・更新できないようにする |
 
 ### Hub API（未実装。Ledger の該当機能は Hub に API が無いため動かない）
 
