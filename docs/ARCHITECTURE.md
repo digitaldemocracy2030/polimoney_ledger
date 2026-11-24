@@ -162,8 +162,8 @@ DB の準備・シード投入を含む詳細は [DEVELOPMENT.md](./DEVELOPMENT.
 
 | アプリ | ファイル              | 変数                                                                                                                                                                                                                                                         |
 | ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| web    | `apps/web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL`（既定 `http://localhost:3723`）                                                                                                                                    |
-| api    | `apps/api/.env`       | `PORT`（既定 3723）, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ENV`, `HUB_API_URL_PROD`, `HUB_API_URL_DEV`, `HUB_API_KEY_PROD`, `HUB_API_KEY_DEV`, `CORS_ALLOWED_ORIGINS`（カンマ区切り、既定 `http://localhost:3721`） |
+| web    | `apps/web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL`（任意。既定は next dev で `http://localhost:3723`、本番のビルドで `https://ledger-api.polimoney.dd2030.org`）                                                                                                                                    |
+| api    | `apps/api/.env`       | `PORT`（既定 3723）, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ENV`, `HUB_API_URL_PROD`, `HUB_API_URL_DEV`, `HUB_API_KEY_PROD`, `HUB_API_KEY_DEV`, `CORS_ALLOWED_ORIGINS`（任意。カンマ区切り、既定は `https://ledger.polimoney.dd2030.org` と `http://localhost:3721`） |
 
 service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_*` はブラウザに公開されるため秘密の値を入れない。
 

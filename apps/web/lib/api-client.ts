@@ -11,8 +11,17 @@
 
 import { getSupabaseBrowserClient } from './supabase/client';
 
+/**
+ * 既定の API の URL。本番のビルド（next build）では本番の API、next dev ではローカルの API。
+ * 別の環境を作るときは NEXT_PUBLIC_API_URL で上書きする（ビルド時に埋め込まれる）
+ */
+const DEFAULT_API_URL =
+  process.env.NODE_ENV === 'production'
+    ? 'https://ledger-api.polimoney.dd2030.org'
+    : 'http://localhost:3723';
+
 function getApiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3723').replace(
+  return (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).replace(
     /\/+$/,
     '',
   );

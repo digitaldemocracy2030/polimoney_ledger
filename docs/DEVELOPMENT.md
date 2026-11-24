@@ -36,8 +36,8 @@ API の依存（`npm:hono` など）は `apps/api/deno.json` の `imports` で�
 
 | ファイル              | 主な変数                                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api/.env`       | `PORT`（3723）, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ENV`, `HUB_API_URL_PROD` / `_DEV`, `HUB_API_KEY_PROD` / `_DEV`, `CORS_ALLOWED_ORIGINS` |
-| `apps/web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL`（`http://localhost:3723`）                                               |
+| `apps/api/.env`       | `PORT`（3723）, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ENV`, `HUB_API_URL_PROD` / `_DEV`, `HUB_API_KEY_PROD` / `_DEV`, `CORS_ALLOWED_ORIGINS`（任意） |
+| `apps/web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL`（任意。既定は next dev で `http://localhost:3723`）                                               |
 
 - `apps/api/.env` は `deno task dev`（`--env-file=.env`）が読み込みます。
 - service_role キーと Hub API キーは API だけに設定し、Web には置かないでください。
