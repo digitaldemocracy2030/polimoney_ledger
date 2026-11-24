@@ -79,14 +79,14 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 
 | hub-client の関数 | 旧エンドポイント | 状態 | Ledger の利用箇所 |
 | --- | --- | --- | --- |
-| `createPoliticianVerification` | `POST /api/v1/politician-verifications` | 🔶 Hub #69 | politicians |
-| `getPoliticianVerificationsByUser` | `GET /api/v1/politician-verifications/user/{id}` | 🔶 Hub #69 | politicians |
-| `sendPoliticianVerificationCode` | `POST .../{id}/send-verification` | 🔶 Hub #69 | politicians |
-| `verifyPoliticianEmail` | `POST .../{id}/verify-email` | 🔶 Hub #69 | politicians |
-| `verifyPoliticianDns` | `POST .../{id}/verify-dns` | 🔶 Hub #69 | politicians |
-| `createOrganizationManagerVerification` 他 4 関数 | `/api/v1/organization-manager-verifications/...` | 🔶 Hub #69 | organizations |
+| `createPoliticianVerification` | `POST /api/v1/politician-verifications` | ✅ Hub #69 | politicians |
+| `getPoliticianVerificationsByUser` | `GET /api/v1/politician-verifications/user/{id}` | ✅ Hub #69 | politicians |
+| `sendPoliticianVerificationCode` | `POST .../{id}/send-verification` | ✅ Hub #69 | politicians |
+| `verifyPoliticianEmail` | `POST .../{id}/verify-email` | ✅ Hub #69 | politicians |
+| `verifyPoliticianDns` | `POST .../{id}/verify-dns` | ✅ Hub #69 | politicians |
+| `createOrganizationManagerVerification` 他 4 関数 | `/api/v1/organization-manager-verifications/...` | ✅ Hub #69 | organizations |
 
-🔶 = PR 作成済み・未マージ。Hub #69 の要点:
+✅ = 本番デプロイ済み（2026-11-24）。Hub #69 の要点:
 
 - 送信・確認の操作には申請者本人の `ledger_user_id` を body で送る（hub-client 対応済み）
 - 確認コードのメール送信は Resend（Hub の `RESEND_API_KEY` / `MAIL_FROM`）。未設定の間、本番データの送信は 503
@@ -117,7 +117,7 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 - `/api/admin/election-requests`, `/api/admin/organization-requests`（承認・却下）
 - `/api/v1/registration-requests/{id}`, `/api/v1/organizations`, `/api/v1/elections`
 
-既定の接続先が `http://localhost:3722`（`lib/auth.ts`）と `http://localhost:8000`（各ルート）で食い違っていた件は、Hub #64 で 3722 に統一（レビュー待ち）。
+既定の接続先が `http://localhost:3722`（`lib/auth.ts`）と `http://localhost:8000`（各ルート）で食い違っていた件は、Hub #64 で 3722 に統一した。
 
 ## 影響のまとめ
 
@@ -137,6 +137,6 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 1. ~~sync API に `X-API-Key` 認証を付ける~~（Hub #63、本番デプロイ済み）
 2. ~~勘定科目 API~~（Hub #65、本番デプロイ済み。一般公開まではLedger 専用キーが必要）
 3. ~~政治家・団体・選挙の取得 API と紐付けの API~~（Hub #66〜#68、本番デプロイ済み）
-4. **本人確認 API**（政治家・団体管理者）と管理画面の審査 API — Hub #69（レビュー待ち）
+4. ~~本人確認 API（政治家・団体管理者）と審査 API~~（Hub #69、本番デプロイ済み。メール送信の Resend 設定と e2e は未実施）
 5. **登録申請・ロック解除・登録審査** — 管理画面の承認 API とセット
 6. 管理画面を Next.js + Mantine に移行（Ledger と同じ構成）。その際、管理画面用 API（`/api/admin/*`）も FastAPI に用意する

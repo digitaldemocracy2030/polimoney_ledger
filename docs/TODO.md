@@ -15,9 +15,9 @@
 | リポジトリ | PR | 内容 |
 | --- | --- | --- |
 | Ledger | [#88](https://github.com/digitaldemocracy2030/polimoney_ledger/pull/88) | API を `apps/api` に分離、本番 Ledger DB（v6）対応、Hub 紐付け ID の保存、資料 |
-| Hub | [#64](https://github.com/digitaldemocracy2030/polimoney_hub/pull/64) | ローカル開発の Hub API のポートを 3722 に統一 |
 | Polimoney | [#270](https://github.com/digitaldemocracy2030/polimoney/pull/270) | システム全体のアーキテクチャ文書（`docs/ARCHITECTURE.md`） |
-| Hub | [#69](https://github.com/digitaldemocracy2030/polimoney_hub/pull/69) | 本人確認 API と管理者の審査 API。**マージ前に** `db/migrate-verification-test-and-attempts.sql` を Hub DB に適用する |
+| Hub | [#70](https://github.com/digitaldemocracy2030/polimoney_hub/pull/70) | Claude Code 向けの CLAUDE.md（実装のルール） |
+| Hub | [#71](https://github.com/digitaldemocracy2030/polimoney_hub/pull/71) | 開発用キーで本番データの関係者を作成・更新できないようにする |
 
 ### Hub API（未実装。Ledger の該当機能は Hub に API が無いため動かない）
 
@@ -25,7 +25,7 @@
 
 | # | タスク | Ledger で動かない機能 |
 | --- | --- | --- |
-| 1 | ~~本人確認 API と管理画面の審査 API~~ → Hub #69（レビュー待ち）。残り: Resend の送信元ドメイン認証と Azure への `RESEND_API_KEY` / `MAIL_FROM` の設定（ユーザー作業）、デプロイ後にテストユーザーで e2e | 政治家認証・団体管理者認証 |
+| 1 | ~~本人確認 API と管理画面の審査 API~~ → Hub #69（本番デプロイ済み、Hub DB のマイグレーション適用済み）。残り: Resend の送信元ドメイン認証と Azure への `RESEND_API_KEY` / `MAIL_FROM` の設定（ユーザー作業）、デプロイ後にテストユーザーで e2e | 政治家認証・団体管理者認証 |
 | 2 | 登録申請（選挙・政治団体）・年度ロック解除・登録審査（`registration_requests` は DB にテーブルも無い）の API と、管理画面の承認 API | 選挙・団体の登録申請、ロック解除申請、登録審査中の確認 |
 | 3 | 政治家・政治団体の情報の更新 API（`PUT /politicians/{id}`, `PUT /organizations/{id}`） | プロフィールでの編集 |
 | 4 | Hub 管理画面（`admin/`, Fresh）を Next.js + Mantine に移行。管理画面用 API（`/api/admin/*`, 認証）を FastAPI に用意する | （Hub 管理画面が旧 Deno API を呼んでいて動かない） |
