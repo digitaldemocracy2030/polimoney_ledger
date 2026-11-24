@@ -29,7 +29,9 @@
 1. **DB マイグレーションの適用**: 対象の Supabase（Ledger 用 A）に `supabase/migrations/20261121100000_api_user_scoped_rls.sql` を適用する（`supabase db push`）。
    本番の v6 スキーマに対する差分。適用しないと API の大半が RLS で拒否される。
 2. **環境変数の設定**: web と api に分けて設定する（3.2 節）。service_role キーと Hub API キーは api だけに置く。
-   api の `CORS_ALLOWED_ORIGINS` に本番 Web のオリジン、web の `NEXT_PUBLIC_API_URL` に本番 API の URL を設定する。
+   本番の Web（`https://ledger.polimoney.dd2030.org`）と API（`https://ledger-api.polimoney.dd2030.org`）の URL はコードの既定値なので、
+   api の `CORS_ALLOWED_ORIGINS` と web の `NEXT_PUBLIC_API_URL` は設定しなくてよい。
+   api の `HUB_API_URL_DEV` は本番の Hub（`https://api.polimoney.dd2030.org`）にする（テストユーザーも本番の Hub を使う）。
 3. **Deno Deploy のアプリ作成**: `ledger-web`（`apps/web`）と `ledger-api`（`apps/api`、エントリ `main.ts`）の 2 つを作る。
 4. **Supabase Auth のリダイレクト URL**: Site URL と Redirect URLs に本番 Web の `<オリジン>/auth/callback` を登録する
    （メール確認・パスワード再設定のリンク先）。

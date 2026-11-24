@@ -36,9 +36,16 @@ import { subAccountsRouter } from "./routes/sub-accounts.ts";
 import { syncRouter } from "./routes/sync.ts";
 import { uploadRouter } from "./routes/upload.ts";
 
-/** CORS で許可するオリジン（カンマ区切り。既定はローカルの Web） */
+/**
+ * CORS で許可するオリジン（カンマ区切り）。既定は本番の Web とローカルの Web。
+ * CORS は認証ではない（API は Bearer トークンが無ければ何も返さない）ので、
+ * 本番でもローカルのオリジンを許可してよい。別の環境を作るときは環境変数で上書きする。
+ */
+const DEFAULT_ALLOWED_ORIGINS =
+  "https://ledger.polimoney.dd2030.org,http://localhost:3721";
+
 const allowedOrigins = (
-  Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "http://localhost:3721"
+  Deno.env.get("CORS_ALLOWED_ORIGINS") ?? DEFAULT_ALLOWED_ORIGINS
 )
   .split(",")
   .map((o) => o.trim())
