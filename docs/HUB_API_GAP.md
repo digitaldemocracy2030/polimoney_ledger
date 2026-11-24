@@ -79,12 +79,19 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 
 | hub-client の関数 | 旧エンドポイント | 状態 | Ledger の利用箇所 |
 | --- | --- | --- | --- |
-| `createPoliticianVerification` | `POST /api/v1/politician-verifications` | ❌ | politicians |
-| `getPoliticianVerificationsByUser` | `GET /api/v1/politician-verifications/user/{id}` | ❌ | politicians |
-| `sendPoliticianVerificationCode` | `POST .../{id}/send-verification` | ❌ | politicians |
-| `verifyPoliticianEmail` | `POST .../{id}/verify-email` | ❌ | politicians |
-| `verifyPoliticianDns` | `POST .../{id}/verify-dns` | ❌ | politicians |
-| `createOrganizationManagerVerification` 他 4 関数 | `/api/v1/organization-manager-verifications/...` | ❌ | organizations |
+| `createPoliticianVerification` | `POST /api/v1/politician-verifications` | 🔶 Hub #69 | politicians |
+| `getPoliticianVerificationsByUser` | `GET /api/v1/politician-verifications/user/{id}` | 🔶 Hub #69 | politicians |
+| `sendPoliticianVerificationCode` | `POST .../{id}/send-verification` | 🔶 Hub #69 | politicians |
+| `verifyPoliticianEmail` | `POST .../{id}/verify-email` | 🔶 Hub #69 | politicians |
+| `verifyPoliticianDns` | `POST .../{id}/verify-dns` | 🔶 Hub #69 | politicians |
+| `createOrganizationManagerVerification` 他 4 関数 | `/api/v1/organization-manager-verifications/...` | 🔶 Hub #69 | organizations |
+
+🔶 = PR 作成済み・未マージ。Hub #69 の要点:
+
+- 送信・確認の操作には申請者本人の `ledger_user_id` を body で送る（hub-client 対応済み）
+- 確認コードのメール送信は Resend（Hub の `RESEND_API_KEY` / `MAIL_FROM`）。未設定の間、本番データの送信は 503
+- DEV キー（テストユーザー）の申請はテストデータ。確認コードはメールで送らず応答の `code` で返る
+- 審査は管理者 API（`/api/admin/*`、Hub の Supabase Auth + `admin_users`）。管理画面は Next.js 移行時に対応
 
 ### 4. 登録申請・ロック解除・勘定科目
 
@@ -130,6 +137,6 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 1. ~~sync API に `X-API-Key` 認証を付ける~~（Hub #63、本番デプロイ済み）
 2. ~~勘定科目 API~~（Hub #65、本番デプロイ済み。一般公開まではLedger 専用キーが必要）
 3. ~~政治家・団体・選挙の取得 API と紐付けの API~~（Hub #66〜#68、本番デプロイ済み）
-4. **本人確認 API**（政治家・団体管理者）— 管理画面の審査 API とセット
+4. **本人確認 API**（政治家・団体管理者）と管理画面の審査 API — Hub #69（レビュー待ち）
 5. **登録申請・ロック解除・登録審査** — 管理画面の承認 API とセット
 6. 管理画面を Next.js + Mantine に移行（Ledger と同じ構成）。その際、管理画面用 API（`/api/admin/*`）も FastAPI に用意する

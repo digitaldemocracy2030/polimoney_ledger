@@ -319,7 +319,6 @@ export function PoliticianVerificationForm({
     const requestBody: Record<string, unknown> = {
       name: verifiedPolitician.name,
       official_email: newEmail,
-      politician_id: verifiedPolitician.id,
       request_type: 'domain_change',
       previous_domain: verifiedPolitician.verified_domain,
     };

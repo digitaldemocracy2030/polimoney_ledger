@@ -104,7 +104,8 @@ export interface PoliticalFundReportInfo {
 export interface PoliticianVerification {
   id: string;
   ledger_user_id: string;
-  politician_id: string | null;
+  /** 承認時に登録・更新された Hub の政治家 */
+  approved_politician_id: string | null;
   politician_name: string;
   official_email: string;
   official_domain: string;
@@ -136,7 +137,6 @@ export interface CreatePoliticianVerificationInput {
   official_email: string;
   official_url?: string;
   party?: string;
-  politician_id?: string;
   /** 申請種別: new=新規, domain_change=ドメイン変更 */
   request_type?: "new" | "domain_change";
   /** ドメイン変更時の変更前ドメイン */

@@ -58,7 +58,6 @@ politiciansRouter.post("/verify", async (c) => {
       official_email: string;
       official_url?: string;
       party?: string;
-      politician_id?: string;
       request_type?: "new" | "domain_change";
       previous_domain?: string;
       candidate_registration_info?: CandidateRegistrationInfo;
@@ -72,7 +71,6 @@ politiciansRouter.post("/verify", async (c) => {
       official_email: body.official_email,
       official_url: body.official_url,
       party: body.party,
-      politician_id: body.politician_id,
       request_type: body.request_type,
       previous_domain: body.previous_domain,
       candidate_registration_info: body.candidate_registration_info,

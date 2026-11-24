@@ -550,7 +550,11 @@ export async function sendPoliticianVerificationCode(
 ): Promise<{ message: string; code?: string }> {
   const result = await fetchApi<{ message: string; code?: string }>(
     `/api/v1/politician-verifications/${verificationId}/send-verification`,
-    { method: "POST", userId: options.userId },
+    {
+      method: "POST",
+      body: JSON.stringify({ ledger_user_id: options.userId }),
+      userId: options.userId,
+    },
   );
   return result;
 }
@@ -567,7 +571,7 @@ export async function verifyPoliticianEmail(
     `/api/v1/politician-verifications/${verificationId}/verify-email`,
     {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ ledger_user_id: options.userId, code }),
       userId: options.userId,
     },
   );
@@ -585,6 +589,7 @@ export async function verifyPoliticianDns(
     `/api/v1/politician-verifications/${verificationId}/verify-dns`,
     {
       method: "POST",
+      body: JSON.stringify({ ledger_user_id: options.userId }),
       userId: options.userId,
     },
   );
@@ -634,7 +639,11 @@ export async function sendOrganizationManagerVerificationCode(
 ): Promise<{ message: string; code?: string }> {
   const result = await fetchApi<{ message: string; code?: string }>(
     `/api/v1/organization-manager-verifications/${verificationId}/send-verification`,
-    { method: "POST", userId: options.userId },
+    {
+      method: "POST",
+      body: JSON.stringify({ ledger_user_id: options.userId }),
+      userId: options.userId,
+    },
   );
   return result;
 }
@@ -651,7 +660,7 @@ export async function verifyOrganizationManagerEmail(
     `/api/v1/organization-manager-verifications/${verificationId}/verify-email`,
     {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ ledger_user_id: options.userId, code }),
       userId: options.userId,
     },
   );
@@ -669,6 +678,7 @@ export async function verifyOrganizationManagerDns(
     `/api/v1/organization-manager-verifications/${verificationId}/verify-dns`,
     {
       method: "POST",
+      body: JSON.stringify({ ledger_user_id: options.userId }),
       userId: options.userId,
     },
   );
