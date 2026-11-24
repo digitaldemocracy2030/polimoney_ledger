@@ -36,9 +36,9 @@
 
 | # | タスク | 備考 |
 | --- | --- | --- |
-| 1 | Web をブラウザで一通り操作して確認する | API は本番 DB・本番 Hub に対してテストユーザーで確認済み。画面操作は未確認 |
-| 2 | Deno Deploy へのデプロイ（Web: https://ledger.polimoney.dd2030.org 、API: https://ledger-api.polimoney.dd2030.org。API は稼働を確認済み） | API の環境変数 `HUB_API_KEY_PROD` / `_DEV` は Hub の `LEDGER_SYNC_API_KEY_PROD` / `_DEV` と同じ値 |
-| 3 | Supabase Auth の Redirect URLs に `<Web のオリジン>/auth/callback` を登録 | |
+| 1 | 本番の Web（https://ledger.polimoney.dd2030.org ）をブラウザで一通り操作して確認する（ログイン → 台帳 → 仕訳の登録 → 承認） | 本番の API はテストユーザーで確認済み（`/v1/me`・勘定科目の取得・CORS）。画面操作は未確認 |
+| 2 | ~~Deno Deploy へのデプロイ~~（2026-11-24。Web: https://ledger.polimoney.dd2030.org 、API: https://ledger-api.polimoney.dd2030.org） | Web の環境変数は `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` だけ（ビルド時に埋め込まれる）。API は `SUPABASE_*` 3 つ・`APP_ENV`・`HUB_API_URL_DEV`（本番の Hub）・`HUB_API_KEY_PROD` / `_DEV` |
+| 3 | ~~Supabase Auth の Site URL と Redirect URLs の設定~~（2026-11-24） | |
 | 4 | ~~Next.js 16 の `middleware.ts` → `proxy.ts` への改名~~（Deno Deploy の Edge ランタイムに `node:v8` が無く middleware が全ページで 500 になったため対応） | |
 | 5 | 証憑の再添付 UI | |
 | 6 | 本番 Ledger DB の既存テストデータ（「テスト太郎後援会」など）を Hub のテストデータ名に揃える | シードは Hub に合わせ済み。本番では未実行 |
