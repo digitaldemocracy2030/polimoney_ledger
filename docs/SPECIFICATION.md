@@ -38,7 +38,7 @@ Polimoney との連携のため、各選挙台帳に一意の識別子を付与�
 日付）に、ユーザーが「前期繰越」という特別な勘定科目を使い、前期末の資産・負債残高を期首残高として手動登録することを想定しています。\
 その際、前期末の資産・負債残高を期首残高をサジェストする様にします。
 
-役割（ロール）と権限の関係は、Flutter アプリ側で静的に定義されます。\
+役割（ロール）と権限の関係は、アプリ側（`packages/shared/src/permissions.ts`）で静的に定義されます。\
 アカウント発行と認証は、ディープリンクが不要な「OTP（ワンタイムパスコード）」方式を採用します。\
 関係者（contacts）のプライバシー設定（匿名化・非公開理由の明記）に対応します。
 
@@ -55,6 +55,19 @@ v3.7 では、テーブル定義の明確化と、仕様書のフォーマット
 では、選挙運動費用の公費負担対応と、支払元の複数行入力（複合仕訳）対応を行いました。
 
 ## **2. データモデル (Data Model)**
+
+> **v6（本番スキーマ）での注意**: 以下の表のうち、台帳への紐付け方は本番と異なる箇所があります。
+> 正は `supabase/migrations/` と `supabase db dump --linked` です。
+>
+> - 台帳は `ledgers(id, owner_user_id, ledger_type, organization_id, election_id, hub_politician_organization_id, hub_politician_election_id, hub_ledger_id)`。
+>   `ledger_type` は `political_fund`（`organization_id` → `political_organizations`）/ `election_fund`（`election_id` → `elections`）。
+> - `journals` / `ledger_members` / `ledger_year_closures` は `ledger_id` で台帳に紐付く（`organization_id` / `election_id` 列は無い）。
+>   `ledger_members` は `UNIQUE(ledger_id, user_id)`。オーナーの admin 行は DB トリガーが作る。
+> - `contacts` は台帳の列を持たず、`ledger_contacts(ledger_id, contact_id)` で台帳に紐付く。
+> - `journals` には資産取得用の `is_asset_acquisition` / `asset_type` がある。承認日時の列は無い。
+> - Ledger に `politicians` / `politician_organizations` / `politician_elections` は無い（Hub が管理）。
+> - `sub_accounts.ledger_type` は従来どおり `political_organization` / `election`。
+
 
 ### **2.1. 勘定科目マスタ (【v3.9 更新】)**
 
@@ -226,8 +239,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | 列名 (Column Name)             | データ型 (Data Type) | 説明 (Description)   | 備考 (Notes)                                                                                                            |
 | :----------------------------- | :------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------- |
 | id                             | uuid                 | 一意な ID (仕訳 ID)  | 主キー, uuid_generate_v4()                                                                                              |
-| organization_id                | uuid                 | 紐づく政治団体の ID  | NULL 許容, political_organizations.id への FK                                                                           |
-| election_id                    | uuid                 | 紐づく選挙台帳の ID  | NULL 許容, elections.id への FK                                                                                         |
+| ledger_id                      | uuid                 | 紐づく台帳の ID      | **【v6】** ledgers.id への FK（旧 organization_id / election_id）                                                       |
 | journal_date                   | date                 | 仕訳日（取引日）     | 必須                                                                                                                    |
 | description                    | text                 | 摘要（取引内容）     | 必須。例: 「事務所家賃 5 月分」                                                                                         |
 | status                         | text                 | 承認ステータス       | draft (起票/承認前), approved (承認済)。必須                                                                            |
@@ -299,7 +311,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 ### **2.7. 関係者テーブル (【v3.16 更新】)**
 
 プライバシー設定（匿名化）のためのカラムを追加。
-**【v3.16 変更】** 関係者は台帳（選挙または政治団体）に紐付けられます。
+**【v6 変更】** 関係者は `ledger_contacts(ledger_id, contact_id)` で台帳に紐付けます（1 つの関係者を複数の台帳に紐付け可能）。
 
 **テーブル名:** contacts
 
@@ -307,8 +319,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | :-------------------- | :------------------- | :------------------------------ | :----------------------------------------------------------------------------------- |
 | id                    | uuid                 | 一意な ID (関係者 ID)           | 主キー, uuid_generate_v4()                                                           |
 | owner_user_id         | uuid                 | このマスターの管理ユーザー ID   | auth.users.id への参照 (RLS 用)                                                      |
-| organization_id       | uuid                 | **紐づく政治団体 ID**           | **【v3.16 追加】** political_organizations.id への FK。NULL 許容                     |
-| election_id           | uuid                 | **紐づく選挙台帳 ID**           | **【v3.16 追加】** elections.id への FK。NULL 許容                                   |
+| hub_organization_id   | uuid                 | Hub 上の政治団体 ID             | NULL 許容（関係者が政治団体の場合）                                                  |
 | contact_type          | text                 | **関係者種別**                  | **person (個人) or corporation (法人/団体)**。必須                                   |
 | name                  | text                 | 氏名 又は 団体名                | 必須。例: 「田中太郎（寄付者）」, 「みずほ銀行」                                     |
 | address               | text                 | 住所                            | NULL 許容                                                                            |
@@ -320,7 +331,7 @@ v2.10 の transactions テーブルの「メタデータ」部分を引き継ぎ
 | privacy_reason_other  | text                 | **非公開理由（その他）**        | privacy_reason_type = 'other' の場合必須                                             |
 | created_at            | timestamptz          | レコード作成日時                | デフォルトで now()                                                                   |
 
-> **注意**: `organization_id` または `election_id` のいずれか一方が設定されます（両方 NULL または両方設定は不可）。
+> **注意**: 台帳との紐付けは `ledger_contacts` で行います。台帳に紐付いていない関係者は、作成者がオーナーの台帳で使えます。
 
 ### **2.8. メディア（証憑）テーブル**
 
@@ -348,8 +359,7 @@ v2.6 の仕様に基づき、役割名を text で直接保持します。
 | :----------------- | :------------------- | :---------------------- | :---------------------------------------------------------------------------------------------------- |
 | id                 | uuid                 | 一意な ID               | 主キー, uuid_generate_v4()                                                                            |
 | user_id            | uuid                 | 招待されたユーザーの ID | auth.users.id への参照                                                                                |
-| organization_id    | uuid                 | 紐づく政治団体の ID     | **NULL 許容**, political_organizations.id への FK                                                     |
-| election_id        | uuid                 | 紐づく選挙台帳の ID     | **NULL 許容**, elections.id への FK                                                                   |
+| ledger_id          | uuid                 | 紐づく台帳の ID         | **【v6】** ledgers.id への FK。必須。UNIQUE(ledger_id, user_id)                                       |
 | role               | text                 | **役割（権限）**        | アプリ側で定義した文字列キー。下記 2.11 参照。 例: **admin**, **approver**, **submitter**, **viewer** |
 | invited_by_user_id | uuid                 | 招待したユーザー ID     | auth.users.id への参照                                                                                |
 | created_at         | timestamptz          | 招待日時                | デフォルトで now()                                                                                    |
@@ -371,12 +381,12 @@ v2.6 の仕様に基づき、役割名を text で直接保持します。
 
 ### **2.11. 役割と権限の定義（アプリ側） (【v3.16 更新】)**
 
-Fresh (Deno) 版では `lib/permissions.ts` で定義。
+`packages/shared/src/permissions.ts` で定義。
 
 #### **2.11.1. 権限 (Permission) の定義**
 
 ```typescript
-// lib/permissions.ts
+// packages/shared/src/permissions.ts
 export type Permission =
   | "viewLedger" // 台帳（仕訳一覧など）を閲覧する
   | "submitJournal" // 仕訳を起票（承認申請）する
@@ -437,9 +447,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ## **3. 画面仕様 (Screen Specifications)**
 
+> **注記**: 本章のレイアウト記述（AppBar, ListTile, StreamBuilder 等）は Flutter 版で書かれた当時のものです。
+> 現在の実装は Next.js (App Router) + Mantine で、各画面は `'use client'` のページ（`apps/web`）から `apiFetch('/v1/...')` で Ledger API（`apps/api`, Hono）を呼び出します。
+> レイアウト記述は「画面に必要な要素と振る舞い」の要件として読み替えてください。各節の「ファイル」は現行の実装箇所です。
+
 ### **3.1. 台帳選択画面 (LedgerSelectionScreen)**
 
-- **ファイル (推奨):** lib/features/home/presentation/pages/home_page.dart
+- **ファイル:** `apps/web/app/organizations/page.tsx`, `apps/web/app/elections/page.tsx`（ログイン後の入口は `apps/web/app/dashboard/page.tsx`）
 - **レイアウト:**
   - AppBar の title に Text('台帳選択') を表示。
   - AppBar の bottom に TabBar を配置し、「政治団体」と「選挙」の 2
@@ -478,8 +492,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ### **3.2. 台帳登録画面 (AddLedgerScreen)**
 
-- **ファイル (推奨):**
-  lib/features/ledger/presentation/widgets/add_ledger_sheet.dart
+- **ファイル:** `apps/web/app/organizations/new/page.tsx` (`apps/web/components/organizations/NewOrganizationForm.tsx`),
+  `apps/web/app/elections/new/page.tsx` (`apps/web/components/elections/NewElectionForm.tsx`)
 - **レイアウト:**
   - AppBar に Text('新規台帳の登録') と ElevatedButton(child: Text('保存'))
     を配置。
@@ -514,8 +528,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ### **3.3. 仕訳一覧画面 (JournalListScreen)**
 
-- **ファイル (推奨):**
-  `lib/features/journal/presentation/pages/journal_list_page.dart`
+- **ファイル:** `apps/web/app/organizations/[id]/ledger/page.tsx`, `apps/web/app/elections/[id]/ledger/page.tsx`,
+  `apps/web/components/journals/JournalList.tsx`
 - **前提:**
   - `ledgerId`（`organization_id` または `election_id`）
   - `ledgerType`（文字列）
@@ -582,8 +596,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ### **3.4. 仕訳登録画面 (AddJournalScreen)**
 
-- **ファイル (推奨):**
-  lib/features/journal/presentation/widgets/add_journal_sheet.dart
+- **ファイル:** `apps/web/components/journals/JournalForm.tsx`, `apps/web/components/journals/JournalFormDrawer.tsx`
 - **前提:** ledger_id（organization_id または election_id）、**ledger_type
   (文字列)**、my_role (文字列) を受け取る。
 - **ロジック:**
@@ -680,8 +693,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ### **3.5. メディア（証憑）管理画面**
 
-- **ファイル (推奨):**
-  lib/features/journal/presentation/pages/media_library_page.dart
+- **ファイル:** `apps/web/app/organizations/[id]/assets/page.tsx`, `apps/web/app/elections/[id]/assets/page.tsx`
 - **前提:** この画面は必ず organization_id または election_id
   の**どちらか一方**を引数として受け取ります。（JournalListScreen
   から遷移することを想定）
@@ -703,8 +715,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 「起票」された仕訳（status == 'draft'）を承認または却下するためのモーダル画面。
 
-- **ファイル (推奨):**
-  lib/features/journal/presentation/widgets/approve_journal_sheet.dart
+- **ファイル:** `apps/web/app/journals/[id]/page.tsx`, `apps/web/components/common/ApproveButton.tsx`
 - **前提:** journal_id を引数として受け取る。
 - **レイアウト:**
   - AppBar に Text('仕訳の承認')
@@ -738,8 +749,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ### **3.7. （新設）台帳設定・メンバー管理画面 (LedgerSettingsScreen)**
 
-- **ファイル (推奨):**
-  lib/features/ledger/presentation/pages/ledger_settings_page.dart
+- **ファイル:** `apps/web/app/organizations/[id]/settings/page.tsx`,
+  `apps/web/app/organizations/[id]/members/page.tsx`, `apps/web/app/elections/[id]/members/page.tsx`,
+  `apps/web/components/members/MemberManager.tsx`
 - **前提:** ledger_id（organization_id または election_id） と my_role (文字列)
   を引数として受け取る。（3.3 の制御により admin のみアクセス可能）
 - **ロジック:**
@@ -773,11 +785,11 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
             \_removeMember(member.id)) (オーナー自身は削除不可にする)
 - **機能:**
   - **\_inviteMember (招待) (OTP 方式):**
-    - この機能は **Supabase Edge Function** の呼び出しを推奨（auth.admin
-      操作のため）。
-    1. Flutter アプリから、入力された Email と選択された role (文字列)
-       を引数として、Edge Function (/invite-user-otp) を呼び出す。
-    1. Edge Function 側（サーバーサイド）:
+    - auth.admin 操作が必要なため、Ledger API（`POST /v1/members`,
+      `apps/api/routes/members.ts`）で、manageMembers 権限を確認した後に service_role クライアントを使って処理する。
+    1. フロントエンド（`apps/web/components/members/MemberManager.tsx`）から、入力された Email と選択された role (文字列)
+       を送信する。
+    1. API 側（サーバーサイド）:
     - a. const { data: existingUser } = await
       supabase.auth.admin.getUserByEmail(email) でユーザー存在チェック。
     - b. user_id を取得。もし existingUser がいない場合:
@@ -800,8 +812,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 仕訳登録に必要な「関係者（寄付者・支出先）」を作成・編集・管理する画面。
 
-- **ファイル (推奨):**
-  lib/features/contacts/presentation/pages/contacts_page.dart
+- **ファイル:** `apps/web/app/contacts/page.tsx`, `apps/web/components/contacts/ContactManager.tsx`
 - **前提:** 3.3 仕訳一覧画面 または 3.4 仕訳登録画面 から遷移してくる。
 - **レイアウト:**
   - AppBar に Text('関係者マスタ')
@@ -825,8 +836,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 関係者の詳細情報とプライバシー設定を入力するモーダル。
 
-- **ファイル (推奨):**
-  lib/features/contacts/presentation/widgets/add_contact_sheet.dart
+- **ファイル:** `apps/web/components/contacts/AddContactModal.tsx`
 - **前提:** （任意）編集対象の contact オブジェクトを受け取る。
 - **レイアウト:**
   - AppBar に Text('関係者の登録') と ElevatedButton(child: Text('保存'))
@@ -882,7 +892,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
 ### **4.1. 新規アカウント作成**
 
-- **ファイル:** `routes/register.tsx`
+- **ファイル:** `apps/web/app/(auth)/register/page.tsx`
 - **機能:**
   1. ユーザーが Email, Password, 氏名 を入力
   2. **【v3.16 追加】利用規約・プライバシーポリシーへの同意チェックボックス（必須）**
@@ -1372,7 +1382,7 @@ locked（再ロック）
 #### **7.6.1. 締め前チェック API**
 
 ```
-GET /api/closures/check?org_id={organizationId}&year={year}
+GET /v1/closures/check?org_id={organizationId}&year={year}
 ```
 
 **レスポンス:**
@@ -1401,7 +1411,7 @@ GET /api/closures/check?org_id={organizationId}&year={year}
 #### **7.6.2. 年度締め実行 API**
 
 ```
-POST /api/closures/execute
+POST /v1/closures/execute
 Content-Type: application/json
 
 {
@@ -1413,7 +1423,7 @@ Content-Type: application/json
 #### **7.6.3. アーカイブ実行 API**
 
 ```
-POST /api/closures/archive
+POST /v1/closures/archive
 Content-Type: application/json
 
 {

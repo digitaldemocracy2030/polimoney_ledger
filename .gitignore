@@ -128,3 +128,9 @@ out/
 node_modules/
 .env.local
 .env*.local
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# ルート直下の Deno ロックファイル（API は apps/api/deno.lock を使う）
+/deno.lock

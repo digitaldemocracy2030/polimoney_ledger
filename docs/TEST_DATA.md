@@ -13,19 +13,29 @@ Polimoney Ledger では、開発・テスト用のダミーデータを本番環
 ### テストユーザー ID
 
 ```typescript
-// lib/hub-client.ts
+// apps/api/lib/hub-client.ts
 export const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 ```
 
-この固定 UUID は Ledger 側の `seed-supabase.ts` で作成されるテストユーザーの ID
+この固定 UUID は Ledger 側の `db/seed-supabase.ts` で作成されるテストユーザーの ID
 です。
 
 ### テストユーザーの特徴
 
 1. **メールアドレス**: `test-dev@polimoney.local`
-2. **パスワード**: `test-password-123`（開発環境のみ）
+2. **パスワード**: `test-dev-password-12345`（開発環境のみ）
 3. **認証済み政治家**: 山田 太郎 として認証済み
 4. **管理団体**: 山田太郎後援会、山田太郎を応援する会
+
+### Ledger DB での扱い（特別扱いしない）
+
+テストユーザーは **Ledger DB 上は普通のユーザー**です。
+
+- Ledger API はテストユーザーでも、他のユーザーと同じくリクエストの JWT 付きクライアント
+  （`c.get("supabase")`、RLS 適用）で DB にアクセスします。service_role で RLS をバイパスすることはありません。
+- テストデータが読めるのは、シード（`db/seed-supabase.ts`）がテストユーザーを台帳のオーナーにし、
+  `ledger_members` にも admin として登録しているためです。
+- `isTestUser()` を使うのは、Hub API キーの選択と同期時の `is_test` の設定の 2 か所だけです（下記）。
 
 ---
 
@@ -37,21 +47,27 @@ export const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 Ledger → Hub (syncJournals / syncLedger API)
 ```
 
-同期時に Ledger は `is_test` フラグを自動設定します：
+同期時に Ledger は `is_test` フラグを自動設定します。判定は呼び出したユーザーではなく
+**台帳のオーナー**で行います（`POST /v1/sync` と、仕訳承認時の自動同期の両方）。
 
 ```typescript
-// routes/api/sync.ts
+// apps/api/routes/sync.ts
+// is_test と Hub API キーは台帳オーナーで決める
+const hubUserId = ledger.owner_user_id;
+const isTest = isTestUser(hubUserId);
+
 const ledgerInput: SyncLedgerInput = {
   ledger_source_id: ledger.id,
   // ...
-  is_test: isTestUser(userId), // テストユーザーの場合 true
+  is_test: isTest,
 };
+await syncLedger(ledgerInput, { userId: hubUserId }); // テスト台帳なら DEV キーで送る
 ```
 
 ### テストユーザー判定
 
 ```typescript
-// lib/hub-client.ts
+// apps/api/lib/hub-client.ts
 export function isTestUser(userId: string | null | undefined): boolean {
   return userId === TEST_USER_ID;
 }
@@ -91,8 +107,10 @@ Hub データベースには以下のテストデータが投入されていま�
 
 ### Ledger 側の環境変数
 
+Hub の設定は Ledger API（`apps/api`）だけが持ちます（Web には置きません）。
+
 ```bash
-# .env または Deno Deploy 環境変数
+# apps/api/.env またはホスティング環境（Deno Deploy）の環境変数
 
 # 本番環境
 APP_ENV=production
@@ -116,8 +134,10 @@ HUB_API_KEY_DEV=your-development-key
 2. **Hub API キーの選択ロジック**
 
    ```typescript
-   // テストユーザーの場合は DEV キーを使用
+   // apps/api/lib/hub-client.ts
+   // テストユーザーの場合は DEV キーを使用（URL は APP_ENV で決まる同じ Hub）
    const useDevKey = isTestUser(userId);
+   const apiUrl = HUB_API_URL; // APP_ENV=production なら HUB_API_URL_PROD
    const apiKey = useDevKey ? HUB_API_KEY_DEV : HUB_API_KEY;
    ```
 
@@ -171,5 +191,5 @@ WHERE is_verified = true
 ## 参照
 
 - [Hub DATABASE.md](../../polimoney_hub/docs/DATABASE.md) - Hub 側のテストデータ仕様
-- [lib/hub-client.ts](../lib/hub-client.ts) - テストユーザー判定ロジック
+- [apps/api/lib/hub-client.ts](../apps/api/lib/hub-client.ts) - テストユーザー判定ロジック
 - [db/seed-supabase.ts](../db/seed-supabase.ts) - テストユーザー作成スクリプト
