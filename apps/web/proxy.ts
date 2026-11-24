@@ -1,5 +1,5 @@
 /**
- * ページのルーティングだけを行う middleware
+ * ページのルーティングだけを行う proxy（Next.js 16 で middleware から改名。Node.js ランタイムで動く）
  *
  * - 未ログイン → /login?redirect=...
  * - 審査待ち（app_metadata.registration_status === 'pending_review'）→ /pending-review
@@ -38,7 +38,7 @@ function redirectWithCookies(url: URL, from: NextResponse): NextResponse {
   return res;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isPublicPath(pathname)) return NextResponse.next();

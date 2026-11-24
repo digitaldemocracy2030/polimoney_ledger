@@ -14,7 +14,7 @@
 ┌──────────────────────────────────┐   ┌──────────────────┐
 │ Web: apps/web                    │   │ ネイティブアプリ │ ← 将来
 │ Next.js (App Router) + Mantine   │   └────────┬─────────┘
-│  middleware.ts  画面の振り分け   │            │
+│  proxy.ts       画面の振り分け   │            │
 │  lib/api-client.ts  apiFetch()   │            │
 └───────┬──────────────────┬───────┘            │
         │ ① 認証のみ       │ ② Authorization: Bearer <JWT>
@@ -115,7 +115,7 @@ polimoney_ledger/
 │   │   ├── lib/
 │   │   │   ├── api-client.ts    # apiFetch / apiJson（Ledger API 呼び出し）
 │   │   │   └── supabase/        # 認証用ブラウザクライアント・認証ヘルパー
-│   │   └── middleware.ts    # 画面の振り分け（未ログイン・審査待ち）
+│   │   └── proxy.ts         # 画面の振り分け（未ログイン・審査待ち）
 │   └── api/                 # Ledger API（Hono on Deno）
 │       ├── deno.json        # imports / tasks（dev, start, check）
 │       ├── main.ts          # Deno.serve
@@ -186,7 +186,7 @@ service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_
 │    セッションは @supabase/ssr の createBrowserClient で Cookie に保存 │
 │ 4. GET /v1/me でユーザー状態を取得し、未同意なら /onboarding         │
 │    （POST /v1/me/onboarding で規約・プライバシーポリシー同意を記録） │
-│ 5. middleware.ts が Cookie のセッションで画面を振り分ける            │
+│ 5. proxy.ts が Cookie のセッションで画面を振り分ける                 │
 │    - 未ログイン → /login?redirect=...                                │
 │    - app_metadata.registration_status = 'pending_review'             │
 │      → /pending-review                                               │
@@ -201,7 +201,7 @@ service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_
 | 箇所                                | 使うクライアント / 環境変数                                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Web（ログイン・登録・ログアウト等） | `@supabase/ssr` の `createBrowserClient`（`apps/web/lib/supabase/client.ts`）、`NEXT_PUBLIC_SUPABASE_*`           |
-| Web の middleware                   | `@supabase/ssr` の `createServerClient`、`NEXT_PUBLIC_SUPABASE_*`                                                 |
+| Web の proxy（旧 middleware）       | `@supabase/ssr` の `createServerClient`、`NEXT_PUBLIC_SUPABASE_*`                                                 |
 | Web → API                           | `apps/web/lib/api-client.ts`（`NEXT_PUBLIC_API_URL` + Bearer トークン）                                           |
 | API の通常のデータアクセス          | `c.get("supabase")`: リクエストごとに `SUPABASE_PUBLISHABLE_KEY` + ユーザーの JWT で作るクライアント（RLS 適用） |
 | API の特権処理                      | `getServiceClient()`（`SUPABASE_SERVICE_ROLE_KEY`、RLS をバイパス）                                               |

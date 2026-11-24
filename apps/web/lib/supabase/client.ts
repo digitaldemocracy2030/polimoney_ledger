@@ -3,7 +3,7 @@
  *
  * Web アプリで Supabase を使うのは認証（ログイン・登録・ログアウト・トークン更新・
  * パスワード再設定）だけ。データの読み書きはすべて Ledger API（lib/api-client.ts）を使う。
- * セッションは @supabase/ssr により Cookie に保存され、middleware.ts からも読める。
+ * セッションは @supabase/ssr により Cookie に保存され、proxy.ts からも読める。
  */
 
 import { createBrowserClient } from '@supabase/ssr';

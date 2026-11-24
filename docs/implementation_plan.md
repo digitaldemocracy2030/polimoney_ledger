@@ -104,7 +104,7 @@
 ```
 polimoney_ledger/
 ├── apps/
-│   ├── web/        # Next.js（app/, components/, lib/, middleware.ts）
+│   ├── web/        # Next.js（app/, components/, lib/, proxy.ts）
 │   └── api/        # Hono（Deno）
 │       ├── deno.json
 │       ├── main.ts           # Deno.serve(app.fetch)
@@ -183,9 +183,9 @@ service_role（RLS を通らない）で DB にアクセスできてしまう。
 
 1. `lib/api-client.ts` を作る。`NEXT_PUBLIC_API_URL` を基準に、Supabase のセッションから取ったアクセストークンを付けて呼ぶ。
 2. 画面の `fetch('/api/...')`（約 67 か所）を API クライアントに置き換える。
-3. ログイン・登録画面を `@supabase/ssr` の `createBrowserClient` に変える（セッションを Cookie に保存し、`middleware.ts` の画面ガードと揃えるため）。
+3. ログイン・登録画面を `@supabase/ssr` の `createBrowserClient` に変える（セッションを Cookie に保存し、`proxy.ts` の画面ガードと揃えるため）。
 4. `app/api/[...path]/route.ts`、`/auth/callback` の独自 Cookie 処理、`components/auth/AuthCallback.tsx` を整理・削除する。
-5. `middleware.ts` は画面の振り分け（未ログイン → `/login`、審査待ち → `/pending-review`）だけを担当する。データの権限判断は API に任せる。
+5. `proxy.ts`（旧 `middleware.ts`）は画面の振り分け（未ログイン → `/login`、審査待ち → `/pending-review`）だけを担当する。データの権限判断は API に任せる。
 
 - 確認: `npx tsc --noEmit`、`npm run build`、ブラウザでログイン → 台帳一覧 → 仕訳登録 → ログアウトの一連の操作。
 
