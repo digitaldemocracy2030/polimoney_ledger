@@ -34,7 +34,7 @@ npm run build:web
 
 - Supabase は**認証にだけ**使う（`lib/supabase/client.ts` の `@supabase/ssr` `createBrowserClient`、セッションは Cookie）。`supabase.from(...)` や `user_metadata` を Web で使わない。ユーザー状態は `GET /v1/me`。
 - データはすべて `lib/api-client.ts` の `apiFetch('/v1/...')` / `apiJson` 経由。`NEXT_PUBLIC_API_URL` を前に付け、`Authorization: Bearer <access_token>` を付ける。401 なら `/login` へ。
-- `middleware.ts` は画面の振り分けだけ（未ログイン → `/login?redirect=...`、`app_metadata.registration_status === 'pending_review'` → `/pending-review`）。
+- `proxy.ts`（Next.js 16 で middleware から改名。Node.js ランタイム）は画面の振り分けだけ（未ログイン → `/login?redirect=...`、`app_metadata.registration_status === 'pending_review'` → `/pending-review`）。
 - shared は `@polimoney-ledger/shared/<file>.ts` で import。`@/*` は `apps/web` 基準。
 
 ### API（apps/api）
