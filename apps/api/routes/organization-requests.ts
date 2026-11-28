@@ -10,6 +10,7 @@ import type { AppEnv } from "../lib/types.ts";
 import {
   createOrganizationRequest,
   getVerifiedPoliticianByUserId,
+  HubApiError,
 } from "../lib/hub-client.ts";
 import { createEvidenceReviewUrl } from "../lib/verification-documents.ts";
 
@@ -65,6 +66,7 @@ organizationRequestsRouter.post("/", async (c) => {
     );
 
     const data = await createOrganizationRequest({
+      ledger_user_id: userId,
       name,
       type,
       registration_authority: optionalString(body.registration_authority),
@@ -80,6 +82,8 @@ organizationRequestsRouter.post("/", async (c) => {
 
     return c.json({ data }, 201);
   } catch (error) {
+    // Hub のエラー（申請中の重複の 409 など）は app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error creating organization request on Hub:", error);
     return c.json(
       { error: "政治団体登録リクエストの送信に失敗しました" },

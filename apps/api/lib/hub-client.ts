@@ -156,6 +156,9 @@ export function isHubNotFound(error: unknown): boolean {
   return error instanceof HubApiError && error.status === 404;
 }
 
+/** Hub への 1 回の問い合わせの待ち時間の上限 */
+const HUB_TIMEOUT_MS = 10_000;
+
 interface FetchApiOptions extends RequestInit {
   /** テストユーザー判定用の userId（テストユーザーの場合は DEV キーを使用） */
   userId?: string;
@@ -201,6 +204,8 @@ async function fetchApi<T>(
     response = await fetch(url, {
       ...fetchOptions,
       headers,
+      // Hub が応答しないときに Ledger の API（台帳画面・仕訳の書き込み）が止まらないように
+      signal: fetchOptions.signal ?? AbortSignal.timeout(HUB_TIMEOUT_MS),
     });
   } catch (error) {
     console.error(`[Hub API] Request to ${url} failed:`, error);
@@ -731,6 +736,8 @@ export interface CreateElectionRequestInput {
   type: string;
   area_description: string;
   election_date: string;
+  /** 申請者の Ledger ユーザー（同じ申請者の同じ申請は、審査中は 1 件まで） */
+  ledger_user_id: string;
   requested_by_politician_id?: string;
   requested_by_email?: string;
   evidence_url?: string;
@@ -752,35 +759,13 @@ export async function createElectionRequest(
   return result.data;
 }
 
-export async function getElectionRequests(params?: {
-  politician_id?: string;
-  status?: string;
-}): Promise<ElectionRequest[]> {
-  const searchParams = new URLSearchParams();
-  if (params?.politician_id) {
-    searchParams.set("politician_id", params.politician_id);
-  }
-  if (params?.status) searchParams.set("status", params.status);
-
-  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
-  const result = await fetchApi<ApiResponse<ElectionRequest[]>>(
-    `/api/v1/election-requests${query}`,
-  );
-  return result.data;
-}
-
-export async function getElectionRequest(id: string): Promise<ElectionRequest> {
-  const result = await fetchApi<ApiResponse<ElectionRequest>>(
-    `/api/v1/election-requests/${id}`,
-  );
-  return result.data;
-}
-
 // ============================================
 // 政治団体登録リクエスト API
 // ============================================
 
 export interface CreateOrganizationRequestInput {
+  /** 申請者の Ledger ユーザー（同じ申請者の同じ申請は、審査中は 1 件まで） */
+  ledger_user_id: string;
   name: string;
   type: string;
   registration_authority?: string;
@@ -806,32 +791,6 @@ export async function createOrganizationRequest(
       body: JSON.stringify(data),
       userId: options.userId,
     },
-  );
-  return result.data;
-}
-
-export async function getOrganizationRequests(params?: {
-  politician_id?: string;
-  status?: string;
-}): Promise<OrganizationRequest[]> {
-  const searchParams = new URLSearchParams();
-  if (params?.politician_id) {
-    searchParams.set("politician_id", params.politician_id);
-  }
-  if (params?.status) searchParams.set("status", params.status);
-
-  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
-  const result = await fetchApi<ApiResponse<OrganizationRequest[]>>(
-    `/api/v1/organization-requests${query}`,
-  );
-  return result.data;
-}
-
-export async function getOrganizationRequest(
-  id: string,
-): Promise<OrganizationRequest> {
-  const result = await fetchApi<ApiResponse<OrganizationRequest>>(
-    `/api/v1/organization-requests/${id}`,
   );
   return result.data;
 }
@@ -1078,15 +1037,25 @@ export interface CreateUnlockRequestInput {
   reason: string;
 }
 
+/** ロック解除状態の確認で返る承認済みの申請（解除の判断に必要な項目だけ） */
+export interface ActiveUnlockRequest {
+  id: string;
+  status: "approved";
+  fiscal_year: number | null;
+  approved_at: string | null;
+  unlock_expires_at: string | null;
+}
+
 /** ロック解除状態確認結果 */
 export interface UnlockCheckResult {
   is_unlocked: boolean;
-  unlock_request?: UnlockRequest;
+  unlock_request?: ActiveUnlockRequest;
   expires_at?: string;
   pending_request?: {
     id: string;
     created_at: string;
     reason: string;
+    fiscal_year: number | null;
   } | null;
 }
 
@@ -1109,34 +1078,19 @@ export async function createUnlockRequest(
 }
 
 /**
- * 台帳のロック解除状態を確認
+ * 台帳（fiscalYear を指定すればその年度）のロック解除状態を確認
+ * （承認済みで期限内の申請があれば is_unlocked）
  */
 export async function checkUnlockStatus(
   ledgerId: string,
-  options: { userId?: string } = {},
+  options: { fiscalYear?: number; userId?: string } = {},
 ): Promise<UnlockCheckResult> {
+  const query = options.fiscalYear !== undefined
+    ? `?fiscal_year=${options.fiscalYear}`
+    : "";
   const result = await fetchApi<UnlockCheckResult>(
-    `/api/v1/unlock-requests/check/${ledgerId}`,
+    `/api/v1/unlock-requests/check/${ledgerId}${query}`,
     { userId: options.userId },
   );
   return result;
-}
-
-/**
- * ロック解除リクエスト一覧を取得
- */
-export async function getUnlockRequests(
-  params?: { ledger_id?: string; status?: string },
-  options: { userId?: string } = {},
-): Promise<UnlockRequest[]> {
-  const searchParams = new URLSearchParams();
-  if (params?.ledger_id) searchParams.set("ledger_id", params.ledger_id);
-  if (params?.status) searchParams.set("status", params.status);
-
-  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
-  const result = await fetchApi<ApiResponse<UnlockRequest[]>>(
-    `/api/v1/unlock-requests${query}`,
-    { userId: options.userId },
-  );
-  return result.data;
 }

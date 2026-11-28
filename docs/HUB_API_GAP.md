@@ -97,14 +97,20 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 
 | hub-client の関数 | 旧エンドポイント | 状態 | Ledger の利用箇所 |
 | --- | --- | --- | --- |
-| `createElectionRequest` | `POST /api/v1/election-requests` | ❌ | election-requests |
-| `createOrganizationRequest` | `POST /api/v1/organization-requests` | ❌ | organization-requests |
-| `createUnlockRequest` | `POST /api/v1/unlock-requests` | ❌ | closures |
-| `checkUnlockStatus` | `GET /api/v1/unlock-requests/check/{ledgerId}` | ❌ | closures |
+| `createElectionRequest` | `POST /api/v1/election-requests` | ✅ Hub #72（2026-11-28 本番デプロイ） | election-requests |
+| `createOrganizationRequest` | `POST /api/v1/organization-requests` | ✅ Hub #72（2026-11-28 本番デプロイ） | organization-requests |
+| `createUnlockRequest` | `POST /api/v1/unlock-requests` | ✅ Hub #72（2026-11-28 本番デプロイ） | closures |
+| `checkUnlockStatus` | `GET /api/v1/unlock-requests/check/{ledgerId}[?fiscal_year=]` | ✅ Hub #72（2026-11-28 本番デプロイ） | closures, organizations（年度の状態）, lib/year-closure.ts |
 | `getAccountCodes` | `GET /api/v1/master/account-codes` | ✅（Hub #65） | account-master, ledger-data |
 | `getAccountCode` | `GET /api/v1/master/account-codes/{code}` | ✅（Hub #65） | （未使用。sync-transform の同名関数は別物） |
 
-未使用の関数（`getElection`, `getPolitician`, `createPolitician`, `get*Requests`, `getUnlockRequests`）は Hub 側の実装対象外にしてよい。
+未使用の関数（`getElection`, `getPolitician`, `createPolitician`）は Hub 側の実装対象外にしてよい。登録申請・ロック解除の一覧取得の関数（`get*Requests`, `getUnlockRequests`）は Ledger から削除した。
+
+Hub #72 の要点（2026-11-28 本番デプロイ。Ledger 側は #93）:
+
+- 選挙・政治団体の申請には申請者の `ledger_user_id` を送る。同じ申請者の同じ選挙・団体、同じ台帳・年度のロック解除は、審査中は 1 件まで（重複は 409）
+- 審査は管理者 API（`/api/admin/{election-requests,organization-requests,unlock-requests}`）。選挙・団体の承認でマスタの行が作られる（既存の行への紐付けも可）
+- ロック解除の承認には期限（既定 7 日）が付く。Ledger は年度の状態を読むとき（台帳画面・仕訳の書き込み）に Hub に問い合わせ、アーカイブ済みの年度を一時解除にし、期限が過ぎたらアーカイブ済みに戻す（`apps/api/lib/year-closure.ts`。反映した申請 ID を `ledger_year_closures.unlock_request_id` に記録し、同じ承認を二度反映しない）
 
 ## Hub の管理画面（`admin/`, Fresh）への影響
 
