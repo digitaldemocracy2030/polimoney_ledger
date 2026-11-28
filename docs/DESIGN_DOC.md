@@ -41,7 +41,7 @@ polimoney_ledger/
 │   │   ├── app/                # App Router（ページ）
 │   │   ├── components/         # UI コンポーネント（ドメイン別）
 │   │   ├── lib/                # api-client.ts（Ledger API 呼び出し）、supabase/（認証）
-│   │   └── proxy.ts            # 画面の振り分け（未ログイン・審査待ち）
+│   │   └── proxy.ts            # 画面の振り分け（未ログイン）
 │   └── api/                    # Ledger API（Hono on Deno、/v1 配下）
 │       ├── main.ts / app.ts
 │       ├── routes/             # ドメイン別ルーター

@@ -101,7 +101,6 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 | `createOrganizationRequest` | `POST /api/v1/organization-requests` | ❌ | organization-requests |
 | `createUnlockRequest` | `POST /api/v1/unlock-requests` | ❌ | closures |
 | `checkUnlockStatus` | `GET /api/v1/unlock-requests/check/{ledgerId}` | ❌ | closures |
-| `checkRegistrationRequest` | `GET /api/v1/registration-requests/check/{email}` | ❌（DB にテーブルも無い） | pending-review |
 | `getAccountCodes` | `GET /api/v1/master/account-codes` | ✅（Hub #65） | account-master, ledger-data |
 | `getAccountCode` | `GET /api/v1/master/account-codes/{code}` | ✅（Hub #65） | （未使用。sync-transform の同名関数は別物） |
 
@@ -130,7 +129,6 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 | 承認時・手動の Hub 同期 | 動く（Hub #66〜#68。2026-11-24 に本番で確認） |
 | プロフィールでの政治家・団体情報の編集 | **動かない**（更新 API が無い） |
 | 年度ロック解除申請 | **動かない** |
-| 登録審査中の確認 | **動かない** |
 
 ## 対応の優先順位（案）
 
@@ -138,5 +136,5 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 2. ~~勘定科目 API~~（Hub #65、本番デプロイ済み。一般公開まではLedger 専用キーが必要）
 3. ~~政治家・団体・選挙の取得 API と紐付けの API~~（Hub #66〜#68、本番デプロイ済み）
 4. ~~本人確認 API（政治家・団体管理者）と審査 API~~（Hub #69、本番デプロイ済み。メール送信の Resend 設定と e2e は未実施）
-5. **登録申請・ロック解除・登録審査** — 管理画面の承認 API とセット
+5. **登録申請・ロック解除** — 管理画面の承認 API とセット
 6. 管理画面を Next.js + Mantine に移行（Ledger と同じ構成）。その際、管理画面用 API（`/api/admin/*`）も FastAPI に用意する
