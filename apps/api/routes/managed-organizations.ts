@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import type { AppEnv } from "../lib/types.ts";
-import { getManagedOrganizations } from "../lib/hub-client.ts";
+import { getManagedOrganizations, HubApiError } from "../lib/hub-client.ts";
 
 export const managedOrganizationsRouter = new Hono<AppEnv>();
 
@@ -31,6 +31,8 @@ managedOrganizationsRouter.get("/", async (c) => {
 
     return c.json({ organizations });
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Failed to fetch managed organizations:", error);
     return c.json({ error: "管理している政治団体の取得に失敗しました" }, 500);
   }

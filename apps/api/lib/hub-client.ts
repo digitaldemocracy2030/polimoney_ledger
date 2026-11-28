@@ -112,11 +112,42 @@ export class HubApiError extends Error {
   }
 }
 
+const HUB_ERROR_FALLBACK_MESSAGE = "API request failed";
+
 /** Hub のエラーレスポンスからメッセージを取り出す（FastAPI は detail、旧 API は error） */
 function hubErrorMessage(json: ApiError): string {
   if (typeof json.detail === "string" && json.detail) return json.detail;
   if (json.error) return json.error;
-  return "API request failed";
+  return HUB_ERROR_FALLBACK_MESSAGE;
+}
+
+/**
+ * Hub のエラーのうち、利用者の操作が原因で、そのまま利用者に返してよいもの。
+ * Hub はこれらの状態コードで利用者向けの日本語メッセージ（detail）を返す。
+ * 401（Ledger の API キーの不備）・5xx・接続エラー（0）は Ledger 側の問題なので含めない（502 にする）。
+ */
+const HUB_CLIENT_ERROR_STATUSES = [400, 403, 404, 409, 429] as const;
+type HubClientErrorStatus = (typeof HUB_CLIENT_ERROR_STATUSES)[number];
+
+/** Hub のエラーを利用者に返す状態コードとメッセージにする。返さないエラーは null */
+export function hubErrorToClient(
+  error: HubApiError,
+): { status: HubClientErrorStatus; message: string } | null {
+  // FastAPI の入力検証エラー（detail が配列で、メッセージは利用者向けでない）
+  if (error.status === 422) {
+    return { status: 400, message: "入力内容に誤りがあります" };
+  }
+  if (
+    !(HUB_CLIENT_ERROR_STATUSES as readonly number[]).includes(error.status)
+  ) {
+    return null;
+  }
+  return {
+    status: error.status as HubClientErrorStatus,
+    message: error.message === HUB_ERROR_FALLBACK_MESSAGE
+      ? "Polimoney Hub がリクエストを受け付けませんでした"
+      : error.message,
+  };
 }
 
 /** Hub が 404 を返したかどうか */
