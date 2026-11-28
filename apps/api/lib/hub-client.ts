@@ -101,24 +101,25 @@ export type {
 /**
  * Hub API のエラー（HTTP ステータスを持つ）
  * status が 0 の場合は接続エラーや不正なレスポンスなど、Hub に到達できなかったことを表す。
+ * detail は Hub が JSON で返した利用者向けのメッセージ（FastAPI の detail が文字列のとき）。
+ * JSON 以外の応答や接続エラーでは undefined（message は内部の診断用で、利用者には返さない）。
  */
 export class HubApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly detail?: string,
   ) {
     super(message);
     this.name = "HubApiError";
   }
 }
 
-const HUB_ERROR_FALLBACK_MESSAGE = "API request failed";
-
-/** Hub のエラーレスポンスからメッセージを取り出す（FastAPI は detail、旧 API は error） */
-function hubErrorMessage(json: ApiError): string {
+/** Hub のエラーレスポンスから利用者向けのメッセージを取り出す（FastAPI は detail、旧 API は error） */
+function hubErrorDetail(json: ApiError): string | undefined {
   if (typeof json.detail === "string" && json.detail) return json.detail;
   if (json.error) return json.error;
-  return HUB_ERROR_FALLBACK_MESSAGE;
+  return undefined;
 }
 
 /**
@@ -144,9 +145,9 @@ export function hubErrorToClient(
   }
   return {
     status: error.status as HubClientErrorStatus,
-    message: error.message === HUB_ERROR_FALLBACK_MESSAGE
-      ? "Polimoney Hub がリクエストを受け付けませんでした"
-      : error.message,
+    // JSON 以外の応答（プロキシの HTML など）の診断文は返さない
+    message: error.detail ??
+      "Polimoney Hub がリクエストを受け付けませんでした",
   };
 }
 
@@ -223,7 +224,12 @@ async function fetchApi<T>(
   const json = await response.json();
 
   if (!response.ok) {
-    throw new HubApiError(hubErrorMessage(json as ApiError), response.status);
+    const detail = hubErrorDetail(json as ApiError);
+    throw new HubApiError(
+      detail ?? `Hub API returned ${response.status}`,
+      response.status,
+      detail,
+    );
   }
 
   return json as T;
