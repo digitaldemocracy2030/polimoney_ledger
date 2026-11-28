@@ -60,7 +60,6 @@ export interface MeResponse {
   email: string;
   fullName: string | null;
   displayName: string;
-  registrationStatus: string | null;
   hubPoliticianId: string | null;
   avatarUrl: string | null;
   tosAcceptedAt: string | null;
@@ -178,11 +177,6 @@ function metadataString(user: User, key: string): string | null {
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
-function appMetadataString(user: User, key: string): string | null {
-  const v = user.app_metadata?.[key];
-  return typeof v === "string" && v.length > 0 ? v : null;
-}
-
 function buildMe(
   user: User,
   profile: ProfileRow | null,
@@ -196,8 +190,6 @@ function buildMe(
     email: user.email ?? "",
     fullName,
     displayName: metadataString(user, "display_name") ?? fullName ?? "",
-    // 審査状態はユーザーが書き換えられない app_metadata に置く
-    registrationStatus: appMetadataString(user, "registration_status"),
     hubPoliticianId: profile?.hub_politician_id ?? null,
     avatarUrl: profile?.avatar_url ?? null,
     tosAcceptedAt,

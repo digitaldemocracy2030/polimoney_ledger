@@ -2,7 +2,6 @@
  * ページのルーティングだけを行う proxy（Next.js 16 で middleware から改名。Node.js ランタイムで動く）
  *
  * - 未ログイン → /login?redirect=...
- * - 審査待ち（app_metadata.registration_status === 'pending_review'）→ /pending-review
  *
  * データの取得・認可は Ledger API 側で行う。ここではセッション Cookie の確認
  * （必要ならトークン更新して Cookie を書き戻す）だけを行う。
@@ -15,7 +14,6 @@ const PUBLIC_PATHS_EXACT = ['/welcome', '/privacy', '/terms', '/logout'];
 const PUBLIC_PATHS_PREFIX = [
   '/login',
   '/register',
-  '/pending-review',
   '/auth/callback',
   '/forgot-password',
 ];
@@ -70,11 +68,6 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', `${pathname}${search}`);
     return redirectWithCookies(loginUrl, response);
-  }
-
-  // 審査待ちのユーザーは審査待ち画面へ（app_metadata はユーザー自身が書き換えられない）
-  if (user.app_metadata?.registration_status === 'pending_review') {
-    return redirectWithCookies(new URL('/pending-review', request.url), response);
   }
 
   return response;

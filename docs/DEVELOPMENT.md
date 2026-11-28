@@ -77,8 +77,6 @@ API はユーザーの JWT（RLS 適用）で DB を読むため、上記マイ�
 
 - Supabase Auth の Redirect URLs に `<Web のオリジン>/auth/callback` を登録する
   （メール確認・パスワード再設定のリンク先）
-- 登録審査中の状態は `app_metadata.registration_status = 'pending_review'` で表す
-  （ユーザー自身は書き換えられない。service_role で設定する）
 
 ## サービスの起動
 

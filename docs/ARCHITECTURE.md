@@ -115,7 +115,7 @@ polimoney_ledger/
 │   │   ├── lib/
 │   │   │   ├── api-client.ts    # apiFetch / apiJson（Ledger API 呼び出し）
 │   │   │   └── supabase/        # 認証用ブラウザクライアント・認証ヘルパー
-│   │   └── proxy.ts         # 画面の振り分け（未ログイン・審査待ち）
+│   │   └── proxy.ts         # 画面の振り分け（未ログイン）       
 │   └── api/                 # Ledger API（Hono on Deno）
 │       ├── deno.json        # imports / tasks（dev, start, check）
 │       ├── main.ts          # Deno.serve
@@ -188,8 +188,6 @@ service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_
 │    （POST /v1/me/onboarding で規約・プライバシーポリシー同意を記録） │
 │ 5. proxy.ts が Cookie のセッションで画面を振り分ける                 │
 │    - 未ログイン → /login?redirect=...                                │
-│    - app_metadata.registration_status = 'pending_review'             │
-│      → /pending-review                                               │
 │ 6. データは apiFetch('/v1/...') で取得し、                           │
 │    Authorization: Bearer <access_token> を付ける                     │
 │ 7. API の requireAuth が supabase.auth.getUser(token) で検証         │
@@ -214,7 +212,6 @@ service_role キーと Hub API キーは **api だけ**が持つ。`NEXT_PUBLIC_
   台帳の構造の作成（Hub で認証済みであることを確認した後）。
 - service_role を使う前に必ず `apps/api/lib/authz.ts` のヘルパー（`requireLedgerRole`,
   `requireLedgerPermission`, `requireLedgerOwner`, `requireJournalAccess`, `requireSelf` 等）で権限を確認する。
-- 審査状態は `app_metadata.registration_status` で表す（ユーザー自身は書き換えられない）。
 - Web は `supabase.from(...)` や `user_metadata` を使わない。ユーザー状態は `GET /v1/me` から得る。
 - CORS は `CORS_ALLOWED_ORIGINS` のオリジンのみ許可する（`Authorization`, `Content-Type` ヘッダーを許可し、
   ダウンロードのファイル名用に `Content-Disposition` を公開）。
@@ -260,7 +257,6 @@ API がユーザーの JWT で DB にアクセスするため、RLS が主なア
 | `/health`                                      | `GET`（認証不要）                                                                                                                                                |
 | `/me`                                          | `GET` ユーザー情報・プロフィール・所属台帳、`POST /onboarding` 規約同意の記録                                                                                    |
 | `/dashboard`                                   | `GET` ダッシュボード用データ（自分宛ての承認待ちオーナー譲渡）                                                                                                   |
-| `/pending-review`                              | `GET` 登録審査中ページ用の情報                                                                                                                                   |
 | `/profile`                                     | `GET`/`PUT` 表示名、`GET`/`PUT /politician`、`GET /organization`、`GET /organization/:id`（Hub）                                                                 |
 | `/account-master`                              | `GET` 勘定科目マスタ（Hub の `account_codes`）                                                                                                                   |
 | `/journals`                                    | 仕訳の一覧・作成・取得・更新・削除、`POST /:id/approve`、`GET /:id/receipts`                                                                                     |
