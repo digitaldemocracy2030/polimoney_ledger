@@ -24,7 +24,7 @@
 | # | タスク | Ledger で動かない機能 |
 | --- | --- | --- |
 | 1 | ~~本人確認 API と管理画面の審査 API~~ → Hub #69（本番デプロイ済み・Resend 設定済み・テストユーザーで申請〜承認の e2e 済み 2026-11-24）。残り: 本番の lg.jp アドレスへの実際のメール送信の確認（受信できる lg.jp のアドレスが必要）。Ledger API が Hub の 4xx を 500 で返していた件は、状態コードとメッセージをそのまま返すよう修正済み | 政治家認証・団体管理者認証 |
-| 2 | ~~登録申請（選挙・政治団体）・年度ロック解除の API と管理画面の承認 API~~ → Hub #72（2026-11-28 本番デプロイ・Hub DB に `db/migrate-request-review.sql` 適用済み）。Ledger 側（申請者の送信・ロック解除の年度への反映）は Ledger #93。Ledger DB の `20261128100000` は適用済み、`20261128110000`（年度締めの遷移の制限）は #93 のマージ前に適用する。残り: 本番でテストユーザーの申請 → 承認 → 一時解除の確認。登録審査（`registration_requests`）は 2025-12-20 の仕様変更で本人確認に置き換えたため作らない（Ledger の消し残しは #94 で削除。Hub 管理画面の「Ledger登録申請」は Next.js 移行時に移さない） | 選挙・団体の登録申請、ロック解除申請 |
+| 2 | ~~登録申請（選挙・政治団体）・年度ロック解除の API と管理画面の承認 API~~ → Hub #72・Ledger #93（2026-11-28 本番デプロイ。Hub DB に `db/migrate-request-review.sql`、Ledger DB に `20261128100000`・`20261128110000`（年度締めの遷移の制限）を適用済み）。本番でテストユーザーの e2e 済み（2026-11-28: 締め → アーカイブ → 申請 → 重複は 409 → 承認 → 一時解除 → 利用者の JWT での直接の書き換え・削除は拒否 → 期限切れで DB は書き込み不可・API でロックに戻る）。承認は Hub 管理画面の API ではなく Hub DB の更新で代用したので、管理画面からの承認は Hub 管理画面の移行時に確認する。登録審査（`registration_requests`）は 2025-12-20 の仕様変更で本人確認に置き換えたため作らない（Ledger の消し残しは #94 で削除。Hub 管理画面の「Ledger登録申請」は Next.js 移行時に移さない） | 選挙・団体の登録申請、ロック解除申請 |
 | 3 | 政治家・政治団体の情報の更新 API（`PUT /politicians/{id}`, `PUT /organizations/{id}`） | プロフィールでの編集 |
 | 4 | Hub 管理画面（`admin/`, Fresh）を Next.js + Mantine に移行。管理画面用 API（`/api/admin/*`, 認証）を FastAPI に用意する | （Hub 管理画面が旧 Deno API を呼んでいて動かない） |
 | 5 | 一般公開用の API キーの仕組み（利用キー・レート制限・返す項目の決定）。Polimoney を Hub API に切り替える前に必要 | （Polimoney は静的データのまま） |
@@ -36,7 +36,7 @@
 
 | # | タスク | 備考 |
 | --- | --- | --- |
-| 1 | 本番の Web（https://ledger.polimoney.dd2030.org ）をブラウザで一通り操作して確認する（ログイン → 台帳 → 仕訳の登録 → 承認） | 本番の API はテストユーザーで確認済み（`/v1/me`・勘定科目の取得・CORS）。画面操作は未確認 |
+| 1 | 本番の Web（https://ledger.polimoney.dd2030.org ）をブラウザで一通り操作して確認する（ログイン → 台帳 → 仕訳の登録 → 承認） | 本番の API はテストユーザーで確認済み（`/v1/me`・勘定科目の取得・CORS・台帳画面のデータ・年度締めとロック解除）。2026-11-28 に API の `SUPABASE_SERVICE_ROLE_KEY` が未設定で台帳を引くルートが 500 だったのを設定して解消。画面操作は未確認 |
 | 2 | ~~Deno Deploy へのデプロイ~~（2026-11-24。Web: https://ledger.polimoney.dd2030.org 、API: https://ledger-api.polimoney.dd2030.org） | Web の環境変数は `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` だけ（ビルド時に埋め込まれる）。API は `SUPABASE_*` 3 つ・`APP_ENV`・`HUB_API_URL_DEV`（本番の Hub）・`HUB_API_KEY_PROD` / `_DEV` |
 | 3 | ~~Supabase Auth の Site URL と Redirect URLs の設定~~（2026-11-24） | |
 | 4 | ~~Next.js 16 の `middleware.ts` → `proxy.ts` への改名~~（Deno Deploy の Edge ランタイムに `node:v8` が無く middleware が全ページで 500 になったため対応） | |
