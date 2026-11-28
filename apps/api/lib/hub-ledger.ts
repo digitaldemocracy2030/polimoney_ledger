@@ -67,9 +67,10 @@ export async function getHubLedgerRecords(
 /** Hub の紐付け取得の失敗を、利用者向けの理由にする */
 function hubLinkFailureReason(error: unknown): string {
   if (
-    error instanceof HubApiError && error.status >= 400 && error.status < 500
+    error instanceof HubApiError && error.status >= 400 && error.status < 500 &&
+    error.detail
   ) {
-    return error.message;
+    return error.detail;
   }
   return "Polimoney Hub に接続できませんでした。時間をおいて再度お試しください";
 }
@@ -198,8 +199,8 @@ export function hubLinkErrorResponse(
         404,
       );
     }
-    if (error.status === 409) {
-      return c.json({ error: error.message }, 409);
+    if (error.status === 409 && error.detail) {
+      return c.json({ error: error.detail }, 409);
     }
   }
   console.error(`Failed to resolve Hub link (${target}):`, error);

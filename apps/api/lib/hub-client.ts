@@ -101,22 +101,54 @@ export type {
 /**
  * Hub API のエラー（HTTP ステータスを持つ）
  * status が 0 の場合は接続エラーや不正なレスポンスなど、Hub に到達できなかったことを表す。
+ * detail は Hub が JSON で返した利用者向けのメッセージ（FastAPI の detail が文字列のとき）。
+ * JSON 以外の応答や接続エラーでは undefined（message は内部の診断用で、利用者には返さない）。
  */
 export class HubApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly detail?: string,
   ) {
     super(message);
     this.name = "HubApiError";
   }
 }
 
-/** Hub のエラーレスポンスからメッセージを取り出す（FastAPI は detail、旧 API は error） */
-function hubErrorMessage(json: ApiError): string {
+/** Hub のエラーレスポンスから利用者向けのメッセージを取り出す（FastAPI は detail、旧 API は error） */
+function hubErrorDetail(json: ApiError): string | undefined {
   if (typeof json.detail === "string" && json.detail) return json.detail;
   if (json.error) return json.error;
-  return "API request failed";
+  return undefined;
+}
+
+/**
+ * Hub のエラーのうち、利用者の操作が原因で、そのまま利用者に返してよいもの。
+ * Hub はこれらの状態コードで利用者向けの日本語メッセージ（detail）を返す。
+ * 401（Ledger の API キーの不備）・5xx・接続エラー（0）は Ledger 側の問題なので含めない（502 にする）。
+ */
+const HUB_CLIENT_ERROR_STATUSES = [400, 403, 404, 409, 429] as const;
+type HubClientErrorStatus = (typeof HUB_CLIENT_ERROR_STATUSES)[number];
+
+/** Hub のエラーを利用者に返す状態コードとメッセージにする。返さないエラーは null */
+export function hubErrorToClient(
+  error: HubApiError,
+): { status: HubClientErrorStatus; message: string } | null {
+  // FastAPI の入力検証エラー（detail が配列で、メッセージは利用者向けでない）
+  if (error.status === 422) {
+    return { status: 400, message: "入力内容に誤りがあります" };
+  }
+  if (
+    !(HUB_CLIENT_ERROR_STATUSES as readonly number[]).includes(error.status)
+  ) {
+    return null;
+  }
+  return {
+    status: error.status as HubClientErrorStatus,
+    // JSON 以外の応答（プロキシの HTML など）の診断文は返さない
+    message: error.detail ??
+      "Polimoney Hub がリクエストを受け付けませんでした",
+  };
 }
 
 /** Hub が 404 を返したかどうか */
@@ -192,7 +224,12 @@ async function fetchApi<T>(
   const json = await response.json();
 
   if (!response.ok) {
-    throw new HubApiError(hubErrorMessage(json as ApiError), response.status);
+    const detail = hubErrorDetail(json as ApiError);
+    throw new HubApiError(
+      detail ?? `Hub API returned ${response.status}`,
+      response.status,
+      detail,
+    );
   }
 
   return json as T;
