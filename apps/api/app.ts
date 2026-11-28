@@ -8,7 +8,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import { HubApiError } from "./lib/hub-client.ts";
+import { HubApiError, hubErrorToClient } from "./lib/hub-client.ts";
 import type { AppEnv } from "./lib/types.ts";
 import { requireAuth } from "./lib/auth.ts";
 import { accountMasterRouter } from "./routes/account-master.ts";
@@ -28,7 +28,6 @@ import { membersRouter } from "./routes/members.ts";
 import { organizationRequestsRouter } from "./routes/organization-requests.ts";
 import { organizationsRouter } from "./routes/organizations.ts";
 import { ownershipTransfersRouter } from "./routes/ownership-transfers.ts";
-import { pendingReviewRouter } from "./routes/pending-review.ts";
 import { politiciansRouter } from "./routes/politicians.ts";
 import { profileRouter } from "./routes/profile.ts";
 import { receiptsRouter } from "./routes/receipts.ts";
@@ -76,7 +75,6 @@ app.route("/v1/me", meRouter);
 app.route("/v1/dashboard", dashboardRouter);
 app.route("/v1/account-master", accountMasterRouter);
 app.route("/v1/profile", profileRouter);
-app.route("/v1/pending-review", pendingReviewRouter);
 app.route("/v1/contacts", contactsRouter);
 app.route("/v1/journals", journalsRouter);
 app.route("/v1/receipts", receiptsRouter);
@@ -108,6 +106,10 @@ app.onError((err, c) => {
     return err.getResponse();
   }
   if (err instanceof HubApiError) {
+    const forwarded = hubErrorToClient(err);
+    if (forwarded) {
+      return c.json({ error: forwarded.message }, forwarded.status);
+    }
     console.error("[API Error] Hub:", err.status, err.message);
     return c.json({ error: "Polimoney Hub との通信に失敗しました" }, 502);
   }

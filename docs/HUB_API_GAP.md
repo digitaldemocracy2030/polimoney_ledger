@@ -97,17 +97,16 @@ DEV キーはテストデータ（`is_test = true`）、PROD キーは本番デ�
 
 | hub-client の関数 | 旧エンドポイント | 状態 | Ledger の利用箇所 |
 | --- | --- | --- | --- |
-| `createElectionRequest` | `POST /api/v1/election-requests` | ❌（Hub #72 で追加、未マージ） | election-requests |
-| `createOrganizationRequest` | `POST /api/v1/organization-requests` | ❌（Hub #72 で追加、未マージ） | organization-requests |
-| `createUnlockRequest` | `POST /api/v1/unlock-requests` | ❌（Hub #72 で追加、未マージ） | closures |
-| `checkUnlockStatus` | `GET /api/v1/unlock-requests/check/{ledgerId}[?fiscal_year=]` | ❌（Hub #72 で追加、未マージ） | closures, organizations（年度の状態）, lib/year-closure.ts |
-| `checkRegistrationRequest` | `GET /api/v1/registration-requests/check/{email}` | ❌（DB にテーブルも無い） | pending-review |
+| `createElectionRequest` | `POST /api/v1/election-requests` | ✅ Hub #72（2026-11-28 本番デプロイ） | election-requests |
+| `createOrganizationRequest` | `POST /api/v1/organization-requests` | ✅ Hub #72（2026-11-28 本番デプロイ） | organization-requests |
+| `createUnlockRequest` | `POST /api/v1/unlock-requests` | ✅ Hub #72（2026-11-28 本番デプロイ） | closures |
+| `checkUnlockStatus` | `GET /api/v1/unlock-requests/check/{ledgerId}[?fiscal_year=]` | ✅ Hub #72（2026-11-28 本番デプロイ） | closures, organizations（年度の状態）, lib/year-closure.ts |
 | `getAccountCodes` | `GET /api/v1/master/account-codes` | ✅（Hub #65） | account-master, ledger-data |
 | `getAccountCode` | `GET /api/v1/master/account-codes/{code}` | ✅（Hub #65） | （未使用。sync-transform の同名関数は別物） |
 
 未使用の関数（`getElection`, `getPolitician`, `createPolitician`）は Hub 側の実装対象外にしてよい。登録申請・ロック解除の一覧取得の関数（`get*Requests`, `getUnlockRequests`）は Ledger から削除した。
 
-Hub #72 の要点（マージ後に有効。Hub DB への `db/migrate-request-review.sql` の適用がマージより先に必要）:
+Hub #72 の要点（2026-11-28 本番デプロイ。Ledger 側は #93）:
 
 - 選挙・政治団体の申請には申請者の `ledger_user_id` を送る。同じ申請者の同じ選挙・団体、同じ台帳・年度のロック解除は、審査中は 1 件まで（重複は 409）
 - 審査は管理者 API（`/api/admin/{election-requests,organization-requests,unlock-requests}`）。選挙・団体の承認でマスタの行が作られる（既存の行への紐付けも可）
@@ -136,7 +135,6 @@ Hub #72 の要点（マージ後に有効。Hub DB への `db/migrate-request-re
 | 承認時・手動の Hub 同期 | 動く（Hub #66〜#68。2026-11-24 に本番で確認） |
 | プロフィールでの政治家・団体情報の編集 | **動かない**（更新 API が無い） |
 | 年度ロック解除申請 | **動かない** |
-| 登録審査中の確認 | **動かない** |
 
 ## 対応の優先順位（案）
 
@@ -144,5 +142,5 @@ Hub #72 の要点（マージ後に有効。Hub DB への `db/migrate-request-re
 2. ~~勘定科目 API~~（Hub #65、本番デプロイ済み。一般公開まではLedger 専用キーが必要）
 3. ~~政治家・団体・選挙の取得 API と紐付けの API~~（Hub #66〜#68、本番デプロイ済み）
 4. ~~本人確認 API（政治家・団体管理者）と審査 API~~（Hub #69、本番デプロイ済み。メール送信の Resend 設定と e2e は未実施）
-5. **登録申請・ロック解除・登録審査** — 管理画面の承認 API とセット
+5. **登録申請・ロック解除** — 管理画面の承認 API とセット
 6. 管理画面を Next.js + Mantine に移行（Ledger と同じ構成）。その際、管理画面用 API（`/api/admin/*`）も FastAPI に用意する

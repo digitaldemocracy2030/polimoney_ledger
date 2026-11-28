@@ -17,6 +17,7 @@ import {
   getManagedOrganizations,
   getOrganization,
   getVerifiedPoliticianByUserId,
+  HubApiError,
   type Organization,
   updatePolitician,
   type UpdatePoliticianInput,
@@ -101,6 +102,8 @@ profileRouter.get("/politician", async (c) => {
     const politician = await getVerifiedPoliticianByUserId(c.get("userId"));
     return c.json({ politician });
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error fetching politician profile:", error);
     return c.json({ error: "政治家プロフィールの取得に失敗しました" }, 500);
   }
@@ -154,6 +157,8 @@ profileRouter.put("/politician", async (c) => {
 
     return c.json({ success: true, data: updated });
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error updating politician profile:", error);
     return c.json({ error: "政治家プロフィールの更新に失敗しました" }, 500);
   }
@@ -167,6 +172,8 @@ profileRouter.get("/organization", async (c) => {
     );
     return c.json({ managedOrganizations });
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error fetching managed organizations:", error);
     return c.json({ error: "政治団体一覧の取得に失敗しました" }, 500);
   }
@@ -197,6 +204,8 @@ profileRouter.get("/organization/:id", async (c) => {
 
     return c.json({ organization, isManager, verifiedDomain });
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error fetching organization profile:", error);
     return c.json({ error: "政治団体情報の取得に失敗しました" }, 500);
   }

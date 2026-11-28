@@ -157,7 +157,6 @@ contacts:
 | -------- | ------------------------------- | ----------------------- |
 | POST     | `/api/v1/election-requests`     | 選挙登録リクエスト      |
 | POST     | `/api/v1/organization-requests` | 政治団体登録リクエスト  |
-| POST     | `/api/v1/registration-requests` | Ledger ユーザー登録申請 |
 
 ---
 

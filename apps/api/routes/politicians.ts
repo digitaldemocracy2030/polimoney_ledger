@@ -15,6 +15,7 @@ import {
   createPoliticianVerification,
   getPoliticianVerificationsByUser,
   getVerifiedPoliticianByUserId,
+  HubApiError,
   type PoliticalFundReportInfo,
   sendPoliticianVerificationCode,
   verifyPoliticianDns,
@@ -79,10 +80,12 @@ politiciansRouter.post("/verify", async (c) => {
 
     return c.json({ data: result }, 201);
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error creating politician verification:", error);
     return c.json(
       {
-        error: error instanceof Error ? error.message : "申請に失敗しました",
+        error: "申請に失敗しました",
       },
       500,
     );
@@ -101,12 +104,12 @@ politiciansRouter.post("/verify/:id/send-code", async (c) => {
     });
     return c.json(result);
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error sending verification code:", error);
     return c.json(
       {
-        error: error instanceof Error
-          ? error.message
-          : "コード送信に失敗しました",
+        error: "コード送信に失敗しました",
       },
       500,
     );
@@ -131,10 +134,12 @@ politiciansRouter.post("/verify/:id/verify-code", async (c) => {
     });
     return c.json(result);
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error verifying code:", error);
     return c.json(
       {
-        error: error instanceof Error ? error.message : "認証に失敗しました",
+        error: "認証に失敗しました",
       },
       500,
     );
@@ -151,12 +156,12 @@ politiciansRouter.post("/verify/:id/verify-dns", async (c) => {
     const result = await verifyPoliticianDns(verificationId, { userId });
     return c.json(result);
   } catch (error) {
+    // Hub のエラーは app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error verifying DNS TXT:", error);
     return c.json(
       {
-        error: error instanceof Error
-          ? error.message
-          : "DNS TXT認証に失敗しました",
+        error: "DNS TXT認証に失敗しました",
       },
       500,
     );

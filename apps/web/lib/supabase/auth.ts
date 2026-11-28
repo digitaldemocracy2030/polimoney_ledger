@@ -13,7 +13,6 @@ import { getSupabaseBrowserClient } from './client';
 export interface MeSummary {
   id: string;
   email: string;
-  registrationStatus: string | null;
   needsOnboarding: boolean;
 }
 
@@ -63,7 +62,7 @@ export function safeRedirectPath(
 
 /**
  * セッション確立後の遷移先を決める。
- * 利用規約などに未同意なら /onboarding、審査待ちなら /pending-review、それ以外は redirectTo。
+ * 利用規約などに未同意なら /onboarding、それ以外は redirectTo。
  */
 export async function resolvePostLoginPath(redirectTo: string): Promise<string> {
   const res = await apiFetch('/v1/me');
@@ -71,7 +70,6 @@ export async function resolvePostLoginPath(redirectTo: string): Promise<string> 
     throw new Error('ユーザー情報の取得に失敗しました');
   }
   const me = (await res.json()) as MeSummary;
-  if (me.registrationStatus === 'pending_review') return '/pending-review';
   if (me.needsOnboarding) {
     return `/onboarding?redirect=${encodeURIComponent(redirectTo)}`;
   }

@@ -175,7 +175,7 @@ service_role（RLS を通らない）で DB にアクセスできてしまう。
 
 画面が呼んでいるのに存在しないエンドポイントを実装する。
 
-- `GET /dashboard`, `GET /account-master`, `GET /managed-organizations`, `GET /pending-review`, `/receipts`
+- `GET /dashboard`, `GET /account-master`, `GET /managed-organizations`, `/receipts`
 - `GET /organizations`, `GET /elections`（台帳一覧）
 - `POST /members` を仕様どおりにする（`ledger_members` へ登録、ユーザー作成、招待メール送信）
 
@@ -185,7 +185,7 @@ service_role（RLS を通らない）で DB にアクセスできてしまう。
 2. 画面の `fetch('/api/...')`（約 67 か所）を API クライアントに置き換える。
 3. ログイン・登録画面を `@supabase/ssr` の `createBrowserClient` に変える（セッションを Cookie に保存し、`proxy.ts` の画面ガードと揃えるため）。
 4. `app/api/[...path]/route.ts`、`/auth/callback` の独自 Cookie 処理、`components/auth/AuthCallback.tsx` を整理・削除する。
-5. `proxy.ts`（旧 `middleware.ts`）は画面の振り分け（未ログイン → `/login`、審査待ち → `/pending-review`）だけを担当する。データの権限判断は API に任せる。
+5. `proxy.ts`（旧 `middleware.ts`）は画面の振り分け（未ログイン → `/login`）だけを担当する。データの権限判断は API に任せる。
 
 - 確認: `npx tsc --noEmit`、`npm run build`、ブラウザでログイン → 台帳一覧 → 仕訳登録 → ログアウトの一連の操作。
 
