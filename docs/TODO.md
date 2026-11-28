@@ -24,7 +24,7 @@
 | # | タスク | Ledger で動かない機能 |
 | --- | --- | --- |
 | 1 | ~~本人確認 API と管理画面の審査 API~~ → Hub #69（本番デプロイ済み・Resend 設定済み・テストユーザーで申請〜承認の e2e 済み 2026-11-24）。残り: 本番の lg.jp アドレスへの実際のメール送信の確認（受信できる lg.jp のアドレスが必要）。Ledger API が Hub の 4xx（409 / 429 / 400）を 500 で返しているので、状態コードをそのまま返す | 政治家認証・団体管理者認証 |
-| 2 | 登録申請（選挙・政治団体）・年度ロック解除・登録審査（`registration_requests` は DB にテーブルも無い）の API と、管理画面の承認 API | 選挙・団体の登録申請、ロック解除申請、登録審査中の確認 |
+| 2 | 登録申請（選挙・政治団体）・年度ロック解除の API と管理画面の承認 API → Hub #72（未マージ。マージ前に Hub DB へ `db/migrate-request-review.sql`、Ledger DB へ `20261128100000_year_closure_hub_unlock.sql` の適用が必要）。登録審査（`registration_requests`）は、Hub DB にテーブルが無く、Ledger でもユーザーを審査待ちにする処理が無いため未着手（扱いを決める） | 選挙・団体の登録申請、ロック解除申請、登録審査中の確認 |
 | 3 | 政治家・政治団体の情報の更新 API（`PUT /politicians/{id}`, `PUT /organizations/{id}`） | プロフィールでの編集 |
 | 4 | Hub 管理画面（`admin/`, Fresh）を Next.js + Mantine に移行。管理画面用 API（`/api/admin/*`, 認証）を FastAPI に用意する | （Hub 管理画面が旧 Deno API を呼んでいて動かない） |
 | 5 | 一般公開用の API キーの仕組み（利用キー・レート制限・返す項目の決定）。Polimoney を Hub API に切り替える前に必要 | （Polimoney は静的データのまま） |

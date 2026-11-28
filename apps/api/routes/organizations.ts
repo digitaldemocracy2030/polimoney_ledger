@@ -46,6 +46,10 @@ import {
   fetchLedgerSubAccounts,
 } from "../lib/ledger-data.ts";
 import { hubLinkErrorResponse } from "../lib/hub-ledger.ts";
+import {
+  applyHubUnlock,
+  type ClosureUnlockState,
+} from "../lib/year-closure.ts";
 
 export const organizationsRouter = new Hono<AppEnv>();
 
@@ -58,8 +62,6 @@ interface OrganizationListItem {
   name: string;
   created_at: string;
 }
-
-type ClosureStatus = "open" | "closed" | "locked" | "temporary_unlock";
 
 /** 政治団体行を取得する（見つからなければ 404） */
 async function getOrganizationOr404<T>(
@@ -399,7 +401,9 @@ organizationsRouter.get("/:id/ledger", async (c) => {
       fetchAccountCodes("organization", c.get("userId")),
       supabase
         .from("ledger_year_closures")
-        .select("fiscal_year, status, closed_at")
+        .select(
+          "fiscal_year, status, closed_at, unlock_request_id, unlock_expires_at",
+        )
         .eq("ledger_id", access.ledgerId),
       supabase
         .from("journals")
@@ -423,17 +427,18 @@ organizationsRouter.get("/:id/ledger", async (c) => {
       }
     }
 
-    const closureStatuses = (
-      (closuresResult.data ?? []) as Array<{
-        fiscal_year: number;
-        status: ClosureStatus;
-        closed_at: string | null;
-      }>
-    ).map((row) => ({
-      fiscal_year: row.fiscal_year,
-      status: row.status,
-      closed_at: row.closed_at ?? undefined,
-    }));
+    // アーカイブ済み・一時解除中の年度は、Hub のロック解除の承認・期限切れを反映してから返す
+    const closureStatuses = await Promise.all(
+      (
+        (closuresResult.data ?? []) as Array<
+          ClosureUnlockState & { closed_at: string | null }
+        >
+      ).map(async (row) => ({
+        fiscal_year: row.fiscal_year,
+        status: await applyHubUnlock(access.ledgerId, access.ownerUserId, row),
+        closed_at: row.closed_at ?? undefined,
+      })),
+    );
 
     return c.json({
       organization,

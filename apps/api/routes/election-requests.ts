@@ -10,6 +10,7 @@ import type { AppEnv } from "../lib/types.ts";
 import {
   createElectionRequest,
   getVerifiedPoliticianByUserId,
+  HubApiError,
 } from "../lib/hub-client.ts";
 
 export const electionRequestsRouter = new Hono<AppEnv>();
@@ -58,6 +59,7 @@ electionRequestsRouter.post("/", async (c) => {
     );
 
     const data = await createElectionRequest({
+      ledger_user_id: userId,
       name,
       type,
       area_description: areaDescription,
@@ -71,6 +73,8 @@ electionRequestsRouter.post("/", async (c) => {
 
     return c.json({ data }, 201);
   } catch (error) {
+    // Hub のエラー（申請中の重複の 409 など）は app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error creating election request on Hub:", error);
     return c.json({ error: "選挙登録リクエストの送信に失敗しました" }, 502);
   }

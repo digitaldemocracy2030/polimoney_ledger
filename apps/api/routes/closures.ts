@@ -13,7 +13,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppEnv } from "../lib/types.ts";
 import { httpError } from "../lib/errors.ts";
 import { type LedgerAccess, requireLedgerPermission } from "../lib/authz.ts";
-import { checkUnlockStatus, createUnlockRequest } from "../lib/hub-client.ts";
+import {
+  checkUnlockStatus,
+  createUnlockRequest,
+  HubApiError,
+} from "../lib/hub-client.ts";
 
 interface CheckResult {
   canClose: boolean;
@@ -410,17 +414,15 @@ closuresRouter.post("/unlock-request", async (c) => {
       request: unlockRequest,
     });
   } catch (error) {
+    // Hub のエラー（申請中の重複の 409 など）は app.ts の onError で状態コードを引き継いで返す
+    if (error instanceof HubApiError) throw error;
     console.error("Error creating unlock request:", error);
-    const errorMessage = error instanceof Error ? error.message : "";
-    if (errorMessage.includes("pending unlock request already exists")) {
-      throw httpError(409, "既にロック解除リクエストが申請中です");
-    }
     throw httpError(502, "ロック解除リクエストの送信に失敗しました");
   }
 });
 
 // ============================================
-// GET /closures/unlock-request?org_id= - ロック解除状態の確認
+// GET /closures/unlock-request?org_id=[&year=] - ロック解除状態の確認
 // ============================================
 
 closuresRouter.get("/unlock-request", async (c) => {
@@ -428,6 +430,8 @@ closuresRouter.get("/unlock-request", async (c) => {
   if (!organizationId) {
     throw httpError(400, "政治団体を指定してください");
   }
+  const yearParam = c.req.query("year");
+  const fiscalYear = yearParam ? parseYear(yearParam) : undefined;
 
   const access = await requireLedgerPermission(
     c,
@@ -437,6 +441,7 @@ closuresRouter.get("/unlock-request", async (c) => {
 
   try {
     const result = await checkUnlockStatus(access.ledgerId, {
+      fiscalYear,
       userId: access.ownerUserId,
     });
     return c.json(result);
