@@ -20,9 +20,10 @@ export interface ClosureUnlockState {
  *
  * - locked: Hub に問い合わせ、期限内の承認があり、まだ反映していない申請なら temporary_unlock にする
  *   （反映済みの申請は再び反映しない。期限内に再ロックした年度が同じ承認で解除されないようにする）
- * - temporary_unlock: 期限が過ぎていれば locked に戻す（Hub には問い合わせない）
+ * - temporary_unlock: 期限が過ぎていれば（期限が無ければ）locked に戻す（Hub には問い合わせない）
  *
- * locked ⇄ temporary_unlock の変更は RLS で許可していないので service_role で行う。
+ * locked -> temporary_unlock は利用者の権限では行えない（RLS とトリガー
+ * 20261128110000）ので service_role で行う。期限切れの判定は DB の is_fiscal_year_writable でも行う。
  * 呼び出し側で台帳の閲覧権限を確認してから呼ぶこと。
  * Hub に接続できない場合は locked のまま扱う。
  */
@@ -35,7 +36,7 @@ export async function applyHubUnlock(
     const expiresAt = closure.unlock_expires_at
       ? Date.parse(closure.unlock_expires_at)
       : NaN;
-    if (Number.isNaN(expiresAt) || expiresAt > Date.now()) {
+    if (!Number.isNaN(expiresAt) && expiresAt > Date.now()) {
       return "temporary_unlock";
     }
     const updated = await updateClosureStatus(

@@ -435,7 +435,12 @@ organizationsRouter.get("/:id/ledger", async (c) => {
         >
       ).map(async (row) => ({
         fiscal_year: row.fiscal_year,
-        status: await applyHubUnlock(access.ledgerId, access.ownerUserId, row),
+        // 反映に失敗しても台帳画面は表示する（書き込み時に assertYearOpen で改めて判定する）
+        status: await applyHubUnlock(access.ledgerId, access.ownerUserId, row)
+          .catch((error) => {
+            console.error("Failed to apply Hub unlock:", error);
+            return row.status;
+          }),
         closed_at: row.closed_at ?? undefined,
       })),
     );

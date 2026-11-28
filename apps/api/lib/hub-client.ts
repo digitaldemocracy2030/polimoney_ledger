@@ -124,6 +124,9 @@ export function isHubNotFound(error: unknown): boolean {
   return error instanceof HubApiError && error.status === 404;
 }
 
+/** Hub への 1 回の問い合わせの待ち時間の上限 */
+const HUB_TIMEOUT_MS = 10_000;
+
 interface FetchApiOptions extends RequestInit {
   /** テストユーザー判定用の userId（テストユーザーの場合は DEV キーを使用） */
   userId?: string;
@@ -169,6 +172,8 @@ async function fetchApi<T>(
     response = await fetch(url, {
       ...fetchOptions,
       headers,
+      // Hub が応答しないときに Ledger の API（台帳画面・仕訳の書き込み）が止まらないように
+      signal: fetchOptions.signal ?? AbortSignal.timeout(HUB_TIMEOUT_MS),
     });
   } catch (error) {
     console.error(`[Hub API] Request to ${url} failed:`, error);
@@ -995,10 +1000,19 @@ export interface CreateUnlockRequestInput {
   reason: string;
 }
 
+/** ロック解除状態の確認で返る承認済みの申請（解除の判断に必要な項目だけ） */
+export interface ActiveUnlockRequest {
+  id: string;
+  status: "approved";
+  fiscal_year: number | null;
+  approved_at: string | null;
+  unlock_expires_at: string | null;
+}
+
 /** ロック解除状態確認結果 */
 export interface UnlockCheckResult {
   is_unlocked: boolean;
-  unlock_request?: UnlockRequest;
+  unlock_request?: ActiveUnlockRequest;
   expires_at?: string;
   pending_request?: {
     id: string;
