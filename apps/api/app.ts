@@ -8,7 +8,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import { HubApiError } from "./lib/hub-client.ts";
+import { HubApiError, hubErrorToClient } from "./lib/hub-client.ts";
 import type { AppEnv } from "./lib/types.ts";
 import { requireAuth } from "./lib/auth.ts";
 import { accountMasterRouter } from "./routes/account-master.ts";
@@ -108,6 +108,10 @@ app.onError((err, c) => {
     return err.getResponse();
   }
   if (err instanceof HubApiError) {
+    const forwarded = hubErrorToClient(err);
+    if (forwarded) {
+      return c.json({ error: forwarded.message }, forwarded.status);
+    }
     console.error("[API Error] Hub:", err.status, err.message);
     return c.json({ error: "Polimoney Hub との通信に失敗しました" }, 502);
   }
